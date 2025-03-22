@@ -1,0 +1,6 @@
+[submodule "unix"]
+	path = unix
+	url = https://github.com/jserv/unix-v1.git
+[submodule "external/result"]
+	path = external/result
+	url = git@github.com:DaniilAlpha/result
