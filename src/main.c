@@ -1,7 +1,7 @@
+// http://www.bitsavers.org/pdf/dec/pdp11/1120/
+
 #include <stdio.h>
 
-#include "pdp11/core/cpu.h"
-#include "pdp11/core/ram.h"
 #include "pdp11/pdp11.h"
 
 long fsize(FILE *const file) {
@@ -14,10 +14,10 @@ long fsize(FILE *const file) {
 
 int main() {
     Pdp11 pdp = {0};
-    if (pdp11_init(&pdp) != Ok) return 1;
+    UNROLL(pdp11_init(&pdp));
 
     FILE *const file = fopen("res/m9342-248f1.bin", "r");
-    fread(pdp.ram.byte + PDP11_BOOT_ADDRESS, 1, fsize(file), file);
+    fread((void *)pdp.ram + PDP11_STARTUP_PC, 1, fsize(file), file);
     for (long i = 0; i < fsize(file); i++) pdp11_step(&pdp);
     fclose(file);
 
