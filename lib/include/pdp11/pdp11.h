@@ -40,16 +40,9 @@ void pdp11_uninit(Pdp11 *const self);
 
 void pdp11_step(Pdp11 *const self);
 
-static inline uint16_t
-pdp11_read(Pdp11 const *const self, uint16_t const addr) {
-    return self->ram[addr / elsizeof(self->ram)];
-}
-static inline void pdp11_write(
-    Pdp11 const *const self,
-    uint16_t const addr,
-    uint16_t const value
-) {
-    self->ram[addr / elsizeof(self->ram)] = value;
+static inline uint16_t *
+pdp11_ram_at(Pdp11 const *const self, uint16_t const addr) {
+    return self->ram + addr / elsizeof(self->ram);
 }
 
 #endif

@@ -4,10 +4,9 @@
             "export CMAKE_EXPORT_COMPILE_COMMANDS=1",
             "export CMAKE_LOG_LEVEL=NOTICE",
             "export CMAKE_GENERATOR='Unix Makefiles'",
-            "export BUILD=./build/",
             "export RUN_BUILD_TYPE=Debug",
-            "export ARGS=''",
-            "export CHILD_PATH='./build/external/child/child'"
+            "export TEST=./test/",
+            "export ARGS=''"
         ]
     },
     "tasks": {
@@ -15,22 +14,33 @@
             "icon": "󰐊",
             "desc": "build and run the project",
             "cmd": [
+                "export BUILD=./build/",
                 "cmake -B $BUILD -S ./ --log-level=$CMAKE_LOG_LEVEL -DCMAKE_BUILD_TYPE=$RUN_BUILD_TYPE; cmake --build $BUILD",
                 "echo; $BUILD/main $ARGS"
             ]
         },
         "debug": {
             "icon": "󰨰",
-            "desc": "build and run the project via gdb",
+            "desc": "debug the project via gdb",
             "cmd": [
+                "export BUILD=./build/",
+                "gdb $BUILD/main $ARGS"
+            ]
+        },
+        "test": {
+            "icon": "󰙨",
+            "desc": "test the project",
+            "cmd": [
+                "cd $TEST",
+                "export BUILD=./build/",
                 "cmake -B $BUILD -S ./ --log-level=$CMAKE_LOG_LEVEL -DCMAKE_BUILD_TYPE=$RUN_BUILD_TYPE; cmake --build $BUILD",
-                "echo; gdb $BUILD/main $ARGS"
+                "echo; $BUILD/test"
             ]
         },
         "clean": {
             "icon": "󰃢",
             "desc": "clean",
-            "cmd": "rm -r $BUILD/*"
+            "cmd": "rm -r ./build/*"
         }
     }
 }

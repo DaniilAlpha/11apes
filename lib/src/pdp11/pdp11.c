@@ -10,7 +10,7 @@
  *************/
 
 static inline uint16_t pdp11_read_instr(Pdp11 *const self) {
-    uint16_t const instr = pdp11_read(self, self->cpu.r[7]);
+    uint16_t const instr = *pdp11_ram_at(self, self->cpu.r[7]);
     self->cpu.r[7] += 2;
     return instr;
 }
@@ -64,26 +64,35 @@ static uint16_t *pdp11_address(
     case 00 ... 05:
         switch ((mode >> 3) & 07) {
         case 00: return self->cpu.r + r_i;
-        case 01: return self->ram + self->cpu.r[r_i];
+        case 01: return pdp11_ram_at(self, self->cpu.r[r_i]);
         case 02: {
-            uint16_t *const result = self->ram + self->cpu.r[r_i];
+            uint16_t *const result = pdp11_ram_at(self, self->cpu.r[r_i]);
             self->cpu.r[r_i] += autodecrement_amount;
             return result;
         } break;
         case 03: {
-            uint16_t *const result = self->ram + self->ram[self->cpu.r[r_i]];
+            uint16_t *const result =
+                pdp11_ram_at(self, *pdp11_ram_at(self, self->cpu.r[r_i]));
             self->cpu.r[r_i] += 2;
             return result;
         } break;
-        case 04: return self->ram + (self->cpu.r[r_i] -= autodecrement_amount);
-        case 05: return self->ram + self->ram[self->cpu.r[r_i] -= 2];
+        case 04:
+            return pdp11_ram_at(self, self->cpu.r[r_i] -= autodecrement_amount);
+        case 05:
+            return pdp11_ram_at(
+                self,
+                *pdp11_ram_at(self, self->cpu.r[r_i] -= 2)
+            );
         case 06: {
             uint16_t const reg_val = self->cpu.r[r_i];
-            return self->ram + reg_val + pdp11_read_instr(self);
+            return pdp11_ram_at(self, reg_val + pdp11_read_instr(self));
         } break;
         case 07: {
             uint16_t const reg_val = self->cpu.r[r_i];
-            return self->ram + self->ram[reg_val + pdp11_read_instr(self)];
+            return pdp11_ram_at(
+                self,
+                *pdp11_ram_at(self, reg_val + pdp11_read_instr(self))
+            );
         } break;
         }
         /* fallthrough */
@@ -97,7 +106,7 @@ pdp11_op_xor(Pdp11 *const self, unsigned const r_i, uint16_t *const dst) {
     *dst = *dst ^ self->cpu.r[r_i];
 }
 
-static inline void pdp11_op_ccc_scc(
+static void pdp11_op_ccc_scc(
     Pdp11 *const self,
     bool const do_set,
     bool const n,
