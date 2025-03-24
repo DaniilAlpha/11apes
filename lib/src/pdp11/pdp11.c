@@ -10,7 +10,7 @@
  *************/
 
 static inline uint16_t pdp11_read_instr(Pdp11 *const self) {
-    uint16_t const instr = *pdp11_ram_at(self, self->cpu.r[7]);
+    uint16_t const instr = pdp11_ram_word_at(self, self->cpu.r[7]);
     self->cpu.r[7] += 2;
     return instr;
 }
@@ -24,7 +24,7 @@ Result pdp11_init(Pdp11 *const self) {
     // ram
     uint16_t *const ram = malloc(PDP11_RAM_WORD_COUNT * elsizeof(ram));
     if (!ram) return OutOfMemErr;
-    self->ram = ram;
+    self->_ram = ram;
 
     // cpu
     self->cpu.r[7] = PDP11_STARTUP_PC;
@@ -34,7 +34,7 @@ Result pdp11_init(Pdp11 *const self) {
 }
 void pdp11_uninit(Pdp11 *const self) {
     // ram
-    free(self->ram), self->ram = NULL;
+    free(self->_ram), self->_ram = NULL;
 
     // cpu
     self->cpu.r[7] = 0;
@@ -49,7 +49,7 @@ void pdp11_step(Pdp11 *const self) {
  ** private impl **
  ******************/
 
-static uint16_t *pdp11_address(
+static void *pdp11_address(
     Pdp11 *const self,
     unsigned const mode,
     bool const do_autodecrement_word
@@ -64,34 +64,39 @@ static uint16_t *pdp11_address(
     case 00 ... 05:
         switch ((mode >> 3) & 07) {
         case 00: return self->cpu.r + r_i;
-        case 01: return pdp11_ram_at(self, self->cpu.r[r_i]);
+        case 01: return &pdp11_ram_word_at(self, self->cpu.r[r_i]);
         case 02: {
-            uint16_t *const result = pdp11_ram_at(self, self->cpu.r[r_i]);
+            uint16_t *const result = &pdp11_ram_word_at(self, self->cpu.r[r_i]);
             self->cpu.r[r_i] += autodecrement_amount;
             return result;
         } break;
         case 03: {
-            uint16_t *const result =
-                pdp11_ram_at(self, *pdp11_ram_at(self, self->cpu.r[r_i]));
+            uint16_t *const result = &pdp11_ram_word_at(
+                self,
+                pdp11_ram_word_at(self, self->cpu.r[r_i])
+            );
             self->cpu.r[r_i] += 2;
             return result;
         } break;
         case 04:
-            return pdp11_ram_at(self, self->cpu.r[r_i] -= autodecrement_amount);
-        case 05:
-            return pdp11_ram_at(
+            return &pdp11_ram_word_at(
                 self,
-                *pdp11_ram_at(self, self->cpu.r[r_i] -= 2)
+                self->cpu.r[r_i] -= autodecrement_amount
+            );
+        case 05:
+            return &pdp11_ram_word_at(
+                self,
+                pdp11_ram_word_at(self, self->cpu.r[r_i] -= 2)
             );
         case 06: {
             uint16_t const reg_val = self->cpu.r[r_i];
-            return pdp11_ram_at(self, reg_val + pdp11_read_instr(self));
+            return &pdp11_ram_word_at(self, reg_val + pdp11_read_instr(self));
         } break;
         case 07: {
             uint16_t const reg_val = self->cpu.r[r_i];
-            return pdp11_ram_at(
+            return &pdp11_ram_word_at(
                 self,
-                *pdp11_ram_at(self, reg_val + pdp11_read_instr(self))
+                pdp11_ram_word_at(self, reg_val + pdp11_read_instr(self))
             );
         } break;
         }
@@ -100,7 +105,39 @@ static uint16_t *pdp11_address(
     }
 }
 
-static inline void pdp11_op_mov(Pdp11 *const self) { printf("mov\n"); }
+static inline void pdp11_op_mov(
+    Pdp11 *const self,
+    uint16_t const *const src,
+    uint16_t *const dst
+) {
+    *dst = *src;
+}
+static void
+pdp11_op_movb(Pdp11 *const self, uint8_t const *const src, uint8_t *const dst) {
+    uint16_t *const dst16 = (uint16_t *)dst;
+    if (((uintptr_t)dst16 & 1) == 0 &&
+        (self->cpu.r <= dst16 && dst16 < self->cpu.r + PDP11_REGISTER_COUNT)) {
+        *dst16 = (*src & (1 << 7) ? 0xFF00 : 0x0000) | *src;
+    } else {
+        *dst = *src;
+    }
+}
+
+static inline void pdp11_op_cmp(
+    Pdp11 *const self,
+    uint16_t const *const src,
+    uint16_t const *const dst
+) {
+    // TODO!
+}
+static void pdp11_op_cmpb(
+    Pdp11 *const self,
+    uint8_t const *const src,
+    uint8_t const *const dst
+) {
+    // TODO!
+}
+
 static inline void
 pdp11_op_xor(Pdp11 *const self, unsigned const r_i, uint16_t *const dst) {
     *dst = *dst ^ self->cpu.r[r_i];
@@ -138,10 +175,30 @@ static void pdp11_execute(Pdp11 *const self, uint16_t const instr) {
         opcode_15_0
     );
     switch (opcode_15_12) {
-    case 001: return pdp11_op_mov(self);
-    case 011: return;  // movb
-    case 002: return;  // cmp
-    case 012: return;  // cmpb
+    case 001:
+        return pdp11_op_mov(
+            self,
+            pdp11_address(self, (instr >> 6) & 077, true),
+            pdp11_address(self, (instr >> 0) & 077, true)
+        );
+    case 011:
+        return pdp11_op_movb(
+            self,
+            pdp11_address(self, (instr >> 6) & 077, false),
+            pdp11_address(self, (instr >> 0) & 077, false)
+        );
+    case 002:
+        return pdp11_op_cmp(
+            self,
+            pdp11_address(self, (instr >> 6) & 077, true),
+            pdp11_address(self, (instr >> 0) & 077, true)
+        );
+    case 012:
+        return pdp11_op_cmpb(
+            self,
+            pdp11_address(self, (instr >> 6) & 077, false),
+            pdp11_address(self, (instr >> 0) & 077, false)
+        );
     case 003: return;  // bit
     case 013: return;  // bitb
     case 004: return;  // bic

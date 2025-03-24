@@ -32,7 +32,7 @@ typedef struct Pdp11 {
         uint16_t r[PDP11_REGISTER_COUNT];
         uint8_t ps;
     } cpu;
-    uint16_t *ram;
+    uint16_t *_ram;
 } Pdp11;
 
 Result pdp11_init(Pdp11 *const self);
@@ -40,9 +40,9 @@ void pdp11_uninit(Pdp11 *const self);
 
 void pdp11_step(Pdp11 *const self);
 
-static inline uint16_t *
-pdp11_ram_at(Pdp11 const *const self, uint16_t const addr) {
-    return self->ram + addr / elsizeof(self->ram);
-}
+#define pdp11_ram_word_at(SELF_, ADDR_)                                        \
+    ((SELF_)->_ram[(ADDR_) / elsizeof((SELF_)->_ram)])
+
+#define pdp11_ram_byte_at(SELF_, ADDR_) (((uint8_t *)(SELF_)->_ram)[ADDR_])
 
 #endif
