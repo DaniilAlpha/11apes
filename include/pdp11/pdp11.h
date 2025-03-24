@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "conviniences.h"
+
 #if (__BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__)
 #  warning                                                                     \
       "This code was made to work on little-endian machines only, as PDP11 is little-endian itself."
@@ -14,7 +16,7 @@
 // PDP11/20 has 32K words of RAM, but top 4096 are reserved
 #define PDP11_RAM_WORD_COUNT (32 * 1024 - 4096)
 
-#define PDP11_STARTUP_PC (0x8000)
+#define PDP11_STARTUP_PC (0x0200)
 #define PDP11_STARTUP_PS (0x00)
 
 enum {
@@ -24,8 +26,6 @@ enum {
     PDP11_PS_N = 1 << 3,  // negative flag
     // PDP11_PS_T = 1 << 4,  // trap (for debugging?)
 };
-
-#define pc r[7]
 
 typedef struct Pdp11 {
     struct {
@@ -39,5 +39,17 @@ Result pdp11_init(Pdp11 *const self);
 void pdp11_uninit(Pdp11 *const self);
 
 void pdp11_step(Pdp11 *const self);
+
+static inline uint16_t
+pdp11_read(Pdp11 const *const self, uint16_t const addr) {
+    return self->ram[addr / elsizeof(self->ram)];
+}
+static inline void pdp11_write(
+    Pdp11 const *const self,
+    uint16_t const addr,
+    uint16_t const value
+) {
+    self->ram[addr / elsizeof(self->ram)] = value;
+}
 
 #endif

@@ -9,9 +9,10 @@
  ** private **
  *************/
 
-static inline uint16_t
-pdp11_read(Pdp11 const *const self, uint16_t const addr) {
-    return self->ram[addr / elsizeof(self->ram)];
+static inline uint16_t pdp11_read_instr(Pdp11 *const self) {
+    uint16_t const instr = pdp11_read(self, self->cpu.r[7]);
+    self->cpu.r[7] += 2;
+    return instr;
 }
 static void pdp11_execute(Pdp11 *const self, uint16_t const instr);
 
@@ -26,7 +27,7 @@ Result pdp11_init(Pdp11 *const self) {
     self->ram = ram;
 
     // cpu
-    self->cpu.pc = PDP11_STARTUP_PC;
+    self->cpu.r[7] = PDP11_STARTUP_PC;
     self->cpu.ps = PDP11_STARTUP_PS;
 
     return Ok;
@@ -36,20 +37,65 @@ void pdp11_uninit(Pdp11 *const self) {
     free(self->ram), self->ram = NULL;
 
     // cpu
-    self->cpu.pc = 0;
+    self->cpu.r[7] = 0;
     self->cpu.ps = 0;
 }
 
 void pdp11_step(Pdp11 *const self) {
-    pdp11_execute(self, pdp11_read(self, self->cpu.pc));
-    self->cpu.pc += 2;
+    pdp11_execute(self, pdp11_read_instr(self));
 }
 
 /******************
  ** private impl **
  ******************/
 
+static uint16_t *pdp11_address(
+    Pdp11 *const self,
+    unsigned const mode,
+    bool const do_autodecrement_word
+) {
+    unsigned const r_i = mode & 07;
+
+    unsigned autodecrement_amount = do_autodecrement_word ? 2 : 1;
+    switch (r_i) {
+    case 06 ... 07:
+        autodecrement_amount = 2;
+        /* fallthrough */
+    case 00 ... 05:
+        switch ((mode >> 3) & 07) {
+        case 00: return self->cpu.r + r_i;
+        case 01: return self->ram + self->cpu.r[r_i];
+        case 02: {
+            uint16_t *const result = self->ram + self->cpu.r[r_i];
+            self->cpu.r[r_i] += autodecrement_amount;
+            return result;
+        } break;
+        case 03: {
+            uint16_t *const result = self->ram + self->ram[self->cpu.r[r_i]];
+            self->cpu.r[r_i] += 2;
+            return result;
+        } break;
+        case 04: return self->ram + (self->cpu.r[r_i] -= autodecrement_amount);
+        case 05: return self->ram + self->ram[self->cpu.r[r_i] -= 2];
+        case 06: {
+            uint16_t const reg_val = self->cpu.r[r_i];
+            return self->ram + reg_val + pdp11_read_instr(self);
+        } break;
+        case 07: {
+            uint16_t const reg_val = self->cpu.r[r_i];
+            return self->ram + self->ram[reg_val + pdp11_read_instr(self)];
+        } break;
+        }
+        /* fallthrough */
+    default: return NULL;
+    }
+}
+
 static inline void pdp11_op_mov(Pdp11 *const self) { printf("mov\n"); }
+static inline void
+pdp11_op_xor(Pdp11 *const self, unsigned const r_i, uint16_t *const dst) {
+    *dst = *dst ^ self->cpu.r[r_i];
+}
 
 static inline void pdp11_op_ccc_scc(
     Pdp11 *const self,
@@ -67,11 +113,11 @@ static inline void pdp11_op_ccc_scc(
 }
 
 static void pdp11_execute(Pdp11 *const self, uint16_t const instr) {
-    uint16_t const opcode_15_12 = (instr >> 12) & 0b1111,
-                   opcode_15_9 = (instr >> 9) & 0b1111111,
-                   opcode_15_6 = (instr >> 6) & 0b1111111111,
-                   opcode_15_3 = (instr >> 3) & 0b1111111111111,
-                   opcode_15_0 = instr;
+    uint16_t const opcode_15_12 = (instr >> 12) & 017,
+                   opcode_15_9 = (instr >> 9) & 0177,
+                   opcode_15_6 = (instr >> 6) & 01777,
+                   opcode_15_3 = (instr >> 3) & 017777,
+                   opcode_15_0 = (instr >> 0) & 0177777;
 
     printf(
         "executing : 0%06o, (0%02o 0%03o 0%04o 0%05o 0%06o)\n",
@@ -101,10 +147,15 @@ static void pdp11_execute(Pdp11 *const self, uint16_t const instr) {
     case 0071: return;  // div
     case 0072: return;  // ash
     case 0073: return;  // ashc
-    case 0074: return;  // xor
+    case 0074:
+        return pdp11_op_xor(
+            self,
+            (instr >> 6) & 07,
+            pdp11_address(self, (instr >> 0) & 077, true)
+        );
 
     case 0000:
-        if (!((instr >> 8) & 0b1)) break;
+        if (!((instr >> 8) & 01)) break;
         return;         // br
     case 0001: return;  // bne/beq
     case 0002: return;  // bge/blt
@@ -158,14 +209,14 @@ static void pdp11_execute(Pdp11 *const self, uint16_t const instr) {
     case 00064: return;  // mark
 
     case 00002:
-        if (!((instr >> 5) & 0b1)) break;
+        if (!((instr >> 5) & 01)) break;
         return pdp11_op_ccc_scc(
             self,
-            (instr >> 4) & 0b1,
-            (instr >> 3) & 0b1,
-            (instr >> 2) & 0b1,
-            (instr >> 1) & 0b1,
-            (instr >> 0) & 0b1
+            (instr >> 4) & 01,
+            (instr >> 3) & 01,
+            (instr >> 2) & 01,
+            (instr >> 1) & 01,
+            (instr >> 0) & 01
         );
     }
     switch (opcode_15_3) {
@@ -183,4 +234,5 @@ static void pdp11_execute(Pdp11 *const self, uint16_t const instr) {
     }
 
     // ill
+    abort();
 }
