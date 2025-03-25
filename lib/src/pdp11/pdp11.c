@@ -3,8 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "conviniences.h"
-
 /*************
  ** private **
  *************/
@@ -22,7 +20,7 @@ static void pdp11_execute(Pdp11 *const self, uint16_t const instr);
 
 Result pdp11_init(Pdp11 *const self) {
     // ram
-    uint16_t *const ram = malloc(PDP11_RAM_WORD_COUNT * elsizeof(ram));
+    void *const ram = malloc(PDP11_RAM_WORD_COUNT * sizeof(uint16_t));
     if (!ram) return OutOfMemErr;
     self->_ram = ram;
 
@@ -38,7 +36,7 @@ void pdp11_uninit(Pdp11 *const self) {
 
     // cpu
     self->cpu.r[7] = 0;
-    self->cpu.ps = 0;
+    self->cpu.ps = (Pdp11Ps){0};
 }
 
 void pdp11_step(Pdp11 *const self) {
@@ -49,6 +47,7 @@ void pdp11_step(Pdp11 *const self) {
  ** private impl **
  ******************/
 
+// TODO? probably need two separate functions for words and bytes
 static void *pdp11_address(
     Pdp11 *const self,
     unsigned const mode,
@@ -64,14 +63,14 @@ static void *pdp11_address(
     case 00 ... 05:
         switch ((mode >> 3) & 07) {
         case 00: return self->cpu.r + r_i;
-        case 01: return &pdp11_ram_word_at(self, self->cpu.r[r_i]);
+        case 01: return &pdp11_ram_byte_at(self, self->cpu.r[r_i]);
         case 02: {
-            uint16_t *const result = &pdp11_ram_word_at(self, self->cpu.r[r_i]);
+            uint8_t *const result = &pdp11_ram_byte_at(self, self->cpu.r[r_i]);
             self->cpu.r[r_i] += autodecrement_amount;
             return result;
         } break;
         case 03: {
-            uint16_t *const result = &pdp11_ram_word_at(
+            uint8_t *const result = &pdp11_ram_byte_at(
                 self,
                 pdp11_ram_word_at(self, self->cpu.r[r_i])
             );
@@ -79,22 +78,22 @@ static void *pdp11_address(
             return result;
         } break;
         case 04:
-            return &pdp11_ram_word_at(
+            return &pdp11_ram_byte_at(
                 self,
                 self->cpu.r[r_i] -= autodecrement_amount
             );
         case 05:
-            return &pdp11_ram_word_at(
+            return &pdp11_ram_byte_at(
                 self,
                 pdp11_ram_word_at(self, self->cpu.r[r_i] -= 2)
             );
         case 06: {
             uint16_t const reg_val = self->cpu.r[r_i];
-            return &pdp11_ram_word_at(self, reg_val + pdp11_read_instr(self));
+            return &pdp11_ram_byte_at(self, reg_val + pdp11_read_instr(self));
         } break;
         case 07: {
             uint16_t const reg_val = self->cpu.r[r_i];
-            return &pdp11_ram_word_at(
+            return &pdp11_ram_byte_at(
                 self,
                 pdp11_ram_word_at(self, reg_val + pdp11_read_instr(self))
             );
@@ -123,12 +122,21 @@ pdp11_op_movb(Pdp11 *const self, uint8_t const *const src, uint8_t *const dst) {
     }
 }
 
-static inline void pdp11_op_cmp(
+static void pdp11_op_cmp(
     Pdp11 *const self,
     uint16_t const *const src,
     uint16_t const *const dst
 ) {
-    // TODO!
+    uint16_t flags_x86;
+    asm("\t\n   cmp %1, %2"
+        "\t\n   pushf"
+        "\t\n   pop %%ax"
+        : "=a"(flags_x86)
+        : "r"(*src), "r"(*dst));
+    self->cpu.ps.cf = flags_x86 & (1 << 0);
+    self->cpu.ps.vf = flags_x86 & (1 << 11);
+    self->cpu.ps.zf = flags_x86 & (1 << 6);
+    self->cpu.ps.nf = flags_x86 & (1 << 7);
 }
 static void pdp11_op_cmpb(
     Pdp11 *const self,
@@ -143,19 +151,18 @@ pdp11_op_xor(Pdp11 *const self, unsigned const r_i, uint16_t *const dst) {
     *dst = *dst ^ self->cpu.r[r_i];
 }
 
-static void pdp11_op_ccc_scc(
+static inline void pdp11_op_ccc_scc(
     Pdp11 *const self,
-    bool const do_set,
-    bool const n,
-    bool const z,
-    bool const v,
-    bool const c
+    bool const value,
+    bool const do_affect_nf,
+    bool const do_affect_zf,
+    bool const do_affect_vf,
+    bool const do_affect_cf
 ) {
-    self->cpu.ps =
-        do_set ? self->cpu.ps | (n ? PDP11_PS_N : 0) | (z ? PDP11_PS_Z : 0) |
-                     (v ? PDP11_PS_V : 0) | (c ? PDP11_PS_C : 0)
-               : self->cpu.ps & ~(n ? PDP11_PS_N : 0) & ~(z ? PDP11_PS_Z : 0) &
-                     ~(v ? PDP11_PS_V : 0) & ~(c ? PDP11_PS_C : 0);
+    if (do_affect_nf) self->cpu.ps.nf = value;
+    if (do_affect_zf) self->cpu.ps.zf = value;
+    if (do_affect_vf) self->cpu.ps.vf = value;
+    if (do_affect_cf) self->cpu.ps.cf = value;
 }
 
 static void pdp11_execute(Pdp11 *const self, uint16_t const instr) {
@@ -221,7 +228,7 @@ static void pdp11_execute(Pdp11 *const self, uint16_t const instr) {
         );
 
     case 0000:
-        if (!((instr >> 8) & 01)) break;
+        if (!(instr & (1 >> 8))) break;
         return;         // br
     case 0001: return;  // bne/beq
     case 0002: return;  // bge/blt
@@ -275,14 +282,14 @@ static void pdp11_execute(Pdp11 *const self, uint16_t const instr) {
     case 00064: return;  // mark
 
     case 00002:
-        if (!((instr >> 5) & 01)) break;
+        if (!(instr & (1 << 5))) break;
         return pdp11_op_ccc_scc(
             self,
-            (instr >> 4) & 01,
-            (instr >> 3) & 01,
-            (instr >> 2) & 01,
-            (instr >> 1) & 01,
-            (instr >> 0) & 01
+            instr & (1 << 4),
+            instr & (1 << 3),
+            instr & (1 << 2),
+            instr & (1 << 1),
+            instr & (1 << 0)
         );
     }
     switch (opcode_15_3) {

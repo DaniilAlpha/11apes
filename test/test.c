@@ -3,18 +3,18 @@
 #include "pdp11/pdp11.h"
 
 Pdp11 pdp = {0};
-MiunteResult pdp_test_setup() {
+static MiunteResult pdp_test_setup() {
     MIUNTE_EXPECT(pdp11_init(&pdp) == Ok, "`pdp11_init` should not fail");
 
     MIUNTE_PASS();
 }
-MiunteResult pdp_test_teardown() {
+static MiunteResult pdp_test_teardown() {
     pdp11_uninit(&pdp);
 
     MIUNTE_PASS();
 }
 
-MiunteResult pdp_test_addressing_w_xor() {
+static MiunteResult pdp_test_addressing_w_xor() {
     uint16_t const x = 0b0011, y = 0b0101;
 
     {
@@ -60,12 +60,27 @@ MiunteResult pdp_test_addressing_w_xor() {
     MIUNTE_PASS();
 }
 
+static MiunteResult pdp_test_cmp() {
+    uint16_t const x = 24, y = x;
+
+    pdp.cpu.r[0] = x;
+    pdp.cpu.r[1] = y;
+    pdp11_ram_word_at(&pdp, pdp.cpu.r[7]) = 0020001;  // cmp R0, R1
+
+    pdp11_step(&pdp);
+
+    MIUNTE_EXPECT(pdp.cpu.ps.zf == 0, "cmp should give the correct result");
+
+    MIUNTE_PASS();
+}
+
 int main() {
     MIUNTE_RUN(
         pdp_test_setup,
         pdp_test_teardown,
         {
             pdp_test_addressing_w_xor,
+            pdp_test_cmp,
         }
     );
 }
