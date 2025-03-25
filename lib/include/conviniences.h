@@ -4,4 +4,6 @@
 #define elsizeof(ARR_) (sizeof(*ARR_))
 #define lenof(ARR_)    (sizeof(ARR_) / elsizeof(ARR_))
 
+#define alwaysinline __attribute__((always_inline)) inline
+
 #endif

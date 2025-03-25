@@ -1,6 +1,7 @@
 #ifndef PDP11_H
 #define PDP11_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #if (__BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__)
@@ -16,11 +17,11 @@
 
 #define PDP11_STARTUP_PC (0x0200)
 #define PDP11_STARTUP_PS                                                       \
-    ((Pdp11Ps){.cf = 0, .vf = 0, .zf = 0, .nf = 0, .priority = 0})
+  ((Pdp11Ps){.priority = 0, .nf = 0, .zf = 0, .vf = 0, .cf = 0})
 
 typedef struct Pdp11Ps {
-    bool cf : 1, vf : 1, zf : 1, nf : 1, __tf : 1;
     uint8_t priority : 3;
+    bool __tf : 1, nf : 1, zf : 1, vf : 1, cf : 1;
 } Pdp11Ps;
 
 typedef struct Pdp11 {
@@ -34,9 +35,11 @@ typedef struct Pdp11 {
 Result pdp11_init(Pdp11 *const self);
 void pdp11_uninit(Pdp11 *const self);
 
-void pdp11_step(Pdp11 *const self);
-
 #define pdp11_ram_word_at(SELF_, ADDR_) (*(uint16_t *)((SELF_)->_ram + (ADDR_)))
 #define pdp11_ram_byte_at(SELF_, ADDR_) (*(uint8_t *)((SELF_)->_ram + (ADDR_)))
+
+uint16_t pdp11_instr_next(Pdp11 *const self);
+
+void pdp11_step(Pdp11 *const self);
 
 #endif

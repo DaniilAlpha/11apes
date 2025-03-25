@@ -4,7 +4,7 @@
             "export CMAKE_EXPORT_COMPILE_COMMANDS=1",
             "export CMAKE_LOG_LEVEL=NOTICE",
             "export CMAKE_GENERATOR='Unix Makefiles'",
-            "export RUN_BUILD_TYPE=Debug",
+            "export RUN_BUILD_TYPE=Release",
             "export TEST=./test/",
             "export ARGS=''"
         ]
@@ -21,7 +21,7 @@
         },
         "debug": {
             "icon": "󰨰",
-            "desc": "debug the project via gdb",
+            "desc": "run the project via gdb",
             "cmd": [
                 "export BUILD=./build/",
                 "gdb $BUILD/main $ARGS"
@@ -29,12 +29,19 @@
         },
         "test": {
             "icon": "󰙨",
-            "desc": "test the project",
+            "desc": "build and test the project",
             "cmd": [
                 "cd $TEST",
                 "export BUILD=./build/",
                 "cmake -B $BUILD -S ./ --log-level=$CMAKE_LOG_LEVEL -DCMAKE_BUILD_TYPE=$RUN_BUILD_TYPE; cmake --build $BUILD",
                 "echo; $BUILD/test"
+            ]
+        },
+        "test gdb": {
+            "desc": "test the project via gdb",
+            "cmd": [
+                "export BUILD=./test/build/",
+                "gdb $BUILD/test"
             ]
         },
         "clean": {
