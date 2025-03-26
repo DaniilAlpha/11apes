@@ -17,23 +17,30 @@
 
 #define PDP11_STARTUP_PC (0x0200)
 #define PDP11_STARTUP_PS                                                       \
-  ((Pdp11Ps){.priority = 0, .nf = 0, .zf = 0, .vf = 0, .cf = 0})
+  ((Pdp11Ps){.priority = 0, .tf = 0, .nf = 0, .zf = 0, .vf = 0, .cf = 0})
 
 typedef struct Pdp11Ps {
     uint8_t priority : 3;
-    bool __tf : 1, nf : 1, zf : 1, vf : 1, cf : 1;
+    bool tf : 1, nf : 1, zf : 1, vf : 1, cf : 1;
 } Pdp11Ps;
 
 typedef struct Pdp11 {
     struct {
         uint16_t r[PDP11_REGISTER_COUNT];
         Pdp11Ps ps;
-    } cpu;
+    } _cpu;
     void *_ram;
 } Pdp11;
 
 Result pdp11_init(Pdp11 *const self);
 void pdp11_uninit(Pdp11 *const self);
+
+#define pdp11_rx(SELF_, I_) (*(uint16_t *)((SELF_)->_cpu.r + I_))
+#define pdp11_rl(SELF_)     (*(uint8_t *)((SELF_)->_cpu.r + I_))
+#define pdp11_pc(SELF_)     pdp11_rx(SELF_, 7)
+// #define pdp11_sp(SELF_)     pdp11_rx(SELF_, 6)
+
+#define pdp11_ps(SELF_) ((SELF_)->_cpu.ps)
 
 #define pdp11_ram_word_at(SELF_, ADDR_) (*(uint16_t *)((SELF_)->_ram + (ADDR_)))
 #define pdp11_ram_byte_at(SELF_, ADDR_) (*(uint8_t *)((SELF_)->_ram + (ADDR_)))
