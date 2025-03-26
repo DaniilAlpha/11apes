@@ -2,7 +2,10 @@
 #define PDP11_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
+
+#include <assert.h>
 
 #if (__BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__)
 #  warning                                                                     \
@@ -17,7 +20,7 @@
 
 #define PDP11_STARTUP_PC (0x0200)
 #define PDP11_STARTUP_PS                                                       \
-  ((Pdp11Ps){.priority = 0, .tf = 0, .nf = 0, .zf = 0, .vf = 0, .cf = 0})
+    ((Pdp11Ps){.priority = 0, .tf = 0, .nf = 0, .zf = 0, .vf = 0, .cf = 0})
 
 typedef struct Pdp11Ps {
     uint8_t priority : 3;
@@ -36,7 +39,7 @@ Result pdp11_init(Pdp11 *const self);
 void pdp11_uninit(Pdp11 *const self);
 
 #define pdp11_rx(SELF_, I_) (*(uint16_t *)((SELF_)->_cpu.r + I_))
-#define pdp11_rl(SELF_)     (*(uint8_t *)((SELF_)->_cpu.r + I_))
+#define pdp11_rl(SELF_, I_) (*(uint8_t *)((SELF_)->_cpu.r + I_))
 #define pdp11_pc(SELF_)     pdp11_rx(SELF_, 7)
 // #define pdp11_sp(SELF_)     pdp11_rx(SELF_, 6)
 

@@ -13,11 +13,11 @@ static uint16_t pdp_test_dop_ra_instr(
     uint16_t const x,
     uint16_t const y
 ) {
-    pdp.cpu.r[0] = x;
-    pdp.cpu.r[1] = y;
-    pdp11_ram_word_at(&pdp, pdp.cpu.r[7]) = instr;
+    pdp11_rx(&pdp, 0) = x;
+    pdp11_rx(&pdp, 1) = y;
+    pdp11_ram_word_at(&pdp, pdp11_pc(&pdp)) = instr;
     pdp11_step(&pdp);
-    return pdp.cpu.r[0];
+    return pdp11_rx(&pdp, 0);
 }
 static uint16_t pdp_test_dop_da_instr(
     uint16_t const instr,
@@ -25,9 +25,9 @@ static uint16_t pdp_test_dop_da_instr(
     uint16_t const x,
     uint16_t const y
 ) {
-    pdp.cpu.r[0] = addr, pdp11_ram_word_at(&pdp, addr) = x;
-    pdp.cpu.r[1] = y;
-    pdp11_ram_word_at(&pdp, pdp.cpu.r[7]) = instr;
+    pdp11_rx(&pdp, 0) = addr, pdp11_ram_word_at(&pdp, addr) = x;
+    pdp11_rx(&pdp, 1) = y;
+    pdp11_ram_word_at(&pdp, pdp11_pc(&pdp)) = instr;
     pdp11_step(&pdp);
     return pdp11_ram_word_at(&pdp, addr);
 }
@@ -38,10 +38,10 @@ static uint16_t pdp_test_dop_ia_instr(
     uint16_t const x,
     uint16_t const y
 ) {
-    pdp.cpu.r[0] = addr, pdp11_ram_word_at(&pdp, addr + off) = x;
-    pdp.cpu.r[1] = y;
-    pdp11_ram_word_at(&pdp, pdp.cpu.r[7]) = instr;
-    pdp11_ram_word_at(&pdp, pdp.cpu.r[7] + 2) = off;
+    pdp11_rx(&pdp, 0) = addr, pdp11_ram_word_at(&pdp, addr + off) = x;
+    pdp11_rx(&pdp, 1) = y;
+    pdp11_ram_word_at(&pdp, pdp11_pc(&pdp)) = instr;
+    pdp11_ram_word_at(&pdp, pdp11_pc(&pdp) + 2) = off;
     pdp11_step(&pdp);
     return pdp11_ram_word_at(&pdp, addr + off);
 }
@@ -94,17 +94,17 @@ static MiunteResult pdp_test_cmp() {
     uint16_t const x = 24;
 
     pdp_test_dop_ra_instr(0020001 /* cmp R0, R1 */, x, x);
-    MIUNTE_EXPECT(pdp.cpu.ps.zf == 1, "cmp of equal values should set ZF");
+    MIUNTE_EXPECT(pdp11_ps(&pdp).zf == 1, "cmp of equal values should set ZF");
 
     pdp_test_dop_ra_instr(0020001 /* cmp R0, R1 */, x + 1, x);
     MIUNTE_EXPECT(
-        (pdp.cpu.ps.nf ^ pdp.cpu.ps.vf) == 0,
+        (pdp11_ps(&pdp).nf ^ pdp11_ps(&pdp).vf) == 0,
         "cmp of greater value should set NF and VF to the same value"
     );
 
     pdp_test_dop_ra_instr(0020001 /* cmp R0, R1 */, x, x + 1);
     MIUNTE_EXPECT(
-        (pdp.cpu.ps.nf ^ pdp.cpu.ps.vf) == 1,
+        (pdp11_ps(&pdp).nf ^ pdp11_ps(&pdp).vf) == 1,
         "cmp of lesser value should set NF and VF to the different value"
     );
 
