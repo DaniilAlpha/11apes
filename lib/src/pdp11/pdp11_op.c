@@ -5,55 +5,172 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "conviniences.h"
+
 /****************
  ** instr decl **
  ****************/
 
-// dual-op
+// DUAL-OP
+
+// arithmetic
 
 static forceinline void
 pdp11_op_mov(Pdp11 *const self, uint16_t const *const src, uint16_t *const dst);
 static forceinline void
-pdp11_op_movb(Pdp11 *const self, uint8_t const *const src, uint8_t *const dst);
-
+pdp11_op_add(Pdp11 *const self, uint16_t const *const src, uint16_t *const dst);
+static forceinline void
+pdp11_op_sub(Pdp11 *const self, uint16_t const *const src, uint16_t *const dst);
 static forceinline void pdp11_op_cmp(
     Pdp11 *const self,
     uint16_t const *const src,
     uint16_t const *const dst
 );
+
+static forceinline void
+pdp11_op_movb(Pdp11 *const self, uint8_t const *const src, uint8_t *const dst);
 static forceinline void pdp11_op_cmpb(
     Pdp11 *const self,
     uint8_t const *const src,
     uint8_t const *const dst
 );
 
+// boolean
+
+static forceinline void
+pdp11_op_bis(Pdp11 *const self, uint16_t const *const src, uint16_t *const dst);
+static forceinline void
+pdp11_op_bic(Pdp11 *const self, uint16_t const *const src, uint16_t *const dst);
 static forceinline void pdp11_op_bit(
     Pdp11 *const self,
     uint16_t const *const src,
     uint16_t const *const dst
 );
+
+static forceinline void
+pdp11_op_bisb(Pdp11 *const self, uint8_t const *const src, uint8_t *const dst);
+static forceinline void
+pdp11_op_bicb(Pdp11 *const self, uint8_t const *const src, uint8_t *const dst);
 static forceinline void pdp11_op_bitb(
     Pdp11 *const self,
     uint8_t const *const src,
     uint8_t const *const dst
 );
 
-static forceinline void
-pdp11_op_bic(Pdp11 *const self, uint16_t const *const src, uint16_t *const dst);
-static forceinline void
-pdp11_op_bicb(Pdp11 *const self, uint8_t const *const src, uint8_t *const dst);
+// BRANCHES
+
+// uncond
+
+static forceinline void pdp11_op_br(Pdp11 *const self, uint8_t const off);
+
+// simple cond
 
 static forceinline void
-pdp11_op_bis(Pdp11 *const self, uint16_t const *const src, uint16_t *const dst);
+pdp11_op_bne_be(Pdp11 *const self, bool const cond, uint8_t const off);
 static forceinline void
-pdp11_op_bisb(Pdp11 *const self, uint8_t const *const src, uint8_t *const dst);
+pdp11_op_bpl_bmi(Pdp11 *const self, bool const cond, uint8_t const off);
+static forceinline void
+pdp11_op_bcc_bcs(Pdp11 *const self, bool const cond, uint8_t const off);
+static forceinline void
+pdp11_op_bvc_bvs(Pdp11 *const self, bool const cond, uint8_t const off);
+
+// signed
 
 static forceinline void
-pdp11_op_add(Pdp11 *const self, uint16_t const *const src, uint16_t *const dst);
+pdp11_op_bge_bl(Pdp11 *const self, bool const cond, uint8_t const off);
 static forceinline void
-pdp11_op_sub(Pdp11 *const self, uint16_t const *const src, uint16_t *const dst);
+pdp11_op_bg_ble(Pdp11 *const self, bool const cond, uint8_t const off);
+static forceinline void
+pdp11_op_bhi_blos(Pdp11 *const self, bool const cond, uint8_t const off);
+// NOTE `bhis`/`blo` is already implemented with `bcc`/`bcs`
 
-// limited dual-op
+// other
+
+static forceinline void
+pdp11_op_jmp(Pdp11 *const self, uint16_t const *const src);
+static forceinline void
+pdp11_op_sob(Pdp11 *const self, unsigned const r_i, uint8_t const off);
+
+// SUBROUTINE
+
+static forceinline void
+pdp11_op_jsr(Pdp11 *const self, unsigned const r_i, uint16_t *const src);
+static forceinline void pdp11_op_rts(Pdp11 *const self, unsigned const r_i);
+static forceinline void pdp11_op_rti(Pdp11 *const self, unsigned const r_i);
+
+// TRAP
+
+static forceinline void
+pdp11_op_emt_trap(Pdp11 *const self, bool const is_trap, uint8_t const code);
+static forceinline void pdp11_op_bpt(Pdp11 *const self);
+static forceinline void pdp11_op_iot(Pdp11 *const self);
+static forceinline void pdp11_op_rtt(Pdp11 *const self);
+
+// SINGLE-OP
+
+// general
+
+static forceinline void pdp11_op_clr(Pdp11 *const self, uint16_t *const dst);
+static forceinline void pdp11_op_inc(Pdp11 *const self, uint16_t *const dst);
+static forceinline void pdp11_op_dec(Pdp11 *const self, uint16_t *const dst);
+static forceinline void pdp11_op_neg(Pdp11 *const self, uint16_t *const dst);
+static forceinline void
+pdp11_op_tst(Pdp11 *const self, uint16_t const *const src);
+// NOTE this is a `COMplement` instruction, like `not` in intel
+static forceinline void pdp11_op_com(Pdp11 *const self, uint16_t *const dst);
+
+static forceinline void pdp11_op_clrb(Pdp11 *const self, uint8_t *const dst);
+static forceinline void pdp11_op_incb(Pdp11 *const self, uint8_t *const dst);
+static forceinline void pdp11_op_decb(Pdp11 *const self, uint8_t *const dst);
+static forceinline void pdp11_op_negb(Pdp11 *const self, uint8_t *const dst);
+static forceinline void
+pdp11_op_tstb(Pdp11 *const self, uint8_t const *const src);
+static forceinline void pdp11_op_comb(Pdp11 *const self, uint8_t *const dst);
+
+// multiple-percision
+
+static forceinline void pdp11_op_adc(Pdp11 *const self, uint16_t *const dst);
+static forceinline void pdp11_op_sbc(Pdp11 *const self, uint16_t *const dst);
+
+static forceinline void pdp11_op_adcb(Pdp11 *const self, uint8_t *const dst);
+static forceinline void pdp11_op_sbcb(Pdp11 *const self, uint8_t *const dst);
+
+// rotates
+
+static forceinline void pdp11_op_ror(Pdp11 *const self, uint16_t *const dst);
+static forceinline void pdp11_op_rol(Pdp11 *const self, uint16_t *const dst);
+static forceinline void pdp11_op_swab(Pdp11 *const self, uint16_t *const dst);
+
+static forceinline void pdp11_op_rorb(Pdp11 *const self, uint8_t *const dst);
+static forceinline void pdp11_op_rolb(Pdp11 *const self, uint8_t *const dst);
+
+// shifts
+
+static forceinline void pdp11_op_asr(Pdp11 *const self, uint16_t *const dst);
+static forceinline void pdp11_op_asl(Pdp11 *const self, uint16_t *const dst);
+
+static forceinline void pdp11_op_asrb(Pdp11 *const self, uint8_t *const dst);
+static forceinline void pdp11_op_aslb(Pdp11 *const self, uint8_t *const dst);
+
+// CONDITION CODES
+
+static forceinline void pdp11_op_clnzvc_senzvc(
+    Pdp11 *const self,
+    bool const value,
+    bool const do_affect_nf,
+    bool const do_affect_zf,
+    bool const do_affect_vf,
+    bool const do_affect_cf
+);
+
+// MISC.
+
+static forceinline void pdp11_op_halt(Pdp11 *const self);
+static forceinline void pdp11_op_wait(Pdp11 *const self);
+static forceinline void pdp11_op_reset(Pdp11 *const self);
+// NOTE `nop` is already implemented with `clnzvc`/`senzvc`
+
+// EXTENDED INSTRUCTION SET
 
 static forceinline void
 pdp11_op_mul(Pdp11 *const self, unsigned const r_i, uint16_t const *const src);
@@ -68,149 +185,56 @@ pdp11_op_ashc(Pdp11 *const self, unsigned const r_i, uint16_t const *const src);
 static forceinline void
 pdp11_op_xor(Pdp11 *const self, unsigned const r_i, uint16_t *const dst);
 
-// single-op
-
-static forceinline void
-pdp11_op_jmp(Pdp11 *const self, uint16_t const *const src);
-
-static forceinline void pdp11_op_swab(Pdp11 *const self, uint16_t *const dst);
-
-static forceinline void pdp11_op_clr(Pdp11 *const self, uint16_t *const dst);
-static forceinline void pdp11_op_clrb(Pdp11 *const self, uint8_t *const dst);
-
-static forceinline void pdp11_op_com(Pdp11 *const self, uint16_t *const dst);
-static forceinline void pdp11_op_comb(Pdp11 *const self, uint8_t *const dst);
-
-static forceinline void pdp11_op_inc(Pdp11 *const self, uint16_t *const dst);
-static forceinline void pdp11_op_incb(Pdp11 *const self, uint8_t *const dst);
-static forceinline void pdp11_op_dec(Pdp11 *const self, uint16_t *const dst);
-static forceinline void pdp11_op_decb(Pdp11 *const self, uint8_t *const dst);
-
-static forceinline void pdp11_op_neg(Pdp11 *const self, uint16_t *const dst);
-static forceinline void pdp11_op_negb(Pdp11 *const self, uint8_t *const dst);
-
-static forceinline void pdp11_op_adc(Pdp11 *const self, uint16_t *const dst);
-static forceinline void pdp11_op_adcb(Pdp11 *const self, uint8_t *const dst);
-static forceinline void pdp11_op_sbc(Pdp11 *const self, uint16_t *const dst);
-static forceinline void pdp11_op_sbcb(Pdp11 *const self, uint8_t *const dst);
-
-static forceinline void
-pdp11_op_tst(Pdp11 *const self, uint16_t const *const src);
-static forceinline void
-pdp11_op_tstb(Pdp11 *const self, uint8_t const *const src);
-
-static forceinline void pdp11_op_ror(Pdp11 *const self, uint16_t *const dst);
-static forceinline void pdp11_op_rorb(Pdp11 *const self, uint8_t *const dst);
-static forceinline void pdp11_op_rol(Pdp11 *const self, uint16_t *const dst);
-static forceinline void pdp11_op_rolb(Pdp11 *const self, uint8_t *const dst);
-
-static forceinline void pdp11_op_asr(Pdp11 *const self, uint16_t *const dst);
-static forceinline void pdp11_op_asrb(Pdp11 *const self, uint8_t *const dst);
-static forceinline void pdp11_op_asl(Pdp11 *const self, uint16_t *const dst);
-static forceinline void pdp11_op_aslb(Pdp11 *const self, uint8_t *const dst);
-
-static forceinline void
-pdp11_op_mtps(Pdp11 *const self, uint16_t const *const src);
-static forceinline void pdp11_op_mfps(Pdp11 *const self, uint16_t *const dst);
-
-static forceinline void
-pdp11_op_mfpi(Pdp11 *const self, uint16_t const *const src);
-static forceinline void
-pdp11_op_mfpd(Pdp11 *const self, uint16_t const *const src);
-static forceinline void pdp11_op_mtpi(Pdp11 *const self, uint16_t *const dst);
-static forceinline void pdp11_op_mtpd(Pdp11 *const self, uint16_t *const dst);
-
 // TODO! have no idea if this should be a byte or a word
 static forceinline void pdp11_op_sxt(Pdp11 *const self, uint16_t *const dst);
-
-// branch
-
-static forceinline void pdp11_op_br(Pdp11 *const self, uint8_t const off);
-
-static forceinline void
-pdp11_op_bne_be(Pdp11 *const self, bool const cond, uint8_t const off);
-static forceinline void
-pdp11_op_bge_bl(Pdp11 *const self, bool const cond, uint8_t const off);
-static forceinline void
-pdp11_op_bg_ble(Pdp11 *const self, bool const cond, uint8_t const off);
-
-static forceinline void
-pdp11_op_bpl_bmi(Pdp11 *const self, bool const cond, uint8_t const off);
-
-static forceinline void
-pdp11_op_bhi_blos(Pdp11 *const self, bool const cond, uint8_t const off);
-static forceinline void
-pdp11_op_bhis_blo(Pdp11 *const self, bool const cond, uint8_t const off);
-
-static forceinline void
-pdp11_op_bvc_bvs(Pdp11 *const self, bool const cond, uint8_t const off);
-
-static forceinline void
-pdp11_op_sob(Pdp11 *const self, unsigned const r_i, uint8_t const off);
-
-// subroutine
-
-static forceinline void
-pdp11_op_jsr(Pdp11 *const self, unsigned const r_i, uint16_t *const src);
-static forceinline void pdp11_op_rts(Pdp11 *const self, unsigned const r_i);
-// TODO? WTF is nn
-static forceinline void pdp11_op_mark(Pdp11 *const self, unsigned const nn);
-
-// trap
-
-static forceinline void
-pdp11_op_emt_trap(Pdp11 *const self, bool const is_general, uint8_t const code);
-static forceinline void pdp11_op_bpt(Pdp11 *const self);
-static forceinline void pdp11_op_iot(Pdp11 *const self);
-
-static forceinline void pdp11_op_rti(Pdp11 *const self);
-static forceinline void pdp11_op_rtt(Pdp11 *const self);
-
-// misc.
-
-static forceinline void pdp11_op_halt(Pdp11 *const self);
-static forceinline void pdp11_op_wait(Pdp11 *const self);
-static forceinline void pdp11_op_reset(Pdp11 *const self);
-// nop is already implemented with ccc/scc
-
-// ccodes
-
-static forceinline void pdp11_op_ccc_scc(
-    Pdp11 *const self,
-    bool const value,
-    bool const do_affect_nf,
-    bool const do_affect_zf,
-    bool const do_affect_vf,
-    bool const do_affect_cf
-);
 
 /*************
  ** private **
  *************/
 
-static inline Pdp11Ps pdp11_ps_from_word(uint16_t const value) {
-    return (Pdp11Ps){
-        .priority = value >> 5,
-        .tf = value >> 4,
-        .nf = value >> 3,
-        .zf = value >> 2,
-        .vf = value >> 1,
-        .cf = value >> 0,
-    };
-}
-static inline uint16_t pdp11_ps_to_word(Pdp11Ps *const self) {
-    return self->priority << 5 | self->tf << 4 | self->nf << 3 | self->zf << 2 |
-           self->vf << 1 | self->cf << 0;
-}
 static inline void
-pdp11_ps_test_for_flags(Pdp11Ps *const self, int32_t const value) {
+pdp11_ps_test_word_for_flags(Pdp11Ps *const self, int16_t const value) {
     *self = (Pdp11Ps){
         .priority = self->priority,
         .tf = self->tf,
         .nf = value < 0,
         .zf = value == 0,
-        .vf = ((value >> 31) & 1) != ((value >> 15) & 1),
-        .cf = ((value >> 31) & 1) != ((value >> 16) & 1),
+        .vf = 0,
+        .cf = self->cf,
+    };
+}
+static inline void
+pdp11_ps_test_word_for_flags_x(Pdp11Ps *const self, int32_t const value) {
+    *self = (Pdp11Ps){
+        .priority = self->priority,
+        .tf = self->tf,
+        .nf = value < 0,
+        .zf = value == 0,
+        .vf = bit(value, 31) != bit(value, 15),
+        .cf = bit(value, 31) != bit(value, 16),
+    };
+}
+// TODO wrongly implemented
+static inline void
+pdp11_ps_test_byte_for_flags(Pdp11Ps *const self, int8_t const value) {
+    *self = (Pdp11Ps){
+        .priority = self->priority,
+        .tf = self->tf,
+        .nf = value < 0,
+        .zf = value == 0,
+        .vf = 0,
+        .cf = self->cf,
+    };
+}
+static inline void
+pdp11_ps_test_byte_for_flags_x(Pdp11Ps *const self, int16_t const value) {
+    *self = (Pdp11Ps){
+        .priority = self->priority,
+        .tf = self->tf,
+        .nf = value < 0,
+        .zf = value == 0,
+        .vf = ((value >> 15) & 1) != ((value >> 7) & 1),
+        .cf = ((value >> 15) & 1) != ((value >> 8) & 1),
     };
 }
 
@@ -218,7 +242,7 @@ static uint16_t *pdp11_address_word(Pdp11 *const self, unsigned const mode) {
     unsigned const r_i = mode & 07;
 
     unsigned const autostuff_amount = 2;
-    switch ((mode >> 3) & 07) {
+    switch (bits(mode, 3, 6)) {
     case 00: return &pdp11_rx(self, r_i);
     case 01: return &pdp11_ram_word_at(self, pdp11_rx(self, r_i));
     case 02: {
@@ -511,9 +535,9 @@ void pdp11_op_exec(Pdp11 *const self, uint16_t const instr) {
  ** instr impl **
  ****************/
 
-// TODO! some of theese should set condition codes
+// DUAL-OP
 
-// dual-op
+// arithmetic
 
 void pdp11_op_mov(
     Pdp11 *const self,
@@ -521,7 +545,37 @@ void pdp11_op_mov(
     uint16_t *const dst
 ) {
     *dst = *src;
+    pdp11_ps_test_word_for_flags(&pdp11_ps(self), *src);
 }
+void pdp11_op_add(
+    Pdp11 *const self,
+    uint16_t const *const src,
+    uint16_t *const dst
+) {
+    int32_t const result = (int32_t)*dst + (int32_t)*src;
+    *dst = result;
+    pdp11_ps_test_word_for_flags_x(&pdp11_ps(self), result);
+}
+void pdp11_op_sub(
+    Pdp11 *const self,
+    uint16_t const *const src,
+    uint16_t *const dst
+) {
+    int32_t const result = (int32_t)*dst - (int32_t)*src;
+    *dst = result;
+    pdp11_ps_test_word_for_flags_x(&pdp11_ps(self), result);
+}
+void pdp11_op_cmp(
+    Pdp11 *const self,
+    uint16_t const *const src,
+    uint16_t const *const dst
+) {
+    pdp11_ps_test_word_for_flags_x(
+        &pdp11_ps(self),
+        (int32_t)*src - (int32_t)*dst
+    );
+}
+
 void pdp11_op_movb(
     Pdp11 *const self,
     uint8_t const *const src,
@@ -530,67 +584,25 @@ void pdp11_op_movb(
     uint16_t *const dst16 = (uint16_t *)dst;
     if ((uintptr_t)dst16 % alignof(uint16_t) == 0 &&
         &pdp11_rx(self, 0) <= dst16 &&
-        dst16 <= &pdp11_rx(self, PDP11_REGISTER_COUNT - 1))
+        dst16 <= &pdp11_rx(self, PDP11_REGISTER_COUNT - 1)) {
         *dst16 = (int16_t)(int8_t)*src;
-    else
+    } else {
         *dst = *src;
-}
-
-void pdp11_op_cmp(
-    Pdp11 *const self,
-    uint16_t const *const src,
-    uint16_t const *const dst
-) {
-    /* uint64_t flags;
-    asm inline(
-        "\t\n   cmp %[dst], %[src]"
-        "\t\n   pushf"
-        "\t\n   pop %[out_flags]"
-        : [out_flags] "=r"(flags)
-        : [src] "r"(*src), [dst] "r"(*dst)
-        : "cc"
-    );
-    pdp11_ps_of_x86(&self->cpu.ps, flags); */
-    pdp11_ps_test_for_flags(&pdp11_ps(self), (int32_t)*src - (int32_t)*dst);
+    }
+    pdp11_ps_test_byte_for_flags(&pdp11_ps(self), *dst);
 }
 void pdp11_op_cmpb(
     Pdp11 *const self,
     uint8_t const *const src,
     uint8_t const *const dst
 ) {
-    pdp11_ps_test_for_flags(&pdp11_ps(self), (int16_t)*src - (int16_t)*dst);
+    pdp11_ps_test_byte_for_flags_x(
+        &pdp11_ps(self),
+        (int16_t)*src - (int16_t)*dst
+    );
 }
 
-void pdp11_op_bit(
-    Pdp11 *const self,
-    uint16_t const *const src,
-    uint16_t const *const dst
-) {
-    // TODO? should it be implemented this way?
-    pdp11_ps_test_for_flags(&pdp11_ps(self), (int32_t)*src ^ (int32_t)*dst);
-}
-void pdp11_op_bitb(
-    Pdp11 *const self,
-    uint8_t const *const src,
-    uint8_t const *const dst
-) {
-    pdp11_ps_test_for_flags(&pdp11_ps(self), (int16_t)*src ^ (int16_t)*dst);
-}
-
-void pdp11_op_bic(
-    Pdp11 *const self,
-    uint16_t const *const src,
-    uint16_t *const dst
-) {
-    *dst &= ~*src;
-}
-void pdp11_op_bicb(
-    Pdp11 *const self,
-    uint8_t const *const src,
-    uint8_t *const dst
-) {
-    *dst &= ~*src;
-}
+// boolean
 
 void pdp11_op_bis(
     Pdp11 *const self,
@@ -598,29 +610,299 @@ void pdp11_op_bis(
     uint16_t *const dst
 ) {
     *dst |= *src;
+    pdp11_ps_test_word_for_flags(pdp11_ps(self), *dst);
 }
+void pdp11_op_bic(
+    Pdp11 *const self,
+    uint16_t const *const src,
+    uint16_t *const dst
+) {
+    *dst &= ~*src;
+    pdp11_ps_test_word_for_flags(pdp11_ps(self), *dst);
+}
+void pdp11_op_bit(
+    Pdp11 *const self,
+    uint16_t const *const src,
+    uint16_t const *const dst
+) {
+    pdp11_ps_test_word_for_flags(pdp11_ps(self), *dst ^ *src);
+}
+
 void pdp11_op_bisb(
     Pdp11 *const self,
     uint8_t const *const src,
     uint8_t *const dst
 ) {
     *dst |= *src;
+    pdp11_ps_test_byte_for_flags(pdp11_ps(self), *dst);
+}
+void pdp11_op_bicb(
+    Pdp11 *const self,
+    uint8_t const *const src,
+    uint8_t *const dst
+) {
+    *dst &= ~*src;
+    pdp11_ps_test_byte_for_flags(pdp11_ps(self), *dst);
+}
+void pdp11_op_bitb(
+    Pdp11 *const self,
+    uint8_t const *const src,
+    uint8_t const *const dst
+) {
+    pdp11_ps_test_byte_for_flags(pdp11_ps(self), *dst ^ *src);
 }
 
-void pdp11_op_add(
-    Pdp11 *const self,
-    uint16_t const *const src,
-    uint16_t *const dst
-) {
-    *dst += *src;
+// BRANCHES
+
+// uncond
+
+void pdp11_op_br(Pdp11 *const self, uint8_t const off) {
+    pdp11_pc(self) += 2 * (int16_t)(int8_t)off;
 }
-void pdp11_op_sub(
-    Pdp11 *const self,
-    uint16_t const *const src,
-    uint16_t *const dst
-) {
-    *dst -= *src;
+
+// simple cond
+
+void pdp11_op_bne_be(Pdp11 *const self, bool const cond, uint8_t const off) {
+    if (pdp11_ps(self).zf == cond) pdp11_op_br(self, off);
 }
+void pdp11_op_bpl_bmi(Pdp11 *const self, bool const cond, uint8_t const off) {
+    if (pdp11_ps(self).nf == cond) pdp11_op_br(self, off);
+}
+void pdp11_op_bcc_bcs(Pdp11 *const self, bool const cond, uint8_t const off) {
+    if (pdp11_ps(self).cf == cond) pdp11_op_br(self, off);
+}
+void pdp11_op_bvc_bvs(Pdp11 *const self, bool const cond, uint8_t const off) {
+    if (pdp11_ps(self).vf == cond) pdp11_op_br(self, off);
+}
+
+// signed
+
+void pdp11_op_bge_bl(Pdp11 *const self, bool const cond, uint8_t const off) {
+    if ((pdp11_ps(self).nf ^ pdp11_ps(self).vf) == cond) pdp11_op_br(self, off);
+}
+void pdp11_op_bg_ble(Pdp11 *const self, bool const cond, uint8_t const off) {
+    Pdp11Ps const ps = pdp11_ps(self);
+    if ((ps.zf | (ps.nf ^ ps.vf)) == cond) pdp11_op_br(self, off);
+}
+void pdp11_op_bhi_blos(Pdp11 *const self, bool const cond, uint8_t const off) {
+    if ((pdp11_ps(self).cf | pdp11_ps(self).zf) == cond) pdp11_op_br(self, off);
+}
+
+// other
+
+void pdp11_op_jmp(Pdp11 *const self, uint16_t const *const src) {
+    pdp11_pc(self) = *src;
+}
+void pdp11_op_sob(Pdp11 *const self, unsigned const r_i, uint8_t const off) {
+    // TODO is this right?
+    if (--pdp11_rx(self, r_i) != 0) pdp11_pc(self) -= 2 * off;
+}
+
+// SUBROUTINE
+
+void pdp11_op_jsr(Pdp11 *const self, unsigned const r_i, uint16_t *const src) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+void pdp11_op_rts(Pdp11 *const self, unsigned const r_i) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+void pdp11_op_rti(Pdp11 *const self, unsigned const r_i) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+
+// TRAP
+
+void pdp11_op_emt_trap(
+    Pdp11 *const self,
+    bool const is_trap,
+    uint8_t const code
+) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+void pdp11_op_bpt(Pdp11 *const self) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+void pdp11_op_iot(Pdp11 *const self) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+void pdp11_op_rtt(Pdp11 *const self) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+
+// SINGLE-OP
+
+// general
+
+void pdp11_op_clr(Pdp11 *const self, uint16_t *const dst) {
+    *dst = 0;
+    Pdp11Ps *const ps = &pdp11_ps(self);
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = 0,
+        .zf = 1,
+        .vf = 0,
+        .cf = 0,
+    };
+}
+void pdp11_op_inc(Pdp11 *const self, uint16_t *const dst) {
+    static uint16_t const src = 1;
+    pdp11_op_add(self, &src, dst);
+}
+void pdp11_op_dec(Pdp11 *const self, uint16_t *const dst) {
+    static uint16_t const src = -1;
+    pdp11_op_add(self, &src, dst);
+}
+void pdp11_op_neg(Pdp11 *const self, uint16_t *const dst) {
+    int32_t const result = -(int32_t)*dst;
+    *dst = result;
+    pdp11_ps_test_word_for_flags_x(&pdp11_ps(self), result);
+}
+void pdp11_op_tst(Pdp11 *const self, uint16_t const *const src) {
+    static uint16_t const dst = 0;
+    pdp11_op_cmp(self, src, &dst);
+}
+// NOTE this is a `COMplement` instruction, like `not` in intel
+void pdp11_op_com(Pdp11 *const self, uint16_t *const dst) {
+    int32_t const result = ~(int32_t)*dst;
+    *dst = result;
+    pdp11_ps_test_word_for_flags_x(&pdp11_ps(self), result);
+}
+
+void pdp11_op_clrb(Pdp11 *const self, uint8_t *const dst);
+void pdp11_op_incb(Pdp11 *const self, uint8_t *const dst);
+void pdp11_op_decb(Pdp11 *const self, uint8_t *const dst);
+void pdp11_op_negb(Pdp11 *const self, uint8_t *const dst);
+void pdp11_op_tstb(Pdp11 *const self, uint8_t const *const src);
+void pdp11_op_comb(Pdp11 *const self, uint8_t *const dst);
+
+// multiple-percision
+
+void pdp11_op_adc(Pdp11 *const self, uint16_t *const dst) {
+    if (pdp11_ps(self).cf) pdp11_op_inc(self, dst);
+}
+void pdp11_op_sbc(Pdp11 *const self, uint16_t *const dst) {
+    if (pdp11_ps(self).cf) pdp11_op_dec(self, dst);
+}
+
+void pdp11_op_adcb(Pdp11 *const self, uint8_t *const dst) {
+    if (pdp11_ps(self).cf) pdp11_op_incb(self, dst);
+}
+void pdp11_op_sbcb(Pdp11 *const self, uint8_t *const dst) {
+    if (pdp11_ps(self).cf) pdp11_op_decb(self, dst);
+}
+
+// rotates
+
+// TODO badly implemented
+void pdp11_op_ror(Pdp11 *const self, uint16_t *const dst) {
+    Pdp11 *const ps = &pdp11_ps(self);
+
+    uint32_t const dstx = (uint32_t)*dst | (pdp11_ps(self).cf << 16);
+    ps->cf = bit(dstx, 0);
+    *dst = dstx >> 1;
+    pdp11_ps_test_word_for_flags(self, *dst);
+    ps->vf = ps->nf ^ ps->cf;
+}
+void pdp11_op_rol(Pdp11 *const self, uint16_t *const dst) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+void pdp11_op_swab(Pdp11 *const self, uint16_t *const dst) {
+    *dst = (uint16_t)(*dst << 8) | (uint8_t)(*dst >> 8);
+    pdp11_ps_test_word_for_flags(self, *dst);
+}
+
+void pdp11_op_rorb(Pdp11 *const self, uint8_t *const dst) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+void pdp11_op_rolb(Pdp11 *const self, uint8_t *const dst) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+
+// shifts
+
+void pdp11_op_asr(Pdp11 *const self, uint16_t *const dst) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+void pdp11_op_asl(Pdp11 *const self, uint16_t *const dst) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+
+void pdp11_op_asrb(Pdp11 *const self, uint8_t *const dst) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+void pdp11_op_aslb(Pdp11 *const self, uint8_t *const dst) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+
+// CONDITION CODES
+
+void pdp11_op_clnzvc_senzvc(
+    Pdp11 *const self,
+    bool const value,
+    bool const do_affect_nf,
+    bool const do_affect_zf,
+    bool const do_affect_vf,
+    bool const do_affect_cf
+) {
+    if (do_affect_nf) pdp11_ps(self).nf = value;
+    if (do_affect_zf) pdp11_ps(self).zf = value;
+    if (do_affect_vf) pdp11_ps(self).vf = value;
+    if (do_affect_cf) pdp11_ps(self).cf = value;
+}
+
+// MISC.
+
+void pdp11_op_halt(Pdp11 *const self) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+void pdp11_op_wait(Pdp11 *const self) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+void pdp11_op_reset(Pdp11 *const self) {
+    printf("\tsorry, %s was not implemented (yet)", __func__);
+}
+// NOTE `nop` is already implemented with `clnzvc`/`senzvc`
+
+// EXTENDED INSTRUCTION SET
+
+void pdp11_op_mul(
+    Pdp11 *const self,
+    unsigned const r_i,
+    uint16_t const *const src
+);
+void pdp11_op_div(
+    Pdp11 *const self,
+    unsigned const r_i,
+    uint16_t const *const src
+);
+
+void pdp11_op_ash(
+    Pdp11 *const self,
+    unsigned const r_i,
+    uint16_t const *const src
+);
+void pdp11_op_ashc(
+    Pdp11 *const self,
+    unsigned const r_i,
+    uint16_t const *const src
+);
+
+void pdp11_op_xor(Pdp11 *const self, unsigned const r_i, uint16_t *const dst);
+
+// TODO! have no idea if this should be a byte or a word
+void pdp11_op_sxt(Pdp11 *const self, uint16_t *const dst);
+// TODO! some of theese should set condition codes
+
+// dual-op
+//
+//
+//
+//
+//
+//
+//
+//
 
 // limited dual-op
 
@@ -639,207 +921,6 @@ void pdp11_op_div(
     printf("\tsorry, %s was not implemented (yet)", __func__);
 }
 
-void pdp11_op_ash(
-    Pdp11 *const self,
-    unsigned const r_i,
-    uint16_t const *const src
-) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-void pdp11_op_ashc(
-    Pdp11 *const self,
-    unsigned const r_i,
-    uint16_t const *const src
-) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-
 void pdp11_op_xor(Pdp11 *const self, unsigned const r_i, uint16_t *const dst) {
     *dst = *dst ^ pdp11_rx(self, r_i);
-}
-
-// single-op
-
-void pdp11_op_jmp(Pdp11 *const self, uint16_t const *const src) {
-    pdp11_pc(self) = *src;
-}
-
-void pdp11_op_swab(Pdp11 *const self, uint16_t *const dst) {
-    *dst = (uint16_t)(*dst << 8) | (uint8_t)(*dst >> 8);
-}
-
-void pdp11_op_clr(Pdp11 *const self, uint16_t *const dst) { *dst = 0; }
-void pdp11_op_clrb(Pdp11 *const self, uint8_t *const dst) { *dst = 0; }
-
-void pdp11_op_com(Pdp11 *const self, uint16_t *const dst) { *dst = ~*dst; }
-void pdp11_op_comb(Pdp11 *const self, uint8_t *const dst) { *dst = ~*dst; }
-
-void pdp11_op_inc(Pdp11 *const self, uint16_t *const dst) { (*dst)++; }
-void pdp11_op_incb(Pdp11 *const self, uint8_t *const dst) { (*dst)++; }
-void pdp11_op_dec(Pdp11 *const self, uint16_t *const dst) { (*dst)--; }
-void pdp11_op_decb(Pdp11 *const self, uint8_t *const dst) { (*dst)--; }
-
-void pdp11_op_neg(Pdp11 *const self, uint16_t *const dst) { *dst = -*dst; }
-void pdp11_op_negb(Pdp11 *const self, uint8_t *const dst) { *dst = -*dst; }
-
-void pdp11_op_adc(Pdp11 *const self, uint16_t *const dst) {
-    *dst += pdp11_ps(self).cf;
-}
-void pdp11_op_adcb(Pdp11 *const self, uint8_t *const dst) {
-    *dst += pdp11_ps(self).cf;
-}
-void pdp11_op_sbc(Pdp11 *const self, uint16_t *const dst) {
-    *dst -= pdp11_ps(self).cf;
-}
-void pdp11_op_sbcb(Pdp11 *const self, uint8_t *const dst) {
-    *dst -= pdp11_ps(self).cf;
-}
-
-void pdp11_op_tst(Pdp11 *const self, uint16_t const *const src) {
-    pdp11_ps_test_for_flags(&pdp11_ps(self), (int32_t)*src);
-}
-void pdp11_op_tstb(Pdp11 *const self, uint8_t const *const src) {
-    // TODO? is this so?
-    pdp11_ps_test_for_flags(&pdp11_ps(self), (int16_t)*src);
-}
-
-void pdp11_op_ror(Pdp11 *const self, uint16_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-void pdp11_op_rorb(Pdp11 *const self, uint8_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-void pdp11_op_rol(Pdp11 *const self, uint16_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-void pdp11_op_rolb(Pdp11 *const self, uint8_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-
-void pdp11_op_asr(Pdp11 *const self, uint16_t *const dst) { *dst >>= 1; }
-void pdp11_op_asrb(Pdp11 *const self, uint8_t *const dst) { *dst >>= 1; }
-void pdp11_op_asl(Pdp11 *const self, uint16_t *const dst) { *dst <<= 1; }
-void pdp11_op_aslb(Pdp11 *const self, uint8_t *const dst) { *dst <<= 1; }
-
-void pdp11_op_mtps(Pdp11 *const self, uint16_t const *const src) {
-    pdp11_ps(self) = pdp11_ps_from_word(*src);
-}
-void pdp11_op_mfps(Pdp11 *const self, uint16_t *const dst) {
-    *dst = pdp11_ps_to_word(&pdp11_ps(self));
-}
-
-void pdp11_op_mfpi(Pdp11 *const self, uint16_t const *const src) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-void pdp11_op_mfpd(Pdp11 *const self, uint16_t const *const src) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-void pdp11_op_mtpi(Pdp11 *const self, uint16_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-void pdp11_op_mtpd(Pdp11 *const self, uint16_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-
-void pdp11_op_sxt(Pdp11 *const self, uint16_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-
-// branch
-
-void pdp11_op_br(Pdp11 *const self, uint8_t const off) {
-    pdp11_pc(self) += 2 * (int16_t)(int8_t)off;
-}
-
-void pdp11_op_bne_be(Pdp11 *const self, bool const cond, uint8_t const off) {
-    if (pdp11_ps(self).zf == cond) pdp11_op_br(self, off);
-}
-void pdp11_op_bge_bl(Pdp11 *const self, bool const cond, uint8_t const off) {
-    if ((pdp11_ps(self).nf ^ pdp11_ps(self).vf) == cond) pdp11_op_br(self, off);
-}
-void pdp11_op_bg_ble(Pdp11 *const self, bool const cond, uint8_t const off) {
-    Pdp11Ps const ps = pdp11_ps(self);
-    if ((ps.zf | (ps.nf ^ ps.vf)) == cond) pdp11_op_br(self, off);
-}
-
-void pdp11_op_bpl_bmi(Pdp11 *const self, bool const cond, uint8_t const off) {
-    if (pdp11_ps(self).nf == cond) pdp11_op_br(self, off);
-}
-
-void pdp11_op_bhi_blos(Pdp11 *const self, bool const cond, uint8_t const off) {
-    if ((pdp11_ps(self).cf | pdp11_ps(self).zf) == cond) pdp11_op_br(self, off);
-}
-void pdp11_op_bhis_blo(Pdp11 *const self, bool const cond, uint8_t const off) {
-    if (pdp11_ps(self).cf == cond) pdp11_op_br(self, off);
-}
-
-void pdp11_op_bvc_bvs(Pdp11 *const self, bool const cond, uint8_t const off) {
-    if (pdp11_ps(self).vf == cond) pdp11_op_br(self, off);
-}
-
-void pdp11_op_sob(Pdp11 *const self, unsigned const r_i, uint8_t const off) {
-    if (--pdp11_rx(self, r_i) != 0) pdp11_pc(self) -= 2 * off;
-}
-
-// subroutine
-
-void pdp11_op_jsr(Pdp11 *const self, unsigned const r_i, uint16_t *const src) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-void pdp11_op_rts(Pdp11 *const self, unsigned const r_i) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-void pdp11_op_mark(Pdp11 *const self, unsigned const nn) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-
-// trap
-
-void pdp11_op_emt_trap(
-    Pdp11 *const self,
-    bool const is_general,
-    uint8_t const code
-) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-void pdp11_op_bpt(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-void pdp11_op_iot(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-
-void pdp11_op_rti(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-void pdp11_op_rtt(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-
-// misc.
-
-void pdp11_op_halt(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-void pdp11_op_wait(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-void pdp11_op_reset(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-
-// ccodes
-
-void pdp11_op_ccc_scc(
-    Pdp11 *const self,
-    bool const value,
-    bool const do_affect_nf,
-    bool const do_affect_zf,
-    bool const do_affect_vf,
-    bool const do_affect_cf
-) {
-    if (do_affect_nf) pdp11_ps(self).nf = value;
-    if (do_affect_zf) pdp11_ps(self).zf = value;
-    if (do_affect_vf) pdp11_ps(self).vf = value;
-    if (do_affect_cf) pdp11_ps(self).cf = value;
 }

@@ -123,6 +123,8 @@ int main() {
             pdp_test_addressing_w_xor,
             pdp_test_movb,
             pdp_test_cmp,
+            // TODO test neg, as not sure in the rightness of the implon
+            // TODO check if flags are correctly set on core set of arith ops
         }
     );
 }
