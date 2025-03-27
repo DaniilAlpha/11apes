@@ -38,10 +38,10 @@ typedef struct Pdp11 {
 Result pdp11_init(Pdp11 *const self);
 void pdp11_uninit(Pdp11 *const self);
 
-#define pdp11_rx(SELF_, I_) (*(uint16_t *)((SELF_)->_cpu.r + I_))
-#define pdp11_rl(SELF_, I_) (*(uint8_t *)((SELF_)->_cpu.r + I_))
-#define pdp11_pc(SELF_)     pdp11_rx(SELF_, 7)
-// #define pdp11_sp(SELF_)     pdp11_rx(SELF_, 6)
+#define pdp11_rx(SELF_, I_) (*(uint16_t *)((SELF_)->_cpu.r + (I_)))
+#define pdp11_rl(SELF_, I_) (*(uint8_t *)((SELF_)->_cpu.r + (I_)))
+#define pdp11_pc(SELF_)     pdp11_rx((SELF_), 7)
+// #define pdp11_sp(SELF_)     pdp11_rx((SELF_), 6)
 
 #define pdp11_ps(SELF_) ((SELF_)->_cpu.ps)
 

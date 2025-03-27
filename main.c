@@ -1,4 +1,4 @@
-// http://www.bitsavers.org/pdf/dec/pdp11/1120/
+// http://www.bitsavers.org/pdf/dec/pdp11/1170/PDP-11_70_Handbook_1977-78.pdf
 
 #include <stdio.h>
 

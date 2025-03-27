@@ -128,7 +128,18 @@ int main() {
         {
             pdp_test_addressing,
             pdp_test_movb,
-            pdp_test_cmp,
+            pdp_test_cmp,  // TODO better test cmp flags
+
+            // TODO test clr flags
+            // TODO test inc/dec flags
+            // TODO test tst flags
+            // TODO test neg/com flags
+            // TODO test mov flags
+            // TODO test mul flags
+            // TODO test div flags
+            // TODO test bit flags
+            // TODO test some of the branches
+            //
             // TODO test neg, as not sure in the rightness of the implon
             // TODO check if flags are correctly set on core set of arith ops
         }
