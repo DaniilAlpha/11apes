@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "conviniences.h"
 #include "pdp11/pdp11_op.h"
 
 Result pdp11_init(Pdp11 *const self) {

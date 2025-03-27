@@ -96,7 +96,7 @@ pdp11_op_sob(Pdp11 *const self, unsigned const r_i, uint8_t const off);
 static forceinline void
 pdp11_op_jsr(Pdp11 *const self, unsigned const r_i, uint16_t *const src);
 static forceinline void pdp11_op_rts(Pdp11 *const self, unsigned const r_i);
-static forceinline void pdp11_op_rti(Pdp11 *const self, unsigned const r_i);
+static forceinline void pdp11_op_rti(Pdp11 *const self);
 
 // TRAP
 
@@ -233,16 +233,16 @@ pdp11_ps_test_byte_for_flags_x(Pdp11Ps *const self, int16_t const value) {
         .tf = self->tf,
         .nf = value < 0,
         .zf = value == 0,
-        .vf = ((value >> 15) & 1) != ((value >> 7) & 1),
-        .cf = ((value >> 15) & 1) != ((value >> 8) & 1),
+        .vf = bit(value, 15) != bit(value, 7),
+        .cf = bit(value, 15) != bit(value, 8),
     };
 }
 
 static uint16_t *pdp11_address_word(Pdp11 *const self, unsigned const mode) {
-    unsigned const r_i = mode & 07;
+    unsigned const r_i = bits(mode, 0, 2);
 
     unsigned const autostuff_amount = 2;
-    switch (bits(mode, 3, 6)) {
+    switch (bits(mode, 3, 5)) {
     case 00: return &pdp11_rx(self, r_i);
     case 01: return &pdp11_ram_word_at(self, pdp11_rx(self, r_i));
     case 02: {
@@ -292,7 +292,7 @@ static uint8_t *pdp11_address_byte(Pdp11 *const self, unsigned const mode) {
         autostuff_amount = 2;
         /* fallthrough */
     case 00 ... 05:
-        switch ((mode >> 3) & 07) {
+        switch (bits(mode, 3, 5)) {
         case 00: return &pdp11_rl(self, r_i);
         case 01: return &pdp11_ram_byte_at(self, pdp11_rx(self, r_i));
         case 02: {
@@ -341,15 +341,15 @@ static uint8_t *pdp11_address_byte(Pdp11 *const self, unsigned const mode) {
  ************/
 
 void pdp11_op_exec(Pdp11 *const self, uint16_t const instr) {
-    uint16_t const opcode_15_12 = (instr >> 12) & 017,
-                   opcode_15_9 = (instr >> 9) & 0177,
-                   opcode_15_6 = (instr >> 6) & 01777,
-                   opcode_15_3 = (instr >> 3) & 017777,
-                   opcode_15_0 = (instr >> 0) & 0177777;
+    uint16_t const opcode_15_12 = bits(instr, 12, 15),
+                   opcode_15_9 = bits(instr, 9, 15),
+                   opcode_15_6 = bits(instr, 6, 15),
+                   opcode_15_3 = bits(instr, 3, 15),
+                   opcode_15_0 = bits(instr, 0, 15);
 
-    unsigned const op_11_6 = (instr >> 6) & 077, op_8_6 = (instr >> 6) & 07,
-                   op_5_0 = (instr >> 0) & 077, op_8 = (instr >> 8) & 01,
-                   op_7_0 = (instr >> 0) & 0377;
+    unsigned const op_11_6 = bits(instr, 6, 11), op_8_6 = bits(instr, 6, 8),
+                   op_5_0 = bits(instr, 0, 5), op_8 = bit(instr, 8),
+                   op_7_0 = bits(instr, 0, 7);
 
     printf(
         "executing : 0%06o, (0%02o 0%03o 0%04o 0%05o 0%06o)\n",
@@ -456,7 +456,7 @@ void pdp11_op_exec(Pdp11 *const self, uint16_t const instr) {
     case 0100: return pdp11_op_bpl_bmi(self, op_8, op_7_0);
     case 0101: return pdp11_op_bhi_blos(self, op_8, op_7_0);
     case 0102: return pdp11_op_bvc_bvs(self, op_8, op_7_0);
-    case 0103: return pdp11_op_bhis_blo(self, op_8, op_7_0);
+    case 0103: return pdp11_op_bcc_bcs(self, op_8, op_7_0);
 
     case 0077: return pdp11_op_sob(self, op_8_6, op_5_0);
 
@@ -492,19 +492,21 @@ void pdp11_op_exec(Pdp11 *const self, uint16_t const instr) {
     case 01062: return pdp11_op_asrb(self, pdp11_address_byte(self, op_5_0));
     case 00063: return pdp11_op_asl(self, pdp11_address_word(self, op_5_0));
     case 01063: return pdp11_op_aslb(self, pdp11_address_byte(self, op_5_0));
-    case 01064: return pdp11_op_mtps(self, pdp11_address_word(self, op_5_0));
-    case 00065: return pdp11_op_mfpi(self, pdp11_address_word(self, op_5_0));
-    case 01065: return pdp11_op_mfpd(self, pdp11_address_word(self, op_5_0));
-    case 00066: return pdp11_op_mtpi(self, pdp11_address_word(self, op_5_0));
-    case 01066: return pdp11_op_mtpd(self, pdp11_address_word(self, op_5_0));
-    case 00067: return pdp11_op_sxt(self, pdp11_address_word(self, op_5_0));
-    case 01067: return pdp11_op_mfps(self, pdp11_address_word(self, op_5_0));
+    // case 01064: return pdp11_op_mtps(self, pdp11_address_word(self, op_5_0));
+    // case 00065: return pdp11_op_mfpi(self, pdp11_address_word(self, op_5_0));
+    // case 01065: return pdp11_op_mfpd(self, pdp11_address_word(self, op_5_0));
+    // case 00066: return pdp11_op_mtpi(self, pdp11_address_word(self, op_5_0));
+    // case 01066: return pdp11_op_mtpd(self, pdp11_address_word(self, op_5_0));
+    case 00067:
+        return pdp11_op_sxt(self, pdp11_address_word(self, op_5_0));
+        // case 01067: return pdp11_op_mfps(self, pdp11_address_word(self,
+        // op_5_0));
 
-    case 00064: return pdp11_op_mark(self, op_5_0);
+        // case 00064: return pdp11_op_mark(self, op_5_0);
 
     case 00002:
         if (!(instr & (1 << 5))) break;
-        return pdp11_op_ccc_scc(
+        return pdp11_op_clnzvc_senzvc(
             self,
             instr & (1 << 4),
             instr & (1 << 3),
@@ -514,7 +516,7 @@ void pdp11_op_exec(Pdp11 *const self, uint16_t const instr) {
         );
     }
     switch (opcode_15_3) {
-    case 000020: return pdp11_op_rts(self, (instr >> 0) & 07);
+    case 000020: return pdp11_op_rts(self, bits(instr, 0, 2));
     }
     switch (opcode_15_0) {
     case 0000002: return pdp11_op_rti(self);
@@ -610,7 +612,7 @@ void pdp11_op_bis(
     uint16_t *const dst
 ) {
     *dst |= *src;
-    pdp11_ps_test_word_for_flags(pdp11_ps(self), *dst);
+    pdp11_ps_test_word_for_flags(&pdp11_ps(self), *dst);
 }
 void pdp11_op_bic(
     Pdp11 *const self,
@@ -618,14 +620,14 @@ void pdp11_op_bic(
     uint16_t *const dst
 ) {
     *dst &= ~*src;
-    pdp11_ps_test_word_for_flags(pdp11_ps(self), *dst);
+    pdp11_ps_test_word_for_flags(&pdp11_ps(self), *dst);
 }
 void pdp11_op_bit(
     Pdp11 *const self,
     uint16_t const *const src,
     uint16_t const *const dst
 ) {
-    pdp11_ps_test_word_for_flags(pdp11_ps(self), *dst ^ *src);
+    pdp11_ps_test_word_for_flags(&pdp11_ps(self), *dst ^ *src);
 }
 
 void pdp11_op_bisb(
@@ -634,7 +636,7 @@ void pdp11_op_bisb(
     uint8_t *const dst
 ) {
     *dst |= *src;
-    pdp11_ps_test_byte_for_flags(pdp11_ps(self), *dst);
+    pdp11_ps_test_byte_for_flags(&pdp11_ps(self), *dst);
 }
 void pdp11_op_bicb(
     Pdp11 *const self,
@@ -642,14 +644,14 @@ void pdp11_op_bicb(
     uint8_t *const dst
 ) {
     *dst &= ~*src;
-    pdp11_ps_test_byte_for_flags(pdp11_ps(self), *dst);
+    pdp11_ps_test_byte_for_flags(&pdp11_ps(self), *dst);
 }
 void pdp11_op_bitb(
     Pdp11 *const self,
     uint8_t const *const src,
     uint8_t const *const dst
 ) {
-    pdp11_ps_test_byte_for_flags(pdp11_ps(self), *dst ^ *src);
+    pdp11_ps_test_byte_for_flags(&pdp11_ps(self), *dst ^ *src);
 }
 
 // BRANCHES
@@ -701,13 +703,13 @@ void pdp11_op_sob(Pdp11 *const self, unsigned const r_i, uint8_t const off) {
 // SUBROUTINE
 
 void pdp11_op_jsr(Pdp11 *const self, unsigned const r_i, uint16_t *const src) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 void pdp11_op_rts(Pdp11 *const self, unsigned const r_i) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
-void pdp11_op_rti(Pdp11 *const self, unsigned const r_i) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+void pdp11_op_rti(Pdp11 *const self) {
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 
 // TRAP
@@ -717,16 +719,16 @@ void pdp11_op_emt_trap(
     bool const is_trap,
     uint8_t const code
 ) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 void pdp11_op_bpt(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 void pdp11_op_iot(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 void pdp11_op_rtt(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 
 // SINGLE-OP
@@ -769,12 +771,24 @@ void pdp11_op_com(Pdp11 *const self, uint16_t *const dst) {
     pdp11_ps_test_word_for_flags_x(&pdp11_ps(self), result);
 }
 
-void pdp11_op_clrb(Pdp11 *const self, uint8_t *const dst);
-void pdp11_op_incb(Pdp11 *const self, uint8_t *const dst);
-void pdp11_op_decb(Pdp11 *const self, uint8_t *const dst);
-void pdp11_op_negb(Pdp11 *const self, uint8_t *const dst);
-void pdp11_op_tstb(Pdp11 *const self, uint8_t const *const src);
-void pdp11_op_comb(Pdp11 *const self, uint8_t *const dst);
+void pdp11_op_clrb(Pdp11 *const self, uint8_t *const dst) {
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+}
+void pdp11_op_incb(Pdp11 *const self, uint8_t *const dst) {
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+}
+void pdp11_op_decb(Pdp11 *const self, uint8_t *const dst) {
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+}
+void pdp11_op_negb(Pdp11 *const self, uint8_t *const dst) {
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+}
+void pdp11_op_tstb(Pdp11 *const self, uint8_t const *const src) {
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+}
+void pdp11_op_comb(Pdp11 *const self, uint8_t *const dst) {
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+}
 
 // multiple-percision
 
@@ -796,43 +810,43 @@ void pdp11_op_sbcb(Pdp11 *const self, uint8_t *const dst) {
 
 // TODO badly implemented
 void pdp11_op_ror(Pdp11 *const self, uint16_t *const dst) {
-    Pdp11 *const ps = &pdp11_ps(self);
+    Pdp11Ps *const ps = &pdp11_ps(self);
 
     uint32_t const dstx = (uint32_t)*dst | (pdp11_ps(self).cf << 16);
     ps->cf = bit(dstx, 0);
     *dst = dstx >> 1;
-    pdp11_ps_test_word_for_flags(self, *dst);
+    pdp11_ps_test_word_for_flags(ps, *dst);
     ps->vf = ps->nf ^ ps->cf;
 }
 void pdp11_op_rol(Pdp11 *const self, uint16_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 void pdp11_op_swab(Pdp11 *const self, uint16_t *const dst) {
     *dst = (uint16_t)(*dst << 8) | (uint8_t)(*dst >> 8);
-    pdp11_ps_test_word_for_flags(self, *dst);
+    pdp11_ps_test_word_for_flags(&pdp11_ps(self), *dst);
 }
 
 void pdp11_op_rorb(Pdp11 *const self, uint8_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 void pdp11_op_rolb(Pdp11 *const self, uint8_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 
 // shifts
 
 void pdp11_op_asr(Pdp11 *const self, uint16_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 void pdp11_op_asl(Pdp11 *const self, uint16_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 
 void pdp11_op_asrb(Pdp11 *const self, uint8_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 void pdp11_op_aslb(Pdp11 *const self, uint8_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 
 // CONDITION CODES
@@ -854,13 +868,13 @@ void pdp11_op_clnzvc_senzvc(
 // MISC.
 
 void pdp11_op_halt(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 void pdp11_op_wait(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 void pdp11_op_reset(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 // NOTE `nop` is already implemented with `clnzvc`/`senzvc`
 
@@ -870,57 +884,36 @@ void pdp11_op_mul(
     Pdp11 *const self,
     unsigned const r_i,
     uint16_t const *const src
-);
+) {
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+}
 void pdp11_op_div(
     Pdp11 *const self,
     unsigned const r_i,
     uint16_t const *const src
-);
+) {
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+}
 
 void pdp11_op_ash(
     Pdp11 *const self,
     unsigned const r_i,
     uint16_t const *const src
-);
+) {
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+}
 void pdp11_op_ashc(
     Pdp11 *const self,
     unsigned const r_i,
     uint16_t const *const src
-);
-
-void pdp11_op_xor(Pdp11 *const self, unsigned const r_i, uint16_t *const dst);
-
-// TODO! have no idea if this should be a byte or a word
-void pdp11_op_sxt(Pdp11 *const self, uint16_t *const dst);
-// TODO! some of theese should set condition codes
-
-// dual-op
-//
-//
-//
-//
-//
-//
-//
-//
-
-// limited dual-op
-
-void pdp11_op_mul(
-    Pdp11 *const self,
-    unsigned const r_i,
-    uint16_t const *const src
 ) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
-}
-void pdp11_op_div(
-    Pdp11 *const self,
-    unsigned const r_i,
-    uint16_t const *const src
-) {
-    printf("\tsorry, %s was not implemented (yet)", __func__);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 
 void pdp11_op_xor(Pdp11 *const self, unsigned const r_i, uint16_t *const dst) {
-    *dst = *dst ^ pdp11_rx(self, r_i);
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+}
+
+void pdp11_op_sxt(Pdp11 *const self, uint16_t *const dst) {
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
