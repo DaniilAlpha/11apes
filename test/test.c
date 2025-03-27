@@ -1,4 +1,6 @@
 #include <assert.h>
+
+#define MIUNTE_STOP_ON_FAILURE (1)
 #include <miunte.h>
 
 #include "conviniences.h"
@@ -32,11 +34,11 @@ static uint16_t pdp_test_dop_da_instr(
     uint16_t const x,
     uint16_t const y
 ) {
-    pdp11_rx(&pdp, 0) = addr, pdp11_ram_word_at(&pdp, addr) = x;
+    pdp11_rx(&pdp, 0) = addr, pdp11_ram_word_at(&pdp, pdp11_rx(&pdp, 0)) = x;
     pdp11_rx(&pdp, 1) = y;
     pdp11_ram_word_at(&pdp, pdp11_pc(&pdp)) = instr;
     pdp11_step(&pdp);
-    return pdp11_ram_word_at(&pdp, addr);
+    return pdp11_ram_word_at(&pdp, pdp11_rx(&pdp, 0));
 }
 static uint16_t pdp_test_dop_ia_instr(
     uint16_t const instr,
@@ -45,12 +47,13 @@ static uint16_t pdp_test_dop_ia_instr(
     uint16_t const x,
     uint16_t const y
 ) {
-    pdp11_rx(&pdp, 0) = addr, pdp11_ram_word_at(&pdp, addr + off) = x;
+    pdp11_rx(&pdp, 0) = addr,
+                   pdp11_ram_word_at(&pdp, pdp11_rx(&pdp, 0) + off) = x;
     pdp11_rx(&pdp, 1) = y;
     pdp11_ram_word_at(&pdp, pdp11_pc(&pdp)) = instr;
     pdp11_ram_word_at(&pdp, pdp11_pc(&pdp) + 2) = off;
     pdp11_step(&pdp);
-    return pdp11_ram_word_at(&pdp, addr + off);
+    return pdp11_ram_word_at(&pdp, pdp11_rx(&pdp, 0) + off);
 }
 
 /***********
@@ -72,30 +75,146 @@ static MiunteResult pdp_test_addressing() {
 
     MIUNTE_EXPECT(
         pdp_test_dop_ra_instr(0010100 /* mov R0, R1 */, x, y) == y,
-        "mov to register should give the correct result"
+        "register addressing should work correctly"
     );
     MIUNTE_EXPECT(
         pdp_test_dop_da_instr(0010110 /* mov (R0), R1 */, 0x0042, x, y) == y,
-        "mov to memory at register should give the correct result"
+        "deferred addressing should work correctly"
     );
     MIUNTE_EXPECT(
         pdp_test_dop_ia_instr(0010160 /* mov 24(R0), R1 */, 0x0042, 24, x, y) ==
             y,
-        "mov to memory at register + index should give the correct result"
+        "indexed deferred addressing should work correctly"
     );
     MIUNTE_PASS();
 }
 
-static MiunteResult pdp_test_movb() {
-    uint16_t const x = -123;
+static MiunteResult pdp_test_mov_movb() {
+    Pdp11Ps *const ps = &pdp11_ps(&pdp);
+    ps->cf = 1;
+
+    {
+        uint16_t const x = 1;
+
+        MIUNTE_EXPECT(
+            pdp_test_dop_ra_instr(0010100 /* mov R0, R1 */, 0, x) == x,
+            "mov should move correctly"
+        );
+        MIUNTE_EXPECT(
+            !ps->nf && !ps->zf && !ps->vf,
+            "mov of regular number should have {nzv} flags = {000}"
+        );
+    }
+    MIUNTE_EXPECT(ps->cf == 1, "mov should not affect c flag");
+
+    {
+        uint16_t const x = 0;
+
+        MIUNTE_EXPECT(
+            pdp_test_dop_ra_instr(0010100 /* mov R0, R1 */, 1, x) == x,
+            "mov should move correctly"
+        );
+        MIUNTE_EXPECT(
+            !ps->nf && ps->zf && !ps->vf,
+            "mov of zero should have {nzv} flags = {010}"
+        );
+    }
+
+    {
+        uint16_t const x = -1;
+
+        MIUNTE_EXPECT(
+            pdp_test_dop_ra_instr(0010100 /* mov R0, R1 */, 0, x) == x,
+            "mov should move correctly"
+        );
+        MIUNTE_EXPECT(
+            ps->nf && !ps->zf && !ps->vf,
+            "mov of negative number should have {nzv} flags = {100}"
+        );
+    }
 
     MIUNTE_EXPECT(
-        pdp_test_dop_ra_instr(0110100 /* movb R1, R0 */, 0, x & 0xFF) == x,
+        (int16_t)pdp_test_dop_ra_instr(0110100 /* movb R1, R0 */, 0, -1) < 0,
         "movb to register should sign-extend the operand"
     );
+
     MIUNTE_PASS();
 }
+static MiunteResult pdp_test_add() {
+    Pdp11Ps *const ps = &pdp11_ps(&pdp);
 
+    {
+        uint16_t const x = 3, y = 2;
+
+        MIUNTE_EXPECT(
+            pdp_test_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
+                (uint16_t)(x + y),
+            "add should add correctly"
+        );
+        MIUNTE_EXPECT(
+            !ps->nf && !ps->zf && !ps->vf && !ps->cf,
+            "add of regular result should have {nzvc} flags = {0000}"
+        );
+    }
+
+    {
+        uint16_t const x = 3, y = -3;
+
+        MIUNTE_EXPECT(
+            pdp_test_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
+                (uint16_t)(x + y),
+            "add should add correctly"
+        );
+        MIUNTE_EXPECT(
+            !ps->nf && ps->zf && !ps->vf && !ps->cf,
+            "add of zero result should have {nzvc} flags = {0100}"
+        );
+    }
+
+    {
+        uint16_t const x = 3, y = -4;
+
+        MIUNTE_EXPECT(
+            pdp_test_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
+                (uint16_t)(x + y),
+            "add should add correctly"
+        );
+        MIUNTE_EXPECT(
+            ps->nf && !ps->zf && !ps->vf && !ps->cf,
+            "add of negative result should have {nzvc} flags = {1000}"
+        );
+    }
+
+    {
+        uint16_t const x = 32000, y = 769;
+
+        MIUNTE_EXPECT(
+            pdp_test_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
+                (uint16_t)(x + y),
+            "add should add correctly"
+        );
+        MIUNTE_EXPECT(
+            ps->nf && !ps->zf && ps->vf && !ps->cf,
+            "add of overflow result should have {nzvc} flags = {1010}"
+        );
+    }
+
+    {
+        uint16_t const x = 65000, y = 536;
+
+        MIUNTE_EXPECT(
+            pdp_test_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
+                (uint16_t)(x + y),
+            "add should add correctly"
+        );
+        MIUNTE_EXPECT(
+            !ps->nf && !ps->zf && !ps->vf && ps->cf,
+            "add of unsigned overflow result should have {nzvc} flags = {0001}"
+        );
+    }
+
+    MIUNTE_PASS();
+}
 static MiunteResult pdp_test_cmp() {
     uint16_t const x = 24;
 
@@ -127,7 +246,9 @@ int main() {
         pdp_test_teardown,
         {
             pdp_test_addressing,
-            pdp_test_movb,
+
+            pdp_test_mov_movb,
+            pdp_test_add,
             pdp_test_cmp,  // TODO better test cmp flags
 
             // TODO test clr flags

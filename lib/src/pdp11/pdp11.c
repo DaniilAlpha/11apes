@@ -33,5 +33,27 @@ uint16_t pdp11_instr_next(Pdp11 *const self) {
 }
 
 void pdp11_step(Pdp11 *const self) {
-    pdp11_op_exec(self, pdp11_instr_next(self));
+    uint16_t const instr = pdp11_instr_next(self);
+
+    Pdp11Ps *const ps = &pdp11_ps(self);
+    printf(
+        "exec: 0%06o\tps: p%03o %s %s%s%s%s -> ",
+        instr,
+        ps->priority,
+        ps->tf ? "T" : ".",
+        ps->nf ? "N" : ".",
+        ps->zf ? "Z" : ".",
+        ps->vf ? "V" : ".",
+        ps->cf ? "C" : "."
+    );
+    pdp11_op_exec(self, instr);
+    printf(
+        "p%03o %s %s%s%s%s\n",
+        ps->priority,
+        ps->tf ? "T" : ".",
+        ps->nf ? "N" : ".",
+        ps->zf ? "Z" : ".",
+        ps->vf ? "V" : ".",
+        ps->cf ? "C" : "."
+    );
 }

@@ -197,13 +197,14 @@ static forceinline void pdp11_op_clnzvc_senzvc(
  ** private **
  *************/
 
+// TODO!!!!! all flags stuff does not work
 static inline void
 pdp11_ps_test_word_for_flags(Pdp11Ps *const self, int16_t const value) {
     *self = (Pdp11Ps){
         .priority = self->priority,
         .tf = self->tf,
-        .nf = value < 0,
-        .zf = value == 0,
+        .nf = (int16_t)value < 0,
+        .zf = (int16_t)value == 0,
         .vf = 0,
         .cf = self->cf,
     };
@@ -213,20 +214,19 @@ pdp11_ps_test_word_for_flags_x(Pdp11Ps *const self, int32_t const value) {
     *self = (Pdp11Ps){
         .priority = self->priority,
         .tf = self->tf,
-        .nf = value < 0,
-        .zf = value == 0,
+        .nf = (int16_t)value < 0,
+        .zf = (int16_t)value == 0,
         .vf = bit(value, 31) != bit(value, 15),
         .cf = bit(value, 31) != bit(value, 16),
     };
 }
-// TODO wrongly implemented
 static inline void
 pdp11_ps_test_byte_for_flags(Pdp11Ps *const self, int8_t const value) {
     *self = (Pdp11Ps){
         .priority = self->priority,
         .tf = self->tf,
-        .nf = value < 0,
-        .zf = value == 0,
+        .nf = (int8_t)value < 0,
+        .zf = (int8_t)value == 0,
         .vf = 0,
         .cf = self->cf,
     };
@@ -236,8 +236,8 @@ pdp11_ps_test_byte_for_flags_x(Pdp11Ps *const self, int16_t const value) {
     *self = (Pdp11Ps){
         .priority = self->priority,
         .tf = self->tf,
-        .nf = value < 0,
-        .zf = value == 0,
+        .nf = (int8_t)value < 0,
+        .zf = (int8_t)value == 0,
         .vf = bit(value, 15) != bit(value, 7),
         .cf = bit(value, 15) != bit(value, 8),
     };
@@ -355,16 +355,6 @@ void pdp11_op_exec(Pdp11 *const self, uint16_t const instr) {
     unsigned const op_11_6 = bits(instr, 6, 11), op_8_6 = bits(instr, 6, 8),
                    op_5_0 = bits(instr, 0, 5), op_8 = bit(instr, 8),
                    op_7_0 = bits(instr, 0, 7), op_2_0 = bits(instr, 0, 2);
-
-    printf(
-        "executing : 0%06o, (0%02o 0%03o 0%04o 0%05o 0%06o)\n",
-        instr,
-        opcode_15_12,
-        opcode_15_9,
-        opcode_15_6,
-        opcode_15_3,
-        opcode_15_0
-    );
 
     switch (opcode_15_12) {
     case 001:
@@ -726,7 +716,7 @@ void pdp11_op_add(
     uint16_t const *const src,
     uint16_t *const dst
 ) {
-    int32_t const result = (int32_t)*dst + (int32_t)*src;
+    int32_t const result = (int32_t)(int16_t)*dst + (int32_t)(int16_t)*src;
     *dst = result;
     pdp11_ps_test_word_for_flags_x(&pdp11_ps(self), result);
 }
@@ -735,7 +725,7 @@ void pdp11_op_sub(
     uint16_t const *const src,
     uint16_t *const dst
 ) {
-    int32_t const result = (int32_t)*dst - (int32_t)*src;
+    int32_t const result = (int32_t)(int16_t)*dst - (int32_t)(int16_t)*src;
     *dst = result;
     pdp11_ps_test_word_for_flags_x(&pdp11_ps(self), result);
 }
@@ -746,7 +736,7 @@ void pdp11_op_cmp(
 ) {
     pdp11_ps_test_word_for_flags_x(
         &pdp11_ps(self),
-        (int32_t)*src - (int32_t)*dst
+        (int32_t)(int16_t)*src - (int32_t)(int16_t)*dst
     );
 }
 void pdp11_op_cmpb(
@@ -756,7 +746,7 @@ void pdp11_op_cmpb(
 ) {
     pdp11_ps_test_byte_for_flags_x(
         &pdp11_ps(self),
-        (int16_t)*src - (int16_t)*dst
+        (int16_t)(int8_t)*src - (int16_t)(int8_t)*dst
     );
 }
 
