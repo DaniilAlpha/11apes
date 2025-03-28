@@ -350,6 +350,11 @@ int main() {
         {
             pdp_test_addressing,
 
+            // TODO test inc/dec
+            // TODO test neg/com, especially flags
+
+            // TODO test adc/sbc, especially flags
+
             pdp_test_mov_movb,
             pdp_test_add_sub,
             pdp_test_cmp,
@@ -357,13 +362,6 @@ int main() {
             pdp_test_bit,
             // TODO test some of the branches
             // TODO test sob
-
-            // TODO test clr flags
-            // TODO test inc/dec flags
-            // TODO test tst flags
-            // TODO test neg/com flags
-
-            // TODO test neg, as not sure in the rightness of the implon
         }
     );
 }

@@ -552,8 +552,9 @@ void pdp11_op_exec(Pdp11 *const self, uint16_t const instr) {
 // general
 
 void pdp11_op_clr(Pdp11 *const self, uint16_t *const dst) {
-    *dst = 0;
     Pdp11Ps *const ps = &pdp11_ps(self);
+
+    *dst = 0;
     *ps = (Pdp11Ps){
         .priority = ps->priority,
         .tf = ps->tf,
@@ -564,8 +565,9 @@ void pdp11_op_clr(Pdp11 *const self, uint16_t *const dst) {
     };
 }
 void pdp11_op_clrb(Pdp11 *const self, uint8_t *const dst) {
-    *dst = 0;
     Pdp11Ps *const ps = &pdp11_ps(self);
+
+    *dst = 0;
     *ps = (Pdp11Ps){
         .priority = ps->priority,
         .tf = ps->tf,
@@ -576,53 +578,133 @@ void pdp11_op_clrb(Pdp11 *const self, uint8_t *const dst) {
     };
 }
 void pdp11_op_inc(Pdp11 *const self, uint16_t *const dst) {
-    static uint16_t const src = 1;
-    pdp11_op_add(self, &src, dst);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+
+    (*dst)++;
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 15),
+        .zf = *dst == 0,
+        .vf = *dst == 0x8000,
+        .cf = ps->cf,
+    };
 }
 void pdp11_op_incb(Pdp11 *const self, uint8_t *const dst) {
-    int16_t const result = (int16_t)*dst + 1;
-    *dst = result;
-    pdp11_ps_set_flags_from_xbyte(&pdp11_ps(self), result, false);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+
+    (*dst)++;
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 7),
+        .zf = *dst == 0,
+        .vf = *dst == 0x80,
+        .cf = ps->cf,
+    };
 }
 void pdp11_op_dec(Pdp11 *const self, uint16_t *const dst) {
-    static uint16_t const src = -1;
-    pdp11_op_sub(self, &src, dst);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+
+    (*dst)--;
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 15),
+        .zf = *dst == 0,
+        .vf = *dst == 0x7FFF,
+        .cf = ps->cf,
+    };
 }
 void pdp11_op_decb(Pdp11 *const self, uint8_t *const dst) {
-    int16_t const result = (int16_t)*dst - 1;
-    *dst = result;
-    pdp11_ps_set_flags_from_xbyte(&pdp11_ps(self), result, true);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+
+    (*dst)--;
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 7),
+        .zf = *dst == 0,
+        .vf = *dst == 0x7F,
+        .cf = ps->cf,
+    };
 }
 
 void pdp11_op_neg(Pdp11 *const self, uint16_t *const dst) {
-    int32_t const result = -(int32_t)*dst;
-    *dst = result;
-    pdp11_ps_set_flags_from_xword(&pdp11_ps(self), result, true);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+
+    *dst = -*dst;
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 15),
+        .zf = *dst == 0,
+        .vf = *dst == 0x8000,
+        .cf = *dst != 0,
+    };
 }
 void pdp11_op_negb(Pdp11 *const self, uint8_t *const dst) {
-    int16_t const result = -(int16_t)*dst;
-    *dst = result;
-    pdp11_ps_set_flags_from_xbyte(&pdp11_ps(self), result, true);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+
+    *dst = -*dst;
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 7),
+        .zf = *dst == 0,
+        .vf = *dst == 0x80,
+        .cf = *dst != 0,
+    };
 }
 
 void pdp11_op_tst(Pdp11 *const self, uint16_t const *const src) {
-    static uint16_t const dst = 0;
-    pdp11_op_cmp(self, src, &dst);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*src, 15),
+        .zf = *src == 0,
+        .vf = 0,
+        .cf = 0,
+    };
 }
 void pdp11_op_tstb(Pdp11 *const self, uint8_t const *const src) {
-    static uint8_t const dst = 0;
-    pdp11_op_cmpb(self, src, &dst);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*src, 7),
+        .zf = *src == 0,
+        .vf = 0,
+        .cf = 0,
+    };
 }
 
 void pdp11_op_com(Pdp11 *const self, uint16_t *const dst) {
-    int32_t const result = ~(int32_t)*dst;
-    *dst = result;
-    pdp11_ps_set_flags_from_xword(&pdp11_ps(self), result, true);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+
+    *dst = ~*dst;
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 15),
+        .zf = *dst == 0,
+        .vf = 0,
+        .cf = 1,
+    };
 }
 void pdp11_op_comb(Pdp11 *const self, uint8_t *const dst) {
-    int16_t const result = ~(int16_t)*dst;
-    *dst = result;
-    pdp11_ps_set_flags_from_xbyte(&pdp11_ps(self), result, true);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+
+    *dst = ~*dst;
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 7),
+        .zf = *dst == 0,
+        .vf = 0,
+        .cf = 1,
+    };
 }
 
 // shifts
@@ -650,21 +732,61 @@ void pdp11_op_ashc(Pdp11 *const self, unsigned const r_i, uint16_t *const dst) {
 // multiple-percision
 
 void pdp11_op_adc(Pdp11 *const self, uint16_t *const dst) {
-    if (pdp11_ps(self).cf) pdp11_op_inc(self, dst);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+
+    *dst += ps->cf;
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 15),
+        .zf = *dst == 0,
+        .vf = ps->cf && *dst == 0x8000,
+        .cf = ps->cf && *dst == 0x0000,
+    };
 }
 void pdp11_op_adcb(Pdp11 *const self, uint8_t *const dst) {
-    if (pdp11_ps(self).cf) pdp11_op_incb(self, dst);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+
+    *dst += ps->cf;
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 7),
+        .zf = *dst == 0,
+        .vf = ps->cf && *dst == 0x80,
+        .cf = ps->cf && *dst == 0x00,
+    };
 }
 void pdp11_op_sbc(Pdp11 *const self, uint16_t *const dst) {
-    if (pdp11_ps(self).cf) pdp11_op_dec(self, dst);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+
+    *dst -= ps->cf;
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 15),
+        .zf = *dst == 0,
+        .vf = ps->cf && *dst == 0x7FFF,
+        .cf = ps->cf && *dst == 0xFFFF,
+    };
 }
 void pdp11_op_sbcb(Pdp11 *const self, uint8_t *const dst) {
-    if (pdp11_ps(self).cf) pdp11_op_decb(self, dst);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+
+    *dst -= ps->cf;
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 7),
+        .zf = *dst == 0,
+        .vf = ps->cf && *dst == 0x7F,
+        .cf = ps->cf && *dst == 0xFF,
+    };
 }
 
 void pdp11_op_sxt(Pdp11 *const self, uint16_t *const dst) {
     Pdp11Ps *const ps = &pdp11_ps(self);
-    *dst = -ps->nf;
+    *dst = ps->nf ? 0xFFFF : 0x0000;
     *ps = (Pdp11Ps){
         .priority = ps->priority,
         .tf = ps->tf,
@@ -679,13 +801,14 @@ void pdp11_op_sxt(Pdp11 *const self, uint16_t *const dst) {
 
 // TODO badly implemented
 void pdp11_op_ror(Pdp11 *const self, uint16_t *const dst) {
-    Pdp11Ps *const ps = &pdp11_ps(self);
+    /* Pdp11Ps *const ps = &pdp11_ps(self);
 
-    uint32_t const dstx = (uint32_t)*dst | (pdp11_ps(self).cf << 16);
-    ps->cf = BIT(dstx, 0);
-    *dst = dstx >> 1;
-    pdp11_ps_set_flags_from_word(ps, *dst);
-    ps->vf = ps->nf ^ ps->cf;
+        uint32_t const dstx = (uint32_t)*dst | (pdp11_ps(self).cf << 16);
+        ps->cf = BIT(dstx, 0);
+        *dst = dstx >> 1;
+        pdp11_ps_set_flags_from_word(ps, *dst);
+        ps->vf = ps->nf ^ ps->cf; */
+    printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 void pdp11_op_rorb(Pdp11 *const self, uint8_t *const dst) {
     printf("\tsorry, %s was not implemented (yet)\n", __func__);
@@ -698,8 +821,17 @@ void pdp11_op_rolb(Pdp11 *const self, uint8_t *const dst) {
 }
 
 void pdp11_op_swab(Pdp11 *const self, uint16_t *const dst) {
+    Pdp11Ps *const ps = &pdp11_ps(self);
+
     *dst = (uint16_t)(*dst << 8) | (uint8_t)(*dst >> 8);
-    pdp11_ps_set_flags_from_word(&pdp11_ps(self), *dst);
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 7),
+        .zf = (uint8_t)*dst == 0,
+        .vf = 0,
+        .cf = 0,
+    };
 }
 
 // DUAL-OP
@@ -855,7 +987,7 @@ void pdp11_op_bis(
     uint16_t *const dst
 ) {
     *dst |= *src;
-    pdp11_op_bit(self, src, dst);
+    pdp11_op_bit(self, dst, dst);
 }
 void pdp11_op_bisb(
     Pdp11 *const self,
@@ -863,7 +995,7 @@ void pdp11_op_bisb(
     uint8_t *const dst
 ) {
     *dst |= *src;
-    pdp11_op_bitb(self, src, dst);
+    pdp11_op_bitb(self, dst, dst);
 }
 void pdp11_op_bic(
     Pdp11 *const self,
@@ -871,7 +1003,7 @@ void pdp11_op_bic(
     uint16_t *const dst
 ) {
     *dst &= ~*src;
-    pdp11_op_bit(self, src, dst);
+    pdp11_op_bit(self, dst, dst);
 }
 void pdp11_op_bicb(
     Pdp11 *const self,
@@ -879,7 +1011,7 @@ void pdp11_op_bicb(
     uint8_t *const dst
 ) {
     *dst &= ~*src;
-    pdp11_op_bitb(self, src, dst);
+    pdp11_op_bitb(self, dst, dst);
 }
 
 // PROGRAM CONTROL
