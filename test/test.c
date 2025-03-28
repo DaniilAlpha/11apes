@@ -3,13 +3,7 @@
 #define MIUNTE_STOP_ON_FAILURE (1)
 #include <miunte.h>
 
-#include "conviniences.h"
 #include "pdp11/pdp11.h"
-
-static_assert(bits(0x1120, 0, 3) == 0, "bits macro should work as expected");
-static_assert(bits(0x1120, 4, 7) == 2, "bits macro should work as expected");
-static_assert(bits(0x1120, 0, 7) == 0x20, "bits macro should work as expected");
-static_assert(bits(0x1120, 12, 15) == 1, "bits macro should work as expected");
 
 Pdp11 pdp = {0};
 
@@ -140,7 +134,7 @@ static MiunteResult pdp_test_mov_movb() {
 
     MIUNTE_PASS();
 }
-static MiunteResult pdp_test_add() {
+static MiunteResult pdp_test_add_sub() {
     Pdp11Ps *const ps = &pdp11_ps(&pdp);
 
     {
@@ -153,7 +147,7 @@ static MiunteResult pdp_test_add() {
         );
         MIUNTE_EXPECT(
             !ps->nf && !ps->zf && !ps->vf && !ps->cf,
-            "add of regular result should have {nzvc} flags = {0000}"
+            "add of regular result should result in {nzvc} flags = {0000}"
         );
     }
 
@@ -166,8 +160,8 @@ static MiunteResult pdp_test_add() {
             "add should add correctly"
         );
         MIUNTE_EXPECT(
-            !ps->nf && ps->zf && !ps->vf && !ps->cf,
-            "add of zero result should have {nzvc} flags = {0100}"
+            !ps->nf && ps->zf && !ps->vf && ps->cf,
+            "add of zero result should result in {nzvc} flags = {0101}"
         );
     }
 
@@ -181,12 +175,12 @@ static MiunteResult pdp_test_add() {
         );
         MIUNTE_EXPECT(
             ps->nf && !ps->zf && !ps->vf && !ps->cf,
-            "add of negative result should have {nzvc} flags = {1000}"
+            "add of negative result should result in {nzvc} flags = {1000}"
         );
     }
 
     {
-        uint16_t const x = 32000, y = 769;
+        uint16_t const x = 32000, y = 768;
 
         MIUNTE_EXPECT(
             pdp_test_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
@@ -195,12 +189,12 @@ static MiunteResult pdp_test_add() {
         );
         MIUNTE_EXPECT(
             ps->nf && !ps->zf && ps->vf && !ps->cf,
-            "add of overflow result should have {nzvc} flags = {1010}"
+            "add of overflow result should result in {nzvc} flags = {1010}"
         );
     }
 
     {
-        uint16_t const x = 65000, y = 536;
+        uint16_t const x = 65000, y = 1000;
 
         MIUNTE_EXPECT(
             pdp_test_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
@@ -209,28 +203,47 @@ static MiunteResult pdp_test_add() {
         );
         MIUNTE_EXPECT(
             !ps->nf && !ps->zf && !ps->vf && ps->cf,
-            "add of unsigned overflow result should have {nzvc} flags = {0001}"
+            "add of unsigned overflow result should result in {nzvc} flags = {0001}"
+        );
+    }
+
+    {
+        uint16_t const x = 3, y = 3;
+
+        MIUNTE_EXPECT(
+            pdp_test_dop_ra_instr(0160100 /* sub R0, R1 */, x, y) ==
+                (uint16_t)(x - y),
+            "sub should subtract correctly"
+        );
+        MIUNTE_EXPECT(
+            !ps->nf && ps->zf && !ps->vf && !ps->cf,
+            "sub of zero result should result in {nzvc} flags = {0100} (carry is opposite from add)"
         );
     }
 
     MIUNTE_PASS();
 }
 static MiunteResult pdp_test_cmp() {
+    Pdp11Ps *const ps = &pdp11_ps(&pdp);
+
     uint16_t const x = 24;
 
     pdp_test_dop_ra_instr(0020001 /* cmp R0, R1 */, x, x);
-    MIUNTE_EXPECT(pdp11_ps(&pdp).zf == 1, "cmp of equal values should set ZF");
+    MIUNTE_EXPECT(
+        !ps->nf && ps->zf && !ps->vf && !ps->cf,
+        "cmp of equal values should result in {nzvc} flags = {0100}"
+    );
 
     pdp_test_dop_ra_instr(0020001 /* cmp R0, R1 */, x + 1, x);
     MIUNTE_EXPECT(
-        (pdp11_ps(&pdp).nf ^ pdp11_ps(&pdp).vf) == 0,
-        "cmp of greater value should set NF and VF to the same value"
+        !ps->nf && !ps->zf && !ps->vf && !ps->cf,
+        "cmp of greater value should result in {nzvc} flags = {0000}"
     );
 
     pdp_test_dop_ra_instr(0020001 /* cmp R0, R1 */, x, x + 1);
     MIUNTE_EXPECT(
-        (pdp11_ps(&pdp).nf ^ pdp11_ps(&pdp).vf) == 1,
-        "cmp of lesser value should set NF and VF to the different value"
+        ps->nf && !ps->zf && !ps->vf && ps->cf,
+        "cmp of lesser value should result in {nzvc} flags = {1001}"
     );
 
     MIUNTE_PASS();
@@ -248,21 +261,18 @@ int main() {
             pdp_test_addressing,
 
             pdp_test_mov_movb,
-            pdp_test_add,
-            pdp_test_cmp,  // TODO better test cmp flags
+            pdp_test_add_sub,
+            pdp_test_cmp,
 
             // TODO test clr flags
             // TODO test inc/dec flags
             // TODO test tst flags
             // TODO test neg/com flags
-            // TODO test mov flags
-            // TODO test mul flags
-            // TODO test div flags
+            // TODO test mul/div flags
             // TODO test bit flags
             // TODO test some of the branches
-            //
+
             // TODO test neg, as not sure in the rightness of the implon
-            // TODO check if flags are correctly set on core set of arith ops
         }
     );
 }
