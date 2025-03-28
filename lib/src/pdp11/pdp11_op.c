@@ -111,11 +111,7 @@ pdp11_op_xor(Pdp11 *const self, unsigned const r_i, uint16_t *const dst);
 
 // logical
 
-static forceinline void
-pdp11_op_bis(Pdp11 *const self, uint16_t const *const src, uint16_t *const dst);
-static forceinline void
-pdp11_op_bisb(Pdp11 *const self, uint8_t const *const src, uint8_t *const dst);
-static forceinline void pdp11_op_BIT(
+static forceinline void pdp11_op_bit(
     Pdp11 *const self,
     uint16_t const *const src,
     uint16_t const *const dst
@@ -125,6 +121,10 @@ static forceinline void pdp11_op_bitb(
     uint8_t const *const src,
     uint8_t const *const dst
 );
+static forceinline void
+pdp11_op_bis(Pdp11 *const self, uint16_t const *const src, uint16_t *const dst);
+static forceinline void
+pdp11_op_bisb(Pdp11 *const self, uint8_t const *const src, uint8_t *const dst);
 static forceinline void
 pdp11_op_bic(Pdp11 *const self, uint16_t const *const src, uint16_t *const dst);
 static forceinline void
@@ -400,7 +400,7 @@ void pdp11_op_exec(Pdp11 *const self, uint16_t const instr) {
             pdp11_address_byte(self, op_5_0)
         );
     case 003:
-        return pdp11_op_BIT(
+        return pdp11_op_bit(
             self,
             pdp11_address_word(self, op_11_6),
             pdp11_address_word(self, op_5_0)
@@ -777,25 +777,55 @@ void pdp11_op_mul(
     unsigned const r_i,
     uint16_t const *const src
 ) {
-    uint32_t const result = pdp11_rx(self, r_i) * *src;
+    Pdp11Ps *const ps = &pdp11_ps(self);
+
+    uint32_t const result =
+        (uint32_t)((int16_t)*src * (int16_t)pdp11_rx(self, r_i));
     if ((r_i & 1) == 0) pdp11_rx(self, r_i | 1) = (uint16_t)(result >> 16);
     pdp11_rx(self, r_i) = (uint16_t)result;
 
-    // TODO may not work
-    pdp11_ps_set_flags_from_xbyte(&pdp11_ps(self), result, false);
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(result, 15),
+        .zf = (uint16_t)result == 0,
+        .vf = 0,
+        .cf = (uint16_t)(result >> 16) != (BIT(result, 15) ? 0xFFFF : 0x0000),
+    };
 }
 void pdp11_op_div(
     Pdp11 *const self,
     unsigned const r_i,
     uint16_t const *const src
 ) {
-    uint32_t result = pdp11_rx(self, r_i);
-    if ((r_i & 1) == 0) result |= pdp11_rx(self, r_i | 1) << 16;
-    pdp11_rx(self, r_i) = result / *src;
-    if ((r_i & 1) == 0) pdp11_rx(self, r_i) = result % *src;
+    Pdp11Ps *const ps = &pdp11_ps(self);
 
-    // TODO may not work
-    pdp11_ps_set_flags_from_xbyte(&pdp11_ps(self), result, true);
+    if (*src == 0) {
+        ps->vf = ps->cf = 1;
+        return;
+    }
+
+    uint32_t dst_value = pdp11_rx(self, r_i);
+    if ((r_i & 1) == 0) dst_value |= pdp11_rx(self, r_i | 1) << 16;
+
+    uint32_t const quotient = dst_value / *src;
+
+    if ((uint16_t)(quotient >> 16) != 0) {
+        ps->vf = 1;
+        return;
+    }
+
+    pdp11_rx(self, r_i) = quotient;
+    if ((r_i & 1) == 0) pdp11_rx(self, r_i) = dst_value % *src;
+
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(quotient, 15),
+        .zf = quotient == 0,
+        .vf = 0,
+        .cf = 0,
+    };
 }
 
 void pdp11_op_xor(Pdp11 *const self, unsigned const r_i, uint16_t *const dst) {
@@ -805,23 +835,7 @@ void pdp11_op_xor(Pdp11 *const self, unsigned const r_i, uint16_t *const dst) {
 
 // logical
 
-void pdp11_op_bis(
-    Pdp11 *const self,
-    uint16_t const *const src,
-    uint16_t *const dst
-) {
-    *dst |= *src;
-    pdp11_ps_set_flags_from_word(&pdp11_ps(self), *dst);
-}
-void pdp11_op_bisb(
-    Pdp11 *const self,
-    uint8_t const *const src,
-    uint8_t *const dst
-) {
-    *dst |= *src;
-    pdp11_ps_set_flags_from_byte(&pdp11_ps(self), *dst);
-}
-void pdp11_op_BIT(
+void pdp11_op_bit(
     Pdp11 *const self,
     uint16_t const *const src,
     uint16_t const *const dst
@@ -835,13 +849,29 @@ void pdp11_op_bitb(
 ) {
     pdp11_ps_set_flags_from_byte(&pdp11_ps(self), *dst & *src);
 }
+void pdp11_op_bis(
+    Pdp11 *const self,
+    uint16_t const *const src,
+    uint16_t *const dst
+) {
+    *dst |= *src;
+    pdp11_op_bit(self, src, dst);
+}
+void pdp11_op_bisb(
+    Pdp11 *const self,
+    uint8_t const *const src,
+    uint8_t *const dst
+) {
+    *dst |= *src;
+    pdp11_op_bitb(self, src, dst);
+}
 void pdp11_op_bic(
     Pdp11 *const self,
     uint16_t const *const src,
     uint16_t *const dst
 ) {
     *dst &= ~*src;
-    pdp11_ps_set_flags_from_word(&pdp11_ps(self), *dst);
+    pdp11_op_bit(self, src, dst);
 }
 void pdp11_op_bicb(
     Pdp11 *const self,
@@ -849,7 +879,7 @@ void pdp11_op_bicb(
     uint8_t *const dst
 ) {
     *dst &= ~*src;
-    pdp11_ps_set_flags_from_byte(&pdp11_ps(self), *dst);
+    pdp11_op_bitb(self, src, dst);
 }
 
 // PROGRAM CONTROL

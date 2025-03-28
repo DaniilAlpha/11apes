@@ -248,6 +248,96 @@ static MiunteResult pdp_test_cmp() {
 
     MIUNTE_PASS();
 }
+static MiunteResult pdp_test_mul_div() {
+    Pdp11Ps *const ps = &pdp11_ps(&pdp);
+
+    {
+        uint16_t const x = 3, y = 2;
+
+        MIUNTE_EXPECT(
+            pdp_test_dop_ra_instr(0070001 /* mul R0, R1 */, x, y) ==
+                (uint16_t)(x * y),
+            "mul should multiply correctly"
+        );
+        MIUNTE_EXPECT(
+            !ps->nf && !ps->zf && !ps->vf && !ps->cf,
+            "mul of regular result should result in {nzvc} flags = {0000}"
+        );
+    }
+
+    {
+        uint16_t const x = 3, y = 0;
+
+        MIUNTE_EXPECT(
+            pdp_test_dop_ra_instr(0070001 /* mul R0, R1 */, x, y) ==
+                (uint16_t)(x * y),
+            "mul should multiply correctly"
+        );
+        MIUNTE_EXPECT(
+            !ps->nf && ps->zf && !ps->vf && !ps->cf,
+            "mul of zero result should result in {nzvc} flags = {0100}"
+        );
+    }
+
+    {
+        uint16_t const x = 3, y = -2;
+
+        MIUNTE_EXPECT(
+            pdp_test_dop_ra_instr(0070001 /* mul R0, R1 */, x, y) ==
+                (uint16_t)(x * y),
+            "mul should multiply correctly"
+        );
+        MIUNTE_EXPECT(
+            ps->nf && !ps->zf && !ps->vf && !ps->cf,
+            "mul of negative result should result in {nzvc} flags = {1000}"
+        );
+    }
+
+    {
+        uint16_t const x = 32000, y = 2;
+
+        MIUNTE_EXPECT(
+            pdp_test_dop_ra_instr(0070001 /* mul R0, R1 */, x, y) ==
+                (uint16_t)(x * y),
+            "mul should multiply correctly"
+        );
+        MIUNTE_EXPECT(
+            ps->nf && !ps->zf && !ps->vf && ps->cf,
+            "mul of overflow result should result in {nzvc} flags = {1001}"
+        );
+    }
+
+    {
+        uint16_t const x = 42;
+
+        MIUNTE_EXPECT(
+            pdp_test_dop_ra_instr(0071001 /* div R0, R1 */, x, 0) == x,
+            "div by zero should leave register untouched"
+        );
+        MIUNTE_EXPECT(
+            ps->vf && ps->cf,
+            "div by zero result should result in {vc} flags = {11}"
+        );
+    }
+
+    MIUNTE_PASS();
+}
+static MiunteResult pdp_test_bit() {
+    Pdp11Ps *const ps = &pdp11_ps(&pdp);
+
+    uint16_t const x = 0x42;
+
+    MIUNTE_EXPECT(
+        pdp_test_dop_ra_instr(0030001 /* bit R0, R1 */, x, ~x) == x,
+        "bit should not modify registers"
+    );
+    MIUNTE_EXPECT(
+        !ps->nf && ps->zf && !ps->vf,
+        "bit of zero result should result in {nzv} flags = {010}"
+    );
+
+    MIUNTE_PASS();
+}
 
 /**********
  ** main **
@@ -263,14 +353,15 @@ int main() {
             pdp_test_mov_movb,
             pdp_test_add_sub,
             pdp_test_cmp,
+            pdp_test_mul_div,
+            pdp_test_bit,
+            // TODO test some of the branches
+            // TODO test sob
 
             // TODO test clr flags
             // TODO test inc/dec flags
             // TODO test tst flags
             // TODO test neg/com flags
-            // TODO test mul/div flags
-            // TODO test bit flags
-            // TODO test some of the branches
 
             // TODO test neg, as not sure in the rightness of the implon
         }
