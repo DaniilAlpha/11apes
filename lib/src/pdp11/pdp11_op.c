@@ -8,6 +8,10 @@
 #include "bits.h"
 #include "conviniences.h"
 
+// TODO! Both JMP and JSR, used in address mode 2 (autoincrement), increment
+// the register before using it as an address. This is a special case. and is
+// not true of any other instruction
+
 // TODO properly implement memory errors with traps: stack overflow, bus error,
 // and also illegal instructions
 
@@ -561,6 +565,8 @@ void pdp11_op_exec(Pdp11 *const self, uint16_t const instr) {
 // SINGLE-OP
 
 // general
+
+// TODO try to reduce the amount of code for setting ps
 
 void pdp11_op_clr(Pdp11 *const self, uint16_t *const dst) {
     Pdp11Ps *const ps = &pdp11_ps(self);
@@ -1121,7 +1127,6 @@ void pdp11_op_wait(Pdp11 *const self) {
 void pdp11_op_reset(Pdp11 *const self) {
     printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
-// NOTE `nop` is already implemented with `clnzvc`/`senzvc`
 
 void pdp11_op_mtpd(Pdp11 *const self, uint16_t *const dst) {
     printf("\tsorry, %s was not implemented (yet)\n", __func__);
