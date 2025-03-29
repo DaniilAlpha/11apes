@@ -57,3 +57,12 @@ void pdp11_step(Pdp11 *const self) {
         ps->cf ? "C" : "."
     );
 }
+
+void pdp11_stack_push(Pdp11 *const self, uint16_t const value) {
+    pdp11_ram_word_at(self, pdp11_sp(self)) = value;
+    pdp11_sp(self) -= 2;
+}
+uint16_t pdp11_stack_pop(Pdp11 *const self) {
+    pdp11_sp(self) += 2;
+    return pdp11_ram_word_at(self, pdp11_sp(self));
+}

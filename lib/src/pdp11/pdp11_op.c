@@ -8,6 +8,9 @@
 #include "bits.h"
 #include "conviniences.h"
 
+// TODO properly implement memory errors with traps: stack overflow, bus error,
+// and also illegal instructions
+
 // extends a word with an additional sign bit for overflow detection. never try
 // to negate it.
 static inline uint32_t xword(uint16_t const word) {
@@ -173,8 +176,8 @@ pdp11_op_sob(Pdp11 *const self, unsigned const r_i, uint8_t const off);
 
 // traps
 
-static forceinline void
-pdp11_op_emt_trap(Pdp11 *const self, bool const is_trap, uint8_t const code);
+static forceinline void pdp11_op_emt(Pdp11 *const self);
+static forceinline void pdp11_op_trap(Pdp11 *const self);
 static forceinline void pdp11_op_bpt(Pdp11 *const self);
 static forceinline void pdp11_op_iot(Pdp11 *const self);
 static forceinline void pdp11_op_rti(Pdp11 *const self);
@@ -209,6 +212,20 @@ static forceinline void pdp11_op_clnzvc_senzvc(
  ** private **
  *************/
 
+static inline uint16_t pdp11_ps_to_word(Pdp11Ps *const self) {
+    return self->priority << 5 | self->tf << 4 | self->nf << 3 | self->zf << 2 |
+           self->vf << 1 | self->cf << 0;
+}
+static inline Pdp11Ps pdp11_ps_from_word(uint16_t const word) {
+    return (Pdp11Ps){
+        .priority = BITS(word, 5, 7),
+        .tf = BIT(word, 4),
+        .nf = BIT(word, 3),
+        .zf = BIT(word, 2),
+        .vf = BIT(word, 1),
+        .cf = BIT(word, 0),
+    };
+}
 static inline void
 pdp11_ps_set_flags_from_word(Pdp11Ps *const self, uint16_t const value) {
     *self = (Pdp11Ps){
@@ -261,16 +278,22 @@ static inline void pdp11_ps_set_flags_from_xbyte(
     };
 }
 
+static inline void pdp11_trap(Pdp11 *const self, uint16_t const addr) {
+    pdp11_stack_push(self, pdp11_ps_to_word(&pdp11_ps(self)));
+    pdp11_stack_push(self, pdp11_pc(self));
+    pdp11_pc(self) = pdp11_ram_word_at(self, addr);
+    pdp11_ps(self) = pdp11_ps_from_word(pdp11_ram_word_at(self, addr + 2));
+}
+
 static uint16_t *pdp11_address_word(Pdp11 *const self, unsigned const mode) {
     unsigned const r_i = BITS(mode, 0, 2);
 
-    unsigned const autostuff_amount = 2;
     switch (BITS(mode, 3, 5)) {
     case 00: return &pdp11_rx(self, r_i);
     case 01: return &pdp11_ram_word_at(self, pdp11_rx(self, r_i));
     case 02: {
         uint16_t *const result = &pdp11_ram_word_at(self, pdp11_rx(self, r_i));
-        pdp11_rx(self, r_i) += autostuff_amount;
+        pdp11_rx(self, r_i) += 2;
         return result;
     } break;
     case 03: {
@@ -281,11 +304,7 @@ static uint16_t *pdp11_address_word(Pdp11 *const self, unsigned const mode) {
         pdp11_rx(self, r_i) += 2;
         return result;
     } break;
-    case 04:
-        return &pdp11_ram_word_at(
-            self,
-            pdp11_rx(self, r_i) -= autostuff_amount
-        );
+    case 04: return &pdp11_ram_word_at(self, pdp11_rx(self, r_i) -= 2);
     case 05:
         return &pdp11_ram_word_at(
             self,
@@ -307,56 +326,48 @@ static uint16_t *pdp11_address_word(Pdp11 *const self, unsigned const mode) {
     return NULL;
 }
 static uint8_t *pdp11_address_byte(Pdp11 *const self, unsigned const mode) {
-    unsigned const r_i = mode & 07;
+    unsigned const r_i = BITS(mode, 0, 2);
 
-    unsigned autostuff_amount = 1;
-    switch (r_i) {
-    case 06 ... 07:
-        autostuff_amount = 2;
-        /* fallthrough */
-    case 00 ... 05:
-        switch (BITS(mode, 3, 5)) {
-        case 00: return &pdp11_rl(self, r_i);
-        case 01: return &pdp11_ram_byte_at(self, pdp11_rx(self, r_i));
-        case 02: {
-            uint8_t *const result =
-                &pdp11_ram_byte_at(self, pdp11_rx(self, r_i));
-            pdp11_rx(self, r_i) += autostuff_amount;
-            return result;
-        } break;
-        case 03: {
-            uint8_t *const result = &pdp11_ram_byte_at(
-                self,
-                pdp11_ram_word_at(self, pdp11_rx(self, r_i))
-            );
-            pdp11_rx(self, r_i) += 2;
-            return result;
-        } break;
-        case 04:
-            return &pdp11_ram_byte_at(
-                self,
-                pdp11_rx(self, r_i) -= autostuff_amount
-            );
-        case 05:
-            return &pdp11_ram_byte_at(
-                self,
-                pdp11_ram_word_at(self, pdp11_rx(self, r_i) -= 2)
-            );
-        case 06: {
-            uint16_t const reg_val = pdp11_rx(self, r_i);
-            return &pdp11_ram_byte_at(self, reg_val + pdp11_instr_next(self));
-        } break;
-        case 07: {
-            uint16_t const reg_val = pdp11_rx(self, r_i);
-            return &pdp11_ram_byte_at(
-                self,
-                pdp11_ram_word_at(self, reg_val + pdp11_instr_next(self))
-            );
-        } break;
-        }
-        /* fallthrough */
-    default: return NULL;
+    switch (BITS(mode, 3, 5)) {
+    case 00: return &pdp11_rl(self, r_i);
+    case 01: return &pdp11_ram_byte_at(self, pdp11_rx(self, r_i));
+    case 02: {
+        uint8_t *const result = &pdp11_ram_byte_at(self, pdp11_rx(self, r_i));
+        pdp11_rx(self, r_i) += r_i >= 06 ? 2 : 1;
+        return result;
+    } break;
+    case 03: {
+        uint8_t *const result = &pdp11_ram_byte_at(
+            self,
+            pdp11_ram_word_at(self, pdp11_rx(self, r_i))
+        );
+        pdp11_rx(self, r_i) += 2;
+        return result;
+    } break;
+    case 04:
+        return &pdp11_ram_byte_at(
+            self,
+            pdp11_rx(self, r_i) -= r_i >= 06 ? 2 : 1
+        );
+    case 05:
+        return &pdp11_ram_byte_at(
+            self,
+            pdp11_ram_word_at(self, pdp11_rx(self, r_i) -= 2)
+        );
+    case 06: {
+        uint16_t const reg_val = pdp11_rx(self, r_i);
+        return &pdp11_ram_byte_at(self, reg_val + pdp11_instr_next(self));
+    } break;
+    case 07: {
+        uint16_t const reg_val = pdp11_rx(self, r_i);
+        return &pdp11_ram_byte_at(
+            self,
+            pdp11_ram_word_at(self, reg_val + pdp11_instr_next(self))
+        );
+    } break;
     }
+
+    return NULL;
 }
 
 /************
@@ -476,7 +487,7 @@ void pdp11_op_exec(Pdp11 *const self, uint16_t const instr) {
     case 0004:
         return pdp11_op_jsr(self, op_8_6, pdp11_address_word(self, op_5_0));
 
-    case 0104: return pdp11_op_emt_trap(self, op_8, op_7_0);
+    case 0104: return op_8 ? pdp11_op_emt(self) : pdp11_op_trap(self);
     }
     switch (opcode_15_6) {
     case 00001: return pdp11_op_jmp(self, pdp11_address_word(self, op_5_0));
@@ -517,11 +528,11 @@ void pdp11_op_exec(Pdp11 *const self, uint16_t const instr) {
         if (!BIT(instr, 5)) break;
         return pdp11_op_clnzvc_senzvc(
             self,
-            instr & (1 << 4),
-            instr & (1 << 3),
-            instr & (1 << 2),
-            instr & (1 << 1),
-            instr & (1 << 0)
+            BIT(instr, 4),
+            BIT(instr, 3),
+            BIT(instr, 2),
+            BIT(instr, 1),
+            BIT(instr, 0)
         );
     }
     switch (opcode_15_3) {
@@ -539,7 +550,7 @@ void pdp11_op_exec(Pdp11 *const self, uint16_t const instr) {
     case 0000005: return pdp11_op_reset(self);
     }
 
-    // TODO ill
+    // TODO send Reserved Instruction Trap
     abort();
 }
 
@@ -799,7 +810,6 @@ void pdp11_op_sxt(Pdp11 *const self, uint16_t *const dst) {
 
 // rotates
 
-// TODO badly implemented
 void pdp11_op_ror(Pdp11 *const self, uint16_t *const dst) {
     /* Pdp11Ps *const ps = &pdp11_ps(self);
 
@@ -1056,13 +1066,18 @@ void pdp11_op_jsr(
     unsigned const r_i,
     uint16_t const *const src
 ) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    pdp11_stack_push(self, pdp11_rx(self, r_i));
+    pdp11_rx(self, r_i) = pdp11_pc(self);
+    pdp11_pc(self) = *src;
 }
 void pdp11_op_mark(Pdp11 *const self, unsigned const param_count) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    pdp11_sp(self) = pdp11_pc(self) + 2 * param_count;
+    pdp11_pc(self) = pdp11_rx(self, 5);
+    pdp11_pc(self) = pdp11_stack_pop(self);
 }
 void pdp11_op_rts(Pdp11 *const self, unsigned const r_i) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    pdp11_pc(self) = pdp11_rx(self, r_i);
+    pdp11_rx(self, r_i) = pdp11_stack_pop(self);
 }
 
 // program control
@@ -1080,24 +1095,19 @@ void pdp11_op_sob(Pdp11 *const self, unsigned const r_i, uint8_t const off) {
 
 // trap
 
-void pdp11_op_emt_trap(
-    Pdp11 *const self,
-    bool const is_trap,
-    uint8_t const code
-) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
-}
-void pdp11_op_bpt(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
-}
-void pdp11_op_iot(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
-}
+void pdp11_op_emt(Pdp11 *const self) { pdp11_trap(self, 030); }
+void pdp11_op_trap(Pdp11 *const self) { pdp11_trap(self, 034); }
+void pdp11_op_bpt(Pdp11 *const self) { pdp11_trap(self, 014); }
+void pdp11_op_iot(Pdp11 *const self) { pdp11_trap(self, 020); }
+// TODO rti and rtt should be slightply different, but could not understand why
+// at this point
 void pdp11_op_rti(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    pdp11_pc(self) = pdp11_stack_pop(self);
+    pdp11_ps(self) = pdp11_ps_from_word(pdp11_stack_pop(self));
 }
 void pdp11_op_rtt(Pdp11 *const self) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    pdp11_pc(self) = pdp11_stack_pop(self);
+    pdp11_ps(self) = pdp11_ps_from_word(pdp11_stack_pop(self));
 }
 
 // MISC.

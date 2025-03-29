@@ -15,12 +15,14 @@
 #include <result.h>
 
 #define PDP11_REGISTER_COUNT (8)
-// PDP11/20 has 32K words of RAM, but top 4096 are reserved
-#define PDP11_RAM_WORD_COUNT (32 * 1024 - 4096)
+// PDP-11 can address has 32K words of RAM, but top 4096 are reserved
+#define PDP11_RAM_WORD_COUNT     (32 * 1024 - 4096)
+#define PDP11_ARRD_STACK_BOTTOM  (0400)
+#define PDP11_ARRD_PERIPH_BOTTOM (160000)
 
-#define PDP11_STARTUP_PC (0x0200)
+#define PDP11_STARTUP_PC (0800)
 #define PDP11_STARTUP_PS                                                       \
-    ((Pdp11Ps){.priority = 0, .tf = 0, .nf = 0, .zf = 0, .vf = 0, .cf = 0})
+  ((Pdp11Ps){.priority = 0, .tf = 0, .nf = 0, .zf = 0, .vf = 0, .cf = 0})
 
 typedef struct Pdp11Ps {
     uint8_t priority : 3;
@@ -41,7 +43,7 @@ void pdp11_uninit(Pdp11 *const self);
 #define pdp11_rx(SELF_, I_) (*(uint16_t *)((SELF_)->_cpu.r + (I_)))
 #define pdp11_rl(SELF_, I_) (*(uint8_t *)((SELF_)->_cpu.r + (I_)))
 #define pdp11_pc(SELF_)     pdp11_rx((SELF_), 7)
-// #define pdp11_sp(SELF_)     pdp11_rx((SELF_), 6)
+#define pdp11_sp(SELF_)     pdp11_rx((SELF_), 6)
 
 #define pdp11_ps(SELF_) ((SELF_)->_cpu.ps)
 
@@ -51,5 +53,8 @@ void pdp11_uninit(Pdp11 *const self);
 uint16_t pdp11_instr_next(Pdp11 *const self);
 
 void pdp11_step(Pdp11 *const self);
+
+void pdp11_stack_push(Pdp11 *const self, uint16_t const value);
+uint16_t pdp11_stack_pop(Pdp11 *const self);
 
 #endif
