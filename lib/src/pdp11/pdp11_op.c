@@ -282,7 +282,11 @@ static inline void pdp11_ps_set_flags_from_xbyte(
     };
 }
 
-static inline void pdp11_trap(Pdp11 *const self, uint16_t const addr) {
+static inline void pdp11_interrupt(
+    Pdp11 *const self,
+    uint16_t const addr /*,
+    unsigned const priority */
+) {
     pdp11_stack_push(self, pdp11_ps_to_word(&pdp11_ps(self)));
     pdp11_stack_push(self, pdp11_pc(self));
     pdp11_pc(self) = pdp11_ram_word_at(self, addr);
@@ -1101,10 +1105,10 @@ void pdp11_op_sob(Pdp11 *const self, unsigned const r_i, uint8_t const off) {
 
 // trap
 
-void pdp11_op_emt(Pdp11 *const self) { pdp11_trap(self, 030); }
-void pdp11_op_trap(Pdp11 *const self) { pdp11_trap(self, 034); }
-void pdp11_op_bpt(Pdp11 *const self) { pdp11_trap(self, 014); }
-void pdp11_op_iot(Pdp11 *const self) { pdp11_trap(self, 020); }
+void pdp11_op_emt(Pdp11 *const self) { pdp11_interrupt(self, 030); }
+void pdp11_op_trap(Pdp11 *const self) { pdp11_interrupt(self, 034); }
+void pdp11_op_bpt(Pdp11 *const self) { pdp11_interrupt(self, 014); }
+void pdp11_op_iot(Pdp11 *const self) { pdp11_interrupt(self, 020); }
 // TODO rti and rtt should be slightply different, but could not understand why
 // at this point
 void pdp11_op_rti(Pdp11 *const self) {
