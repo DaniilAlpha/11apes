@@ -65,7 +65,7 @@ static MiunteResult pdp_test_teardown() {
 
 static MiunteResult pdp_test_addressing() {
     uint16_t const x = 0xDEAD, y = 0xBEEF;
-    static_assert(x != y, "this just makes no sense");
+    MIUNTE_EXPECT(x != y, "this just makes no sense");
 
     MIUNTE_EXPECT(
         pdp_test_dop_ra_instr(0010100 /* mov R0, R1 */, x, y) == y,
