@@ -731,16 +731,84 @@ void pdp11_op_comb(Pdp11 *const self, uint8_t *const dst) {
 // shifts
 
 void pdp11_op_asr(Pdp11 *const self, uint16_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 15),
+        .cf = BIT(*dst, 0),
+    };
+
+    *dst >>= 1;
+
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = ps->nf,
+        .zf = *dst == 0,
+        .vf = ps->nf ^ ps->cf,
+        .cf = ps->cf,
+    };
 }
 void pdp11_op_asrb(Pdp11 *const self, uint8_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 7),
+        .cf = BIT(*dst, 0),
+    };
+
+    *dst >>= 1;
+
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = ps->nf,
+        .zf = *dst == 0,
+        .vf = ps->nf ^ ps->cf,
+        .cf = ps->cf,
+    };
 }
 void pdp11_op_asl(Pdp11 *const self, uint16_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 14),
+        .cf = BIT(*dst, 15),
+    };
+
+    *dst <<= 1;
+
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = ps->nf,
+        .zf = *dst == 0,
+        .vf = ps->nf ^ ps->cf,
+        .cf = ps->cf,
+    };
 }
 void pdp11_op_aslb(Pdp11 *const self, uint8_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 6),
+        .cf = BIT(*dst, 7),
+    };
+
+    *dst <<= 1;
+
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = ps->nf,
+        .zf = *dst == 0,
+        .vf = ps->nf ^ ps->cf,
+        .cf = ps->cf,
+    };
 }
 
 void pdp11_op_ash(Pdp11 *const self, unsigned const r_i, uint16_t *const dst) {
@@ -821,23 +889,84 @@ void pdp11_op_sxt(Pdp11 *const self, uint16_t *const dst) {
 // rotates
 
 void pdp11_op_ror(Pdp11 *const self, uint16_t *const dst) {
-    /* Pdp11Ps *const ps = &pdp11_ps(self);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = ps->cf,
+        .cf = BIT(*dst, 0),
+    };
 
-        uint32_t const dstx = (uint32_t)*dst | (pdp11_ps(self).cf << 16);
-        ps->cf = BIT(dstx, 0);
-        *dst = dstx >> 1;
-        pdp11_ps_set_flags_from_word(ps, *dst);
-        ps->vf = ps->nf ^ ps->cf; */
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    *dst = (*dst >> 1) | (ps->cf << 15);
+
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = ps->nf,
+        .zf = *dst == 0,
+        .vf = ps->nf ^ ps->cf,
+        .cf = ps->cf,
+    };
 }
 void pdp11_op_rorb(Pdp11 *const self, uint8_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = ps->cf,
+        .cf = BIT(*dst, 0),
+    };
+
+    *dst = (*dst >> 1) | (ps->cf << 7);
+
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = ps->nf,
+        .zf = *dst == 0,
+        .vf = ps->nf ^ ps->cf,
+        .cf = ps->cf,
+    };
 }
 void pdp11_op_rol(Pdp11 *const self, uint16_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = ps->cf,  // TODO refactor this crappy line
+        .cf = BIT(*dst, 15),
+    };
+
+    *dst = (*dst << 1) | ps->nf;
+
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 15),
+        .zf = *dst == 0,
+        .vf = ps->nf ^ ps->cf,
+        .cf = ps->cf,
+    };
 }
 void pdp11_op_rolb(Pdp11 *const self, uint8_t *const dst) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = ps->cf,  // TODO refactor this crappy line
+        .cf = BIT(*dst, 7),
+    };
+
+    *dst = (*dst << 1) | ps->nf;
+
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*dst, 7),
+        .zf = *dst == 0,
+        .vf = ps->nf ^ ps->cf,
+        .cf = ps->cf,
+    };
 }
 
 void pdp11_op_swab(Pdp11 *const self, uint16_t *const dst) {

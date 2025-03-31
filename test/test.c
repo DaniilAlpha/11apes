@@ -355,6 +355,9 @@ int main() {
 
             // TODO test adc/sbc, especially flags
 
+            // TODO test asr/asl
+            // TODO test ror/rol
+
             pdp_test_mov_movb,
             pdp_test_add_sub,
             pdp_test_cmp,
