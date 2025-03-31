@@ -363,6 +363,7 @@ int main() {
             pdp_test_cmp,
             pdp_test_mul_div,
             pdp_test_bit,
+
             // TODO test some of the branches
             // TODO test sob
         }

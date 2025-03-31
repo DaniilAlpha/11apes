@@ -20,9 +20,9 @@
 #define PDP11_ARRD_STACK_BOTTOM  (0400)
 #define PDP11_ARRD_PERIPH_BOTTOM (160000)
 
-#define PDP11_STARTUP_PC (0800)
+#define PDP11_STARTUP_PC (0100)
 #define PDP11_STARTUP_PS                                                       \
-  ((Pdp11Ps){.priority = 0, .tf = 0, .nf = 0, .zf = 0, .vf = 0, .cf = 0})
+    ((Pdp11Ps){.priority = 0, .tf = 0, .nf = 0, .zf = 0, .vf = 0, .cf = 0})
 
 typedef struct Pdp11Ps {
     uint8_t priority : 3;

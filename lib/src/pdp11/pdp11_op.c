@@ -61,9 +61,9 @@ static forceinline void pdp11_op_asl(Pdp11 *const self, uint16_t *const dst);
 static forceinline void pdp11_op_aslb(Pdp11 *const self, uint8_t *const dst);
 
 static forceinline void
-pdp11_op_ash(Pdp11 *const self, unsigned const r_i, uint16_t *const dst);
+pdp11_op_ash(Pdp11 *const self, unsigned const r_i, uint16_t const *const src);
 static forceinline void
-pdp11_op_ashc(Pdp11 *const self, unsigned const r_i, uint16_t *const dst);
+pdp11_op_ashc(Pdp11 *const self, unsigned const r_i, uint16_t const *const src);
 
 // multiple-percision
 
@@ -570,8 +570,6 @@ void pdp11_op_exec(Pdp11 *const self, uint16_t const instr) {
 
 // general
 
-// TODO try to reduce the amount of code for setting ps
-
 void pdp11_op_clr(Pdp11 *const self, uint16_t *const dst) {
     Pdp11Ps *const ps = &pdp11_ps(self);
 
@@ -811,10 +809,38 @@ void pdp11_op_aslb(Pdp11 *const self, uint8_t *const dst) {
     };
 }
 
-void pdp11_op_ash(Pdp11 *const self, unsigned const r_i, uint16_t *const dst) {
+void pdp11_op_ash(
+    Pdp11 *const self,
+    unsigned const r_i,
+    uint16_t const *const src
+) {
+    /* uint16_t *const rx = &pdp11_rx(self, r_i);
+    Pdp11Ps *const ps = &pdp11_ps(self);
+
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*rx, 15),
+        .cf = BIT(*rx, 0),
+    };
+
+    int8_t const shift_amount = *src & 0x1F;
+    *rx = shift_amount >= 0 ? (*rx << shift_amount) : (*rx >> -shift_amount);
+
+    *ps = (Pdp11Ps){
+        .priority = ps->priority,
+        .tf = ps->tf,
+        .nf = BIT(*rx, 15),
+        .zf = *rx == 0,
+        .vf = BIT(*rx, 15) != ps->nf,
+    }; */
     printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
-void pdp11_op_ashc(Pdp11 *const self, unsigned const r_i, uint16_t *const dst) {
+void pdp11_op_ashc(
+    Pdp11 *const self,
+    unsigned const r_i,
+    uint16_t const *const src
+) {
     printf("\tsorry, %s was not implemented (yet)\n", __func__);
 }
 
