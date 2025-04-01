@@ -6,63 +6,58 @@
 #include "pdp11/pdp11_op.h"
 
 Result pdp11_init(Pdp11 *const self) {
-    // ram
-    void *const ram = malloc(PDP11_RAM_WORD_COUNT * sizeof(uint16_t));
-    if (!ram) return OutOfMemErr;
-    self->_ram = ram;
-
-    // cpu
-    pdp11_pc(self) = PDP11_STARTUP_PC;
-    pdp11_ps(self) = PDP11_STARTUP_PS;
+    UNROLL(pdp11_ram_init(&self->_ram));
+    pdp11_cpu_init(
+        &self->_cpu,
+        &self->_ram,
+        PDP11_STARTUP_PC,
+        PDP11_STARTUP_CPU_STAT
+    );
 
     return Ok;
 }
 void pdp11_uninit(Pdp11 *const self) {
-    // ram
-    free(self->_ram), self->_ram = NULL;
-
-    // cpu
-    pdp11_pc(self) = 0;
-    pdp11_ps(self) = (Pdp11Ps){0};
+    pdp11_ram_uninit(&self->_ram);
+    pdp11_cpu_uninit(&self->_cpu);
 }
 
 uint16_t pdp11_instr_next(Pdp11 *const self) {
-    uint16_t const instr = pdp11_ram_word_at(self, pdp11_pc(self));
-    pdp11_pc(self) += 2;
+    uint16_t const instr =
+        *pdp11_ram_word(&self->_ram, pdp11_cpu_pc(&self->_cpu));
+    pdp11_cpu_pc(&self->_cpu) += 2;
     return instr;
 }
 
 void pdp11_step(Pdp11 *const self) {
     uint16_t const instr = pdp11_instr_next(self);
 
-    Pdp11Ps *const ps = &pdp11_ps(self);
     printf(
         "exec: 0%06o\tps: p%03o %s %s%s%s%s -> ",
         instr,
-        ps->priority,
-        ps->tf ? "T" : ".",
-        ps->nf ? "N" : ".",
-        ps->zf ? "Z" : ".",
-        ps->vf ? "V" : ".",
-        ps->cf ? "C" : "."
+        self->_cpu._stat.priority,
+        self->_cpu._stat.tf ? "T" : ".",
+        self->_cpu._stat.nf ? "N" : ".",
+        self->_cpu._stat.zf ? "Z" : ".",
+        self->_cpu._stat.vf ? "V" : ".",
+        self->_cpu._stat.cf ? "C" : "."
     );
     pdp11_op_exec(self, instr);
     printf(
         "p%03o %s %s%s%s%s\n",
-        ps->priority,
-        ps->tf ? "T" : ".",
-        ps->nf ? "N" : ".",
-        ps->zf ? "Z" : ".",
-        ps->vf ? "V" : ".",
-        ps->cf ? "C" : "."
+        self->_cpu._stat.priority,
+        self->_cpu._stat.tf ? "T" : ".",
+        self->_cpu._stat.nf ? "N" : ".",
+        self->_cpu._stat.zf ? "Z" : ".",
+        self->_cpu._stat.vf ? "V" : ".",
+        self->_cpu._stat.cf ? "C" : "."
     );
 }
 
 void pdp11_stack_push(Pdp11 *const self, uint16_t const value) {
-    pdp11_ram_word_at(self, pdp11_sp(self)) = value;
-    pdp11_sp(self) -= 2;
+    *pdp11_ram_word(&self->_ram, pdp11_cpu_sp(&self->_cpu)) = value;
+    pdp11_cpu_sp(&self->_cpu) -= 2;
 }
 uint16_t pdp11_stack_pop(Pdp11 *const self) {
-    pdp11_sp(self) += 2;
-    return pdp11_ram_word_at(self, pdp11_sp(self));
+    pdp11_cpu_sp(&self->_cpu) += 2;
+    return *pdp11_ram_word(&self->_ram, pdp11_cpu_sp(&self->_cpu));
 }
