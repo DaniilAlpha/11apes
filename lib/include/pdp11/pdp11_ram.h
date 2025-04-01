@@ -18,17 +18,15 @@ Result pdp11_ram_init(Pdp11Ram *const self);
 void pdp11_ram_uninit(Pdp11Ram *const self);
 
 static inline uint16_t *
-internal__pdp11_ram_word(Pdp11Ram *const self, uint16_t const addr) {
+pdp11_ram_word(Pdp11Ram *const self, uint16_t const addr) {
     return (uint16_t *)(self->_ram + addr);
 }
-#define pdp11_ram_word(SELF_, ADDR_)                                           \
-    (*internal__pdp11_ram_word((SELF_), (ADDR_)))
+#define pdp11_ram_word(SELF_, ADDR_) (*pdp11_ram_word((SELF_), (ADDR_)))
 
 static inline uint8_t *
-internal__pdp11_ram_byte(Pdp11Ram *const self, uint16_t const addr) {
+pdp11_ram_byte(Pdp11Ram *const self, uint16_t const addr) {
     return (uint8_t *)(self->_ram + addr);
 }
-#define pdp11_ram_byte(SELF_, ADDR_)                                           \
-    (*internal__pdp11_ram_byte((SELF_), (ADDR_)))
+#define pdp11_ram_byte(SELF_, ADDR_) (*pdp11_ram_byte((SELF_), (ADDR_)))
 
 #endif
