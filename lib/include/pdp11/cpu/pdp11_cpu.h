@@ -10,8 +10,8 @@
 #define PDP11_CPU_REG_COUNT (8)
 
 typedef struct Pdp11Cpu {
+    Pdp11CpuStat stat;
     uint16_t _r[PDP11_CPU_REG_COUNT];
-    Pdp11CpuStat _stat;
 
     Pdp11Ram *_ram;
 } Pdp11Cpu;

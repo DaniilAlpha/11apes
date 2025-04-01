@@ -17,9 +17,9 @@ int main() {
     UNROLL(pdp11_init(&pdp));
 
     FILE *const file = fopen("res/m9342-248f1.bin", "r");
-    fread(&pdp11_ram_byte_at(&pdp, 0), 1, fsize(file), file);
-    for (uint16_t *word_ptr = &pdp11_ram_word_at(&pdp, 0);
-         word_ptr <= &pdp11_ram_word_at(&pdp, PDP11_RAM_WORD_COUNT - 1);
+    fread(&pdp11_ram_byte(&pdp.ram, 0), 1, fsize(file), file);
+    for (uint16_t *word_ptr = &pdp11_ram_word(&pdp.ram, 0);
+         word_ptr <= &pdp11_ram_word(&pdp.ram, PDP11_RAM_WORD_COUNT - 1);
          word_ptr++)
         *word_ptr = (uint16_t)(*word_ptr << 8) | (uint8_t)(*word_ptr >> 8);
     for (long i = 0; i < fsize(file); i++) {
