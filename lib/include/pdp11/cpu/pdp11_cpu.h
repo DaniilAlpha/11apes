@@ -16,6 +16,20 @@ typedef struct Pdp11Cpu {
     Pdp11Ram *_ram;
 } Pdp11Cpu;
 
+typedef enum Pdp11CpuTrap {
+    PDP11_CPU_TRAP_CPU_ERR = 0004,
+    PDP11_CPU_TRAP_CPU_STACK_OVERFLOW = 0004,
+    PDP11_CPU_TRAP_ILLEGAL_INSTR = 0010,
+    PDP11_CPU_TRAP_BPT = 0014,
+    PDP11_CPU_TRAP_IOT = 0020,
+    PDP11_CPU_TRAP_POWER_FAIL = 0024,
+    PDP11_CPU_TRAP_EMT = 0030,
+    PDP11_CPU_TRAP_TRAP = 0034,
+    PDP11_CPU_TRAP_MEM_ERR = 0114,
+    PDP11_CPU_TRAP_PROGRAM_IRQ = 0240,
+    PDP11_CPU_TRAP_FP_ERR = 0240,
+} Pdp11CpuTrap;
+
 void pdp11_cpu_init(
     Pdp11Cpu *const self,
     Pdp11Ram *const ram,

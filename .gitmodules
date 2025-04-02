@@ -4,3 +4,6 @@
 [submodule "external/miunte"]
 	path = test/external/miunte
 	url = git@github.com:DaniilAlpha/miunte
+[submodule "lib/external/woodi"]
+	path = lib/external/woodi
+	url = git@github.com:DaniilAlpha/woodi

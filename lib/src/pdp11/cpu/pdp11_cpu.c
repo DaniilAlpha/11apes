@@ -1,5 +1,6 @@
 #include "pdp11/cpu/pdp11_cpu.h"
 
+#include <stdalign.h>
 #include <stddef.h>
 #include <stdio.h>
 
@@ -348,18 +349,19 @@ static uint16_t pdp11_stack_pop(Pdp11Cpu *const self) {
     return pdp11_ram_word(self->_ram, pdp11_cpu_sp(self));
 }
 
-static inline void pdp11_request_intr(
+static inline void pdp11_cpu_trap(
     Pdp11Cpu *const self,
-    uint16_t const addr /*,
+    Pdp11CpuTrap const trap /*,
     unsigned const priority */
 ) {
     pdp11_stack_push(self, pdp11_cpu_stat_to_word(&self->stat));
     pdp11_stack_push(self, pdp11_cpu_pc(self));
-    pdp11_cpu_pc(self) = pdp11_ram_word(self->_ram, addr);
-    self->stat = pdp11_cpu_stat(pdp11_ram_word(self->_ram, addr + 2));
+    pdp11_cpu_pc(self) = pdp11_ram_word(self->_ram, trap);
+    self->stat = pdp11_cpu_stat(pdp11_ram_word(self->_ram, trap + 2));
 }
 
 static uint16_t *pdp11_address_word(Pdp11Cpu *const self, unsigned const mode) {
+    // TODO trap CPU_ERR if odd address
     unsigned const r_i = BITS(mode, 0, 2);
 
     switch (BITS(mode, 3, 5)) {
@@ -457,28 +459,8 @@ static uint8_t *pdp11_address_byte(Pdp11Cpu *const self, unsigned const mode) {
 
     return NULL;
 }
-
-/************
- ** public **
- ************/
-
-void pdp11_cpu_init(
-    Pdp11Cpu *const self,
-    Pdp11Ram *const ram,
-    uint16_t const pc,
-    Pdp11CpuStat const stat
-) {
-    pdp11_cpu_pc(self) = pc;
-    self->stat = stat;
-
-    self->_ram = ram;
-}
-void pdp11_cpu_uninit(Pdp11Cpu *const self) {
-    pdp11_cpu_pc(self) = 0;
-    self->stat = (Pdp11CpuStat){0};
-}
-
-void pdp11_cpu_exec_instr(Pdp11Cpu *const self, uint16_t const instr) {
+static void
+pdp11_cpu_exec_instr_helper(Pdp11Cpu *const self, uint16_t const instr) {
     uint16_t const opcode_15_12 = BITS(instr, 12, 15),
                    opcode_15_9 = BITS(instr, 9, 15),
                    opcode_15_6 = BITS(instr, 6, 15),
@@ -710,8 +692,32 @@ void pdp11_cpu_exec_instr(Pdp11Cpu *const self, uint16_t const instr) {
     case 0000005: return pdp11_cpu_instr_reset(self);
     }
 
-    // TODO send Reserved Instruction Trap
-    return;
+    pdp11_cpu_trap(self, PDP11_CPU_TRAP_ILLEGAL_INSTR);
+}
+
+/************
+ ** public **
+ ************/
+
+void pdp11_cpu_init(
+    Pdp11Cpu *const self,
+    Pdp11Ram *const ram,
+    uint16_t const pc,
+    Pdp11CpuStat const stat
+) {
+    pdp11_cpu_pc(self) = pc;
+    self->stat = stat;
+
+    self->_ram = ram;
+}
+void pdp11_cpu_uninit(Pdp11Cpu *const self) {
+    pdp11_cpu_pc(self) = 0;
+    self->stat = (Pdp11CpuStat){0};
+}
+
+void pdp11_cpu_exec_instr(Pdp11Cpu *const self, uint16_t const instr) {
+    pdp11_cpu_exec_instr_helper(self, instr);
+    if (self->stat.tf) pdp11_cpu_trap(self, PDP11_CPU_TRAP_BPT);
 }
 
 /****************
@@ -1402,16 +1408,17 @@ void pdp11_cpu_instr_sob(
 // trap
 
 void pdp11_cpu_instr_emt(Pdp11Cpu *const self) {
-    pdp11_request_intr(self, 030);
+    pdp11_cpu_trap(self, PDP11_CPU_TRAP_EMT);
 }
 void pdp11_cpu_instr_trap(Pdp11Cpu *const self) {
-    pdp11_request_intr(self, 034);
+    // TODO it user data could be passed through the low byte
+    pdp11_cpu_trap(self, PDP11_CPU_TRAP_TRAP);
 }
 void pdp11_cpu_instr_bpt(Pdp11Cpu *const self) {
-    pdp11_request_intr(self, 014);
+    pdp11_cpu_trap(self, PDP11_CPU_TRAP_BPT);
 }
 void pdp11_cpu_instr_iot(Pdp11Cpu *const self) {
-    pdp11_request_intr(self, 020);
+    pdp11_cpu_trap(self, PDP11_CPU_TRAP_IOT);
 }
 // TODO rti and rtt should be slightply different, but could not understand why
 // at this point
