@@ -43,6 +43,8 @@ void pdp11_cpu_uninit(Pdp11Cpu *const self);
 #define pdp11_cpu_pc(SELF_)     pdp11_cpu_rx((SELF_), 7)
 #define pdp11_cpu_sp(SELF_)     pdp11_cpu_rx((SELF_), 6)
 
+void pdp11_cpu_trap(Pdp11Cpu *const self, Pdp11CpuTrap const trap);
+
 void pdp11_cpu_exec_instr(Pdp11Cpu *const self, uint16_t const instr);
 
 #endif

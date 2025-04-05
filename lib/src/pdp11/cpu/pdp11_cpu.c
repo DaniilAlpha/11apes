@@ -349,17 +349,6 @@ static uint16_t pdp11_stack_pop(Pdp11Cpu *const self) {
     return pdp11_ram_word(self->_ram, pdp11_cpu_sp(self));
 }
 
-static inline void pdp11_cpu_trap(
-    Pdp11Cpu *const self,
-    Pdp11CpuTrap const trap /*,
-    unsigned const priority */
-) {
-    pdp11_stack_push(self, pdp11_cpu_stat_to_word(&self->stat));
-    pdp11_stack_push(self, pdp11_cpu_pc(self));
-    pdp11_cpu_pc(self) = pdp11_ram_word(self->_ram, trap);
-    self->stat = pdp11_cpu_stat(pdp11_ram_word(self->_ram, trap + 2));
-}
-
 static uint16_t *pdp11_address_word(Pdp11Cpu *const self, unsigned const mode) {
     // TODO trap CPU_ERR if odd address
     unsigned const r_i = BITS(mode, 0, 2);
@@ -713,6 +702,13 @@ void pdp11_cpu_init(
 void pdp11_cpu_uninit(Pdp11Cpu *const self) {
     pdp11_cpu_pc(self) = 0;
     self->stat = (Pdp11CpuStat){0};
+}
+
+void pdp11_cpu_trap(Pdp11Cpu *const self, Pdp11CpuTrap const trap) {
+    pdp11_stack_push(self, pdp11_cpu_stat_to_word(&self->stat));
+    pdp11_stack_push(self, pdp11_cpu_pc(self));
+    pdp11_cpu_pc(self) = pdp11_ram_word(self->_ram, trap);
+    self->stat = pdp11_cpu_stat(pdp11_ram_word(self->_ram, trap + 2));
 }
 
 void pdp11_cpu_exec_instr(Pdp11Cpu *const self, uint16_t const instr) {
@@ -1079,7 +1075,7 @@ void pdp11_cpu_instr_rol(Pdp11Cpu *const self, uint16_t *const dst) {
     self->stat = (Pdp11CpuStat){
         .priority = self->stat.priority,
         .tf = self->stat.tf,
-        .nf = self->stat.cf,  // TODO refactor this crappy line
+        .nf = self->stat.cf,  // NOTE this flag temporarily holds the old carry
         .cf = BIT(*dst, 15),
     };
 
@@ -1098,7 +1094,7 @@ void pdp11_cpu_instr_rolb(Pdp11Cpu *const self, uint8_t *const dst) {
     self->stat = (Pdp11CpuStat){
         .priority = self->stat.priority,
         .tf = self->stat.tf,
-        .nf = self->stat.cf,  // TODO refactor this crappy line
+        .nf = self->stat.cf,  // NOTE this flag temporarily holds the old carry
         .cf = BIT(*dst, 7),
     };
 
