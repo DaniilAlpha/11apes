@@ -105,6 +105,7 @@ pdp11_byte_from_unibus(Unibus *const unibus, uint16_t const addr) {
     };
     return (Pdp11Byte){.addr = addr, .owner = unibus, .vtbl = &vtbl};
 }
+// TODO allow addressing for PSW
 
 /****************
  ** instr decl **
@@ -556,8 +557,9 @@ pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
     // TODO do something meaningful
     return (Pdp11Byte){0};
 }
+
 static void
-pdp11_cpu_exec_instr_helper(Pdp11Cpu *const self, uint16_t const instr) {
+pdp11_cpu_decode_exec_helper(Pdp11Cpu *const self, uint16_t const instr) {
     uint16_t const opcode_15_12 = BITS(instr, 12, 15),
                    opcode_15_9 = BITS(instr, 9, 15),
                    opcode_15_6 = BITS(instr, 6, 15),
@@ -819,8 +821,13 @@ void pdp11_cpu_trap(Pdp11Cpu *const self, Pdp11CpuTrap const trap) {
     self->stat = pdp11_cpu_stat(unibus_dati(self->_unibus, trap + 2));
 }
 
-void pdp11_cpu_exec_instr(Pdp11Cpu *const self, uint16_t const instr) {
-    pdp11_cpu_exec_instr_helper(self, instr);
+uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self) {
+    uint16_t const instr = unibus_dati(self->_unibus, pdp11_cpu_pc(self));
+    pdp11_cpu_pc(self) += 2;
+    return instr;
+}
+void pdp11_cpu_decode_exec(Pdp11Cpu *const self, uint16_t const instr) {
+    pdp11_cpu_decode_exec_helper(self, instr);
     if (self->stat.tf) pdp11_cpu_trap(self, PDP11_CPU_TRAP_BPT);
 }
 

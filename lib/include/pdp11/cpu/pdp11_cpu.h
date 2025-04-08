@@ -45,6 +45,7 @@ void pdp11_cpu_uninit(Pdp11Cpu *const self);
 
 void pdp11_cpu_trap(Pdp11Cpu *const self, Pdp11CpuTrap const trap);
 
-void pdp11_cpu_exec_instr(Pdp11Cpu *const self, uint16_t const instr);
+uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self);
+void pdp11_cpu_decode_exec(Pdp11Cpu *const self, uint16_t const instr);
 
 #endif

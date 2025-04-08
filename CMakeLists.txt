@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.5)
 project(pdp11emu-main VERSION 0.1.0 LANGUAGES C)
 
 
-set(SRCS "main.c")
+set(SRCS "main.c" "src/*.c")
 set(INCLUDE_DIR "include/")
 
 

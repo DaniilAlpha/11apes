@@ -15,6 +15,7 @@ add_executable(${TEST} ${SRCS})
 target_include_directories(${TEST} PRIVATE ${INCLUDE_DIRS})
 
 set(COMPILE_AND_BUILD_FlAGS
+    -D MIUNTE_STOP_ON_FAILURE=1
     $<$<CONFIG:Debug>: -Og -g > $<$<CONFIG:Release>: -O3 >
     -W -Wall -Wextra -Wformat $<$<CONFIG:Release>: -Winline >
     -Wno-unused-parameter

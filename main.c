@@ -22,11 +22,12 @@ int main() {
          word_ptr <= &pdp11_ram_word(&pdp.ram, PDP11_RAM_WORD_COUNT - 1);
          word_ptr++)
         *word_ptr = (uint16_t)(*word_ptr << 8) | (uint8_t)(*word_ptr >> 8);
-    for (long i = 0; i < fsize(file); i++) {
-        pdp11_step(&pdp);
-        while (getchar() != '\n');
-    }
     fclose(file);
 
+    pdp11_start(&pdp);
+
+    getc(stdin);
+
+    pdp11_stop(&pdp);
     pdp11_uninit(&pdp);
 }

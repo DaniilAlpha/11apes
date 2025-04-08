@@ -1,12 +1,64 @@
 #include "pdp11/pdp11.h"
 
+#include <pthread.h>
 #include <stdio.h>
 
+#include "pdp11/unibus/mutex_unibus_lock.h"
+
+/*************
+ ** private **
+ *************/
+
+static void pdp11_cpu_thread_helper(Pdp11 *const self) {
+    while (!self->_should_stop) {
+        uint16_t const instr = pdp11_cpu_fetch(&self->cpu);
+
+        printf(
+            "ps = %1o%s%s%s%s%s \t exec: 0%06o \t ",
+            self->cpu.stat.priority,
+            self->cpu.stat.tf ? "T" : "t",
+            self->cpu.stat.nf ? "N" : "n",
+            self->cpu.stat.zf ? "Z" : "z",
+            self->cpu.stat.vf ? "V" : "v",
+            self->cpu.stat.cf ? "C" : "c",
+            instr
+        );
+        pdp11_cpu_decode_exec(&self->cpu, instr);
+        printf(
+            "ps = %1o%s%s%s%s%s\n",
+            self->cpu.stat.priority,
+            self->cpu.stat.tf ? "T" : "t",
+            self->cpu.stat.nf ? "N" : "n",
+            self->cpu.stat.zf ? "Z" : "z",
+            self->cpu.stat.vf ? "V" : "v",
+            self->cpu.stat.cf ? "C" : "c"
+        );
+    }
+}
+static void *pdp11_cpu_thread(void *const vself) {
+    return pdp11_cpu_thread_helper(vself), NULL;
+};
+
+/************
+ ** public **
+ ************/
+
 Result pdp11_init(Pdp11 *const self) {
+    self->_should_stop = false;
+
+    pthread_mutex_t sack_lock = PTHREAD_MUTEX_INITIALIZER,
+                    bbsy_lock = PTHREAD_MUTEX_INITIALIZER;
+    unibus_init(
+        &self->unibus,
+        &self->cpu,
+        pthread_mutex_ww_unibus_lock(&sack_lock),
+        pthread_mutex_ww_unibus_lock(&bbsy_lock)
+    );
+
     UNROLL(pdp11_ram_init(&self->ram));
     pdp11_cpu_init(
         &self->cpu,
-        &self->ram,
+        &self->unibus,
         PDP11_STARTUP_PC,
         PDP11_STARTUP_CPU_STAT
     );
@@ -18,33 +70,10 @@ void pdp11_uninit(Pdp11 *const self) {
     pdp11_cpu_uninit(&self->cpu);
 }
 
-uint16_t pdp11_instr_next(Pdp11 *const self) {
-    uint16_t const instr = pdp11_ram_word(&self->ram, pdp11_cpu_pc(&self->cpu));
-    pdp11_cpu_pc(&self->cpu) += 2;
-    return instr;
+void pdp11_start(Pdp11 *const self) {
+    pthread_create(&self->_cpu_thread, NULL, pdp11_cpu_thread, self);
 }
-
-void pdp11_step(Pdp11 *const self) {
-    uint16_t const instr = pdp11_instr_next(self);
-
-    printf(
-        "exec: 0%06o\tps: p%03o %s %s%s%s%s -> ",
-        instr,
-        self->cpu.stat.priority,
-        self->cpu.stat.tf ? "T" : ".",
-        self->cpu.stat.nf ? "N" : ".",
-        self->cpu.stat.zf ? "Z" : ".",
-        self->cpu.stat.vf ? "V" : ".",
-        self->cpu.stat.cf ? "C" : "."
-    );
-    pdp11_cpu_exec_instr(&self->cpu, instr);
-    printf(
-        "p%03o %s %s%s%s%s\n",
-        self->cpu.stat.priority,
-        self->cpu.stat.tf ? "T" : ".",
-        self->cpu.stat.nf ? "N" : ".",
-        self->cpu.stat.zf ? "Z" : ".",
-        self->cpu.stat.vf ? "V" : ".",
-        self->cpu.stat.cf ? "C" : "."
-    );
+void pdp11_stop(Pdp11 *const self) {
+    self->_should_stop = true;
+    pthread_join(self->_cpu_thread, NULL);
 }

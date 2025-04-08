@@ -1,6 +1,7 @@
 #ifndef PDP11_H
 #define PDP11_H
 
+#include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -19,19 +20,24 @@
 
 #define PDP11_STARTUP_PC (0100)
 #define PDP11_STARTUP_CPU_STAT                                                 \
-  ((Pdp11CpuStat){.priority = 0, .tf = 0, .nf = 0, .zf = 0, .vf = 0, .cf = 0})
+    ((Pdp11CpuStat){.priority = 0, .tf = 0, .nf = 0, .zf = 0, .vf = 0, .cf = 0})
 
 typedef struct Pdp11 {
+    Unibus unibus;
+
     Pdp11Cpu cpu;
     Pdp11Ram ram;
+
+    pthread_t _cpu_thread;
+
+    bool volatile _should_stop;
 } Pdp11;
 
 Result pdp11_init(Pdp11 *const self);
 void pdp11_uninit(Pdp11 *const self);
 
-uint16_t pdp11_instr_next(Pdp11 *const self);
-
-void pdp11_step(Pdp11 *const self);
+void pdp11_start(Pdp11 *const self);
+void pdp11_stop(Pdp11 *const self);
 
 void pdp11_cause_power_fail(Pdp11 *const self);
 
