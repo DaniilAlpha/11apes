@@ -3,14 +3,14 @@ cmake_minimum_required(VERSION 3.5)
 project(pdp11emu-main VERSION 0.1.0 LANGUAGES C)
 
 
-set(SRCS "main.c" "src/*.c")
-set(INCLUDE_DIR "include/")
+set(SRCS "main.c")
+set(INCLUDE_DIRS "include/")
 
 
 set(MAIN "main")
 
 add_executable(${MAIN} ${SRCS})
-target_include_directories(${MAIN} PRIVATE ${INCLUDE_DIR})
+target_include_directories(${MAIN} PRIVATE ${INCLUDE_DIRS})
 
 set(COMPILE_AND_BUILD_FlAGS
     $<$<CONFIG:Debug>: -Og -g > $<$<CONFIG:Release>: -O3 >

@@ -41,7 +41,7 @@ uint16_t unibus_dati(Unibus *const self, uint16_t const address) {
 
     unibus_lock_unlock(&self->_bbsy);
 
-    return 0;  // send real data back
+    return 0121212;  // send real data back
 }
 uint16_t unibus_datip(Unibus *const self, uint16_t const address) {
     return unibus_dati(self, address);
