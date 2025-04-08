@@ -1,5 +1,7 @@
 #include "pdp11/unibus/unibus.h"
 
+#include "pdp11/cpu/pdp11_cpu.h"
+
 void unibus_init(
     Unibus *const self,
     Pdp11Cpu *const cpu,
@@ -9,6 +11,8 @@ void unibus_init(
     self->_sack = sack_lock;
     self->_bbsy = bbsy_lock;
 }
+
+// TODO somehow honor horizontal priorities
 
 void unibus_intr(
     Unibus *const self,

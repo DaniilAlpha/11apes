@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #include "pdp11/cpu/pdp11_cpu_stat.h"
-#include "pdp11/pdp11_ram.h"
+#include "pdp11/unibus/unibus.h"
 
 #define PDP11_CPU_REG_COUNT (8)
 
@@ -13,7 +13,7 @@ typedef struct Pdp11Cpu {
     Pdp11CpuStat stat;
     uint16_t _r[PDP11_CPU_REG_COUNT];
 
-    Pdp11Ram *_ram;
+    Unibus *_unibus;
 } Pdp11Cpu;
 
 typedef enum Pdp11CpuTrap {
@@ -32,7 +32,7 @@ typedef enum Pdp11CpuTrap {
 
 void pdp11_cpu_init(
     Pdp11Cpu *const self,
-    Pdp11Ram *const ram,
+    Unibus *const unibus,
     uint16_t const pc,
     Pdp11CpuStat const stat
 );

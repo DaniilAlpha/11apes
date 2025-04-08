@@ -5,13 +5,13 @@
 
 #include <woodi.h>
 
-#include "pdp11/cpu/pdp11_cpu.h"
 #include "pdp11/unibus/unibus_lock.h"
 
 #define UNIBUS_DEVICE_INTERFACE(Self)                                          \
     { void (*address)(Self *const self); }
 WRAPPER(UnibusDevice, UNIBUS_DEVICE_INTERFACE);
 
+typedef struct Pdp11Cpu Pdp11Cpu;
 typedef struct Unibus {
     UnibusLock _bbsy,
         _sack;  // TODO? sack seems completely redundant, but
