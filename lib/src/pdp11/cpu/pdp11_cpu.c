@@ -1499,8 +1499,8 @@ void pdp11_cpu_instr_sob(
 ) {
     Pdp11Word const dst = pdp11_word_from_cpu_reg(self, r_i);
     uint16_t const res = dst.vtbl->read(&dst) - 1;
-    if (res != 0) pdp11_cpu_pc(self) -= 2 * off;  // TODO really?
     dst.vtbl->write(&dst, res);
+    if (res != 0) pdp11_cpu_pc(self) -= 2 * off;
 }
 
 // trap
