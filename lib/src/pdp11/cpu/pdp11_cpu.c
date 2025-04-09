@@ -1214,44 +1214,43 @@ void pdp11_cpu_instr_mov(
     Pdp11Word const src,
     Pdp11Word const dst
 ) {
-    dst.vtbl->write(&dst, src.vtbl->read(&src));
-    pdp11_cpu_stat_set_flags_from_word(&self->stat, src.vtbl->read(&src));
+    uint16_t const src_val = src.vtbl->read(&src);
+    pdp11_cpu_stat_set_flags_from_word(&self->stat, src_val);
+    dst.vtbl->write(&dst, src_val);
 }
 void pdp11_cpu_instr_movb(
     Pdp11Cpu *const self,
     Pdp11Byte const src,
     Pdp11Byte const dst
 ) {
+    uint8_t const src_val = src.vtbl->read(&src);
+    pdp11_cpu_stat_set_flags_from_byte(&self->stat, src_val);
     if (dst.vtbl == &pdp11_cpu_reg_byte_vtbl) {
-        Pdp11Word const dst_word = pdp11_word_from_cpu_reg(self, dst.addr);
-        pdp11_cpu_reg_word_write(
-            &dst_word,
-            (int16_t)(int8_t)src.vtbl->read(&src)
-        );
+        Pdp11Word const dstw = pdp11_word_from_cpu_reg(self, dst.addr);
+        pdp11_cpu_reg_word_write(&dstw, (int16_t)(int8_t)src_val);
     } else {
-        dst.vtbl->write(&dst, src.vtbl->read(&src));
+        dst.vtbl->write(&dst, src_val);
     }
-    pdp11_cpu_stat_set_flags_from_byte(&self->stat, dst.vtbl->read(&dst));
 }
 void pdp11_cpu_instr_add(
     Pdp11Cpu *const self,
     Pdp11Word const src,
     Pdp11Word const dst
 ) {
-    uint32_t const result =
+    uint32_t const res =
         xword(src.vtbl->read(&src)) + xword(dst.vtbl->read(&dst));
-    dst.vtbl->write(&dst, result);
-    pdp11_cpu_stat_set_flags_from_xword(&self->stat, result, false);
+    pdp11_cpu_stat_set_flags_from_xword(&self->stat, res, false);
+    dst.vtbl->write(&dst, res);
 }
 void pdp11_cpu_instr_sub(
     Pdp11Cpu *const self,
     Pdp11Word const src,
     Pdp11Word const dst
 ) {
-    uint32_t const result =
+    uint32_t const res =
         xword(src.vtbl->read(&src)) + xword(-dst.vtbl->read(&dst));
-    dst.vtbl->write(&dst, result);
-    pdp11_cpu_stat_set_flags_from_xword(&self->stat, result, true);
+    pdp11_cpu_stat_set_flags_from_xword(&self->stat, res, true);
+    dst.vtbl->write(&dst, res);
 }
 void pdp11_cpu_instr_cmp(
     Pdp11Cpu *const self,
@@ -1283,44 +1282,45 @@ void pdp11_cpu_instr_mul(
     unsigned const r_i,
     Pdp11Word const src
 ) {
-    uint32_t const result = (uint32_t
-    )((int16_t)src.vtbl->read(&src) * (int16_t)pdp11_cpu_rx(self, r_i));
-    if ((r_i & 1) == 0) pdp11_cpu_rx(self, r_i | 1) = (uint16_t)(result >> 16);
-    pdp11_cpu_rx(self, r_i) = (uint16_t)result;
+    Pdp11Word const dst0 = pdp11_word_from_cpu_reg(self, r_i),
+                    dst1 = pdp11_word_from_cpu_reg(self, r_i | 1);
 
+    uint32_t const res = (uint32_t
+    )((int16_t)dst0.vtbl->read(&dst0) * (int16_t)src.vtbl->read(&src));
     self->stat = (Pdp11CpuStat){
         .priority = self->stat.priority,
         .tf = self->stat.tf,
-        .nf = BIT(result, 15),
-        .zf = (uint16_t)result == 0,
+        .nf = BIT(res, 15),
+        .zf = (uint16_t)res == 0,
         .vf = 0,
-        .cf = (uint16_t)(result >> 16) != (BIT(result, 15) ? 0xFFFF : 0x0000),
+        .cf = (uint16_t)(res >> 16) != (BIT(res, 15) ? 0xFFFF : 0x0000),
     };
+    dst0.vtbl->write(&dst0, (uint16_t)res);
+    if ((r_i & 1) == 0) dst1.vtbl->write(&dst1, (uint16_t)(res >> 16));
 }
 void pdp11_cpu_instr_div(
     Pdp11Cpu *const self,
     unsigned const r_i,
     Pdp11Word const src
 ) {
-    if (src.vtbl->read(&src) == 0) {
+    Pdp11Word const word0 = pdp11_word_from_cpu_reg(self, r_i),
+                    word1 = pdp11_word_from_cpu_reg(self, r_i | 1);
+
+    uint16_t const src_val = src.vtbl->read(&src);
+    if (src_val == 0) {
         self->stat.vf = self->stat.cf = 1;
         return;
     }
+    uint32_t const dst_val =
+        word0.vtbl->read(&word0) |
+        ((r_i & 1) == 0 ? word1.vtbl->read(&word1) << 16 : 0);
 
-    uint32_t dst_value = pdp11_cpu_rx(self, r_i);
-    if ((r_i & 1) == 0) dst_value |= pdp11_cpu_rx(self, r_i | 1) << 16;
-
-    uint32_t const quotient = dst_value / src.vtbl->read(&src);
-
+    uint32_t const quotient = dst_val / src_val;
+    uint32_t const remainder = dst_val % src_val;
     if ((uint16_t)(quotient >> 16) != 0) {
         self->stat.vf = 1;
         return;
     }
-
-    pdp11_cpu_rx(self, r_i) = quotient;
-    if ((r_i & 1) == 0)
-        pdp11_cpu_rx(self, r_i) = dst_value % src.vtbl->read(&src);
-
     self->stat = (Pdp11CpuStat){
         .priority = self->stat.priority,
         .tf = self->stat.tf,
@@ -1329,6 +1329,8 @@ void pdp11_cpu_instr_div(
         .vf = 0,
         .cf = 0,
     };
+    word0.vtbl->write(&word0, quotient);
+    if ((r_i & 1) == 0) word1.vtbl->write(&word1, remainder);
 }
 
 void pdp11_cpu_instr_xor(
@@ -1336,8 +1338,10 @@ void pdp11_cpu_instr_xor(
     unsigned const r_i,
     Pdp11Word const dst
 ) {
-    dst.vtbl->write(&dst, dst.vtbl->read(&dst) ^ pdp11_cpu_rx(self, r_i));
-    pdp11_cpu_stat_set_flags_from_word(&self->stat, dst.vtbl->read(&dst));
+    Pdp11Word const src = pdp11_word_from_cpu_reg(self, r_i);
+    uint16_t const res = dst.vtbl->read(&dst) ^ src.vtbl->read(&src);
+    pdp11_cpu_stat_set_flags_from_word(&self->stat, res);
+    dst.vtbl->write(&dst, res);
 }
 
 // logical
@@ -1463,8 +1467,9 @@ void pdp11_cpu_instr_jsr(
     unsigned const r_i,
     Pdp11Word const src
 ) {
-    pdp11_stack_push(self, pdp11_cpu_rx(self, r_i));
-    pdp11_cpu_rx(self, r_i) = pdp11_cpu_pc(self);
+    Pdp11Word const dst = pdp11_word_from_cpu_reg(self, r_i);
+    pdp11_stack_push(self, dst.vtbl->read(&dst));
+    dst.vtbl->write(&dst, pdp11_cpu_pc(self));
     pdp11_cpu_pc(self) = src.vtbl->read(&src);
 }
 void pdp11_cpu_instr_mark(Pdp11Cpu *const self, unsigned const param_count) {
@@ -1473,8 +1478,9 @@ void pdp11_cpu_instr_mark(Pdp11Cpu *const self, unsigned const param_count) {
     pdp11_cpu_pc(self) = pdp11_stack_pop(self);
 }
 void pdp11_cpu_instr_rts(Pdp11Cpu *const self, unsigned const r_i) {
-    pdp11_cpu_pc(self) = pdp11_cpu_rx(self, r_i);
-    pdp11_cpu_rx(self, r_i) = pdp11_stack_pop(self);
+    Pdp11Word const dst = pdp11_word_from_cpu_reg(self, r_i);
+    pdp11_cpu_pc(self) = dst.vtbl->read(&dst);
+    dst.vtbl->write(&dst, pdp11_stack_pop(self));
 }
 
 // program control
@@ -1491,7 +1497,10 @@ void pdp11_cpu_instr_sob(
     unsigned const r_i,
     uint8_t const off
 ) {
-    if (--pdp11_cpu_rx(self, r_i) != 0) pdp11_cpu_pc(self) -= 2 * off;
+    Pdp11Word const dst = pdp11_word_from_cpu_reg(self, r_i);
+    uint16_t const res = dst.vtbl->read(&dst) - 1;
+    if (res != 0) pdp11_cpu_pc(self) -= 2 * off;  // TODO really?
+    dst.vtbl->write(&dst, res);
 }
 
 // trap
