@@ -11,7 +11,7 @@ static Pdp11 pdp = {0};
  ** helpers **
  *************/
 
-static uint16_t pdp_test_dop_ra_instr(
+static uint16_t pdp11_cpu_dop_ra_instr(
     uint16_t const instr,
     uint16_t const x,
     uint16_t const y
@@ -21,7 +21,7 @@ static uint16_t pdp_test_dop_ra_instr(
     pdp11_cpu_decode_exec(&pdp.cpu, instr);
     return pdp11_cpu_rx(&pdp.cpu, 0);
 }
-static uint16_t pdp_test_dop_da_instr(
+static uint16_t pdp11_cpu_dop_da_instr(
     uint16_t const instr,
     uint16_t const addr,
     uint16_t const x,
@@ -33,7 +33,7 @@ static uint16_t pdp_test_dop_da_instr(
     pdp11_cpu_decode_exec(&pdp.cpu, instr);
     return unibus_dati(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0));
 }
-static uint16_t pdp_test_dop_ia_instr(
+static uint16_t pdp11_cpu_dop_ia_instr(
     uint16_t const instr,
     uint16_t const addr,
     uint16_t const off,
@@ -52,36 +52,41 @@ static uint16_t pdp_test_dop_ia_instr(
  ** tests **
  ***********/
 
-static MiunteResult pdp_test_setup() {
+static MiunteResult pdp11_cpu_test_setup() {
     MIUNTE_EXPECT(pdp11_init(&pdp) == Ok, "`pdp11_init` should not fail");
     MIUNTE_PASS();
 }
-static MiunteResult pdp_test_teardown() {
+static MiunteResult pdp11_cpu_test_teardown() {
     pdp11_uninit(&pdp);
     MIUNTE_PASS();
 }
 
-static MiunteResult pdp_test_addressing() {
+static MiunteResult pdp11_cpu_test_addressing() {
     uint16_t const x = 0xDEAD, y = 0xBEEF;
     MIUNTE_EXPECT(x != y, "this just makes no sense");
 
     MIUNTE_EXPECT(
-        pdp_test_dop_ra_instr(0010100 /* mov R0, R1 */, x, y) == y,
+        pdp11_cpu_dop_ra_instr(0010100 /* mov R0, R1 */, x, y) == y,
         "register addressing should work correctly"
     );
     MIUNTE_EXPECT(
-        pdp_test_dop_da_instr(0010110 /* mov (R0), R1 */, 0x0042, x, y) == y,
+        pdp11_cpu_dop_da_instr(0010110 /* mov (R0), R1 */, 0x0042, x, y) == y,
         "deferred addressing should work correctly"
     );
     MIUNTE_EXPECT(
-        pdp_test_dop_ia_instr(0010160 /* mov 24(R0), R1 */, 0x0042, 24, x, y) ==
-            y,
+        pdp11_cpu_dop_ia_instr(
+            0010160 /* mov 24(R0), R1 */,
+            0x0042,
+            24,
+            x,
+            y
+        ) == y,
         "indexed deferred addressing should work correctly"
     );
     MIUNTE_PASS();
 }
 
-static MiunteResult pdp_test_mov_movb() {
+static MiunteResult pdp11_cpu_test_mov_movb() {
     Pdp11CpuStat *const stat = &pdp.cpu.stat;
     stat->cf = 1;
 
@@ -89,7 +94,7 @@ static MiunteResult pdp_test_mov_movb() {
         uint16_t const x = 1;
 
         MIUNTE_EXPECT(
-            pdp_test_dop_ra_instr(0010100 /* mov R0, R1 */, 0, x) == x,
+            pdp11_cpu_dop_ra_instr(0010100 /* mov R0, R1 */, 0, x) == x,
             "mov should move correctly"
         );
         MIUNTE_EXPECT(
@@ -103,7 +108,7 @@ static MiunteResult pdp_test_mov_movb() {
         uint16_t const x = 0;
 
         MIUNTE_EXPECT(
-            pdp_test_dop_ra_instr(0010100 /* mov R0, R1 */, 1, x) == x,
+            pdp11_cpu_dop_ra_instr(0010100 /* mov R0, R1 */, 1, x) == x,
             "mov should move correctly"
         );
         MIUNTE_EXPECT(
@@ -116,7 +121,7 @@ static MiunteResult pdp_test_mov_movb() {
         uint16_t const x = -1;
 
         MIUNTE_EXPECT(
-            pdp_test_dop_ra_instr(0010100 /* mov R0, R1 */, 0, x) == x,
+            pdp11_cpu_dop_ra_instr(0010100 /* mov R0, R1 */, 0, x) == x,
             "mov should move correctly"
         );
         MIUNTE_EXPECT(
@@ -126,19 +131,19 @@ static MiunteResult pdp_test_mov_movb() {
     }
 
     MIUNTE_EXPECT(
-        (int16_t)pdp_test_dop_ra_instr(0110100 /* movb R1, R0 */, 0, -1) < 0,
+        (int16_t)pdp11_cpu_dop_ra_instr(0110100 /* movb R1, R0 */, 0, -1) < 0,
         "movb to register should sign-extend the operand"
     );
 
     MIUNTE_PASS();
 }
-static MiunteResult pdp_test_add_sub() {
+static MiunteResult pdp11_cpu_test_add_sub() {
     Pdp11CpuStat *const stat = &pdp.cpu.stat;
     {
         uint16_t const x = 3, y = 2;
 
         MIUNTE_EXPECT(
-            pdp_test_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
+            pdp11_cpu_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
                 (uint16_t)(x + y),
             "add should add correctly"
         );
@@ -152,7 +157,7 @@ static MiunteResult pdp_test_add_sub() {
         uint16_t const x = 3, y = -3;
 
         MIUNTE_EXPECT(
-            pdp_test_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
+            pdp11_cpu_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
                 (uint16_t)(x + y),
             "add should add correctly"
         );
@@ -166,7 +171,7 @@ static MiunteResult pdp_test_add_sub() {
         uint16_t const x = 3, y = -4;
 
         MIUNTE_EXPECT(
-            pdp_test_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
+            pdp11_cpu_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
                 (uint16_t)(x + y),
             "add should add correctly"
         );
@@ -180,7 +185,7 @@ static MiunteResult pdp_test_add_sub() {
         uint16_t const x = 32000, y = 768;
 
         MIUNTE_EXPECT(
-            pdp_test_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
+            pdp11_cpu_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
                 (uint16_t)(x + y),
             "add should add correctly"
         );
@@ -194,7 +199,7 @@ static MiunteResult pdp_test_add_sub() {
         uint16_t const x = 65000, y = 1000;
 
         MIUNTE_EXPECT(
-            pdp_test_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
+            pdp11_cpu_dop_ra_instr(0060100 /* add R0, R1 */, x, y) ==
                 (uint16_t)(x + y),
             "add should add correctly"
         );
@@ -208,7 +213,7 @@ static MiunteResult pdp_test_add_sub() {
         uint16_t const x = 3, y = 3;
 
         MIUNTE_EXPECT(
-            pdp_test_dop_ra_instr(0160100 /* sub R0, R1 */, x, y) ==
+            pdp11_cpu_dop_ra_instr(0160100 /* sub R0, R1 */, x, y) ==
                 (uint16_t)(x - y),
             "sub should subtract correctly"
         );
@@ -220,23 +225,23 @@ static MiunteResult pdp_test_add_sub() {
 
     MIUNTE_PASS();
 }
-static MiunteResult pdp_test_cmp() {
+static MiunteResult pdp11_cpu_test_cmp() {
     Pdp11CpuStat *const stat = &pdp.cpu.stat;
     uint16_t const x = 24;
 
-    pdp_test_dop_ra_instr(0020001 /* cmp R0, R1 */, x, x);
+    pdp11_cpu_dop_ra_instr(0020001 /* cmp R0, R1 */, x, x);
     MIUNTE_EXPECT(
         !stat->nf && stat->zf && !stat->vf && !stat->cf,
         "cmp of equal values should result in {nzvc} flags = {0100}"
     );
 
-    pdp_test_dop_ra_instr(0020001 /* cmp R0, R1 */, x + 1, x);
+    pdp11_cpu_dop_ra_instr(0020001 /* cmp R0, R1 */, x + 1, x);
     MIUNTE_EXPECT(
         !stat->nf && !stat->zf && !stat->vf && !stat->cf,
         "cmp of greater value should result in {nzvc} flags = {0000}"
     );
 
-    pdp_test_dop_ra_instr(0020001 /* cmp R0, R1 */, x, x + 1);
+    pdp11_cpu_dop_ra_instr(0020001 /* cmp R0, R1 */, x, x + 1);
     MIUNTE_EXPECT(
         stat->nf && !stat->zf && !stat->vf && stat->cf,
         "cmp of lesser value should result in {nzvc} flags = {1001}"
@@ -244,13 +249,13 @@ static MiunteResult pdp_test_cmp() {
 
     MIUNTE_PASS();
 }
-static MiunteResult pdp_test_mul_div() {
+static MiunteResult pdp11_cpu_test_mul_div() {
     Pdp11CpuStat *const stat = &pdp.cpu.stat;
     {
         uint16_t const x = 3, y = 2;
 
         MIUNTE_EXPECT(
-            pdp_test_dop_ra_instr(0070001 /* mul R0, R1 */, x, y) ==
+            pdp11_cpu_dop_ra_instr(0070001 /* mul R0, R1 */, x, y) ==
                 (uint16_t)(x * y),
             "mul should multiply correctly"
         );
@@ -264,7 +269,7 @@ static MiunteResult pdp_test_mul_div() {
         uint16_t const x = 3, y = 0;
 
         MIUNTE_EXPECT(
-            pdp_test_dop_ra_instr(0070001 /* mul R0, R1 */, x, y) ==
+            pdp11_cpu_dop_ra_instr(0070001 /* mul R0, R1 */, x, y) ==
                 (uint16_t)(x * y),
             "mul should multiply correctly"
         );
@@ -278,7 +283,7 @@ static MiunteResult pdp_test_mul_div() {
         uint16_t const x = 3, y = -2;
 
         MIUNTE_EXPECT(
-            pdp_test_dop_ra_instr(0070001 /* mul R0, R1 */, x, y) ==
+            pdp11_cpu_dop_ra_instr(0070001 /* mul R0, R1 */, x, y) ==
                 (uint16_t)(x * y),
             "mul should multiply correctly"
         );
@@ -292,7 +297,7 @@ static MiunteResult pdp_test_mul_div() {
         uint16_t const x = 32000, y = 2;
 
         MIUNTE_EXPECT(
-            pdp_test_dop_ra_instr(0070001 /* mul R0, R1 */, x, y) ==
+            pdp11_cpu_dop_ra_instr(0070001 /* mul R0, R1 */, x, y) ==
                 (uint16_t)(x * y),
             "mul should multiply correctly"
         );
@@ -306,7 +311,7 @@ static MiunteResult pdp_test_mul_div() {
         uint16_t const x = 42;
 
         MIUNTE_EXPECT(
-            pdp_test_dop_ra_instr(0071001 /* div R0, R1 */, x, 0) == x,
+            pdp11_cpu_dop_ra_instr(0071001 /* div R0, R1 */, x, 0) == x,
             "div by zero should leave register untouched"
         );
         MIUNTE_EXPECT(
@@ -317,13 +322,13 @@ static MiunteResult pdp_test_mul_div() {
 
     MIUNTE_PASS();
 }
-static MiunteResult pdp_test_bit() {
+static MiunteResult pdp11_cpu_test_bit() {
     Pdp11CpuStat *const stat = &pdp.cpu.stat;
 
     uint16_t const x = 0x42;
 
     MIUNTE_EXPECT(
-        pdp_test_dop_ra_instr(0030001 /* bit R0, R1 */, x, ~x) == x,
+        pdp11_cpu_dop_ra_instr(0030001 /* bit R0, R1 */, x, ~x) == x,
         "bit should not modify registers"
     );
     MIUNTE_EXPECT(
@@ -340,10 +345,10 @@ static MiunteResult pdp_test_bit() {
 
 int test_cpu_run(void) {
     MIUNTE_RUN(
-        pdp_test_setup,
-        pdp_test_teardown,
+        pdp11_cpu_test_setup,
+        pdp11_cpu_test_teardown,
         {
-            pdp_test_addressing,
+            pdp11_cpu_test_addressing,
 
             // TODO test inc/dec
             // TODO test neg/com, especially flags
@@ -353,11 +358,11 @@ int test_cpu_run(void) {
             // TODO test asr/asl
             // TODO test ror/rol
 
-            pdp_test_mov_movb,
-            pdp_test_add_sub,
-            pdp_test_cmp,
-            pdp_test_mul_div,
-            pdp_test_bit,
+            pdp11_cpu_test_mov_movb,
+            pdp11_cpu_test_add_sub,
+            pdp11_cpu_test_cmp,
+            pdp11_cpu_test_mul_div,
+            pdp11_cpu_test_bit,
 
             // TODO test some of the branches
             // TODO test sob

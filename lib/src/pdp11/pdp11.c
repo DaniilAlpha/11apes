@@ -56,6 +56,7 @@ Result pdp11_init(Pdp11 *const self) {
         pthread_mutex_ww_unibus_lock(&self->_sack_lock),
         pthread_mutex_ww_unibus_lock(&self->_bbsy_lock)
     );
+    self->unibus.devices[0] = pdp11_ram_ww_unibus_device(&self->ram);
 
     pdp11_cpu_init(
         &self->cpu,

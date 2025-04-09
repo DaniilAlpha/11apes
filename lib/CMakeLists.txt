@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.5)
 project(pdp11emu VERSION 0.1.0 LANGUAGES C)
 
 
-set(SRCS_PATH "src/*.c")
-set(INCLUDE_DIR "include/" "external/result/" "external/woodi/")
+set(SRCS_PATH "src/*.c" "external/vec/src/*.c")
+set(INCLUDE_DIR "include/" "external/result/" "external/woodi/" "external/vec/include/")
 
 file(GLOB_RECURSE SRCS ${SRCS_PATH})
 

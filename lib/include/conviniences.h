@@ -6,4 +6,7 @@
 
 #define forceinline __attribute__((always_inline)) inline
 
+#define foreach(EL_, ARR_)                                                     \
+  for (typeof (&*ARR_)(EL_) = (ARR_); (EL_) < (ARR_); (EL_)++)
+
 #endif

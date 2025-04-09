@@ -7,3 +7,6 @@
 [submodule "lib/external/woodi"]
 	path = lib/external/woodi
 	url = git@github.com:DaniilAlpha/woodi
+[submodule "lib/external/vec"]
+	path = lib/external/vec
+	url = git@github.com:DaniilAlpha/vec

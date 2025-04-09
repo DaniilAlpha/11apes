@@ -5,11 +5,10 @@
 
 #include <woodi.h>
 
+#include "pdp11/unibus/unibus_device.h"
 #include "pdp11/unibus/unibus_lock.h"
 
-#define UNIBUS_DEVICE_INTERFACE(Self)                                          \
-  { void (*address)(Self *const self); }
-WRAPPER(UnibusDevice, UNIBUS_DEVICE_INTERFACE);
+#define UNIBUS_SLOT_COUNT (8)
 
 typedef struct Pdp11Cpu Pdp11Cpu;
 typedef struct Unibus {
@@ -17,6 +16,8 @@ typedef struct Unibus {
         _sack;  // TODO? sack seems completely redundant, but
                 // emu may behave slightly different without it. should consider
                 // its removal later
+
+    UnibusDevice devices[UNIBUS_SLOT_COUNT];
 
     Pdp11Cpu *cpu;
 } Unibus;
@@ -34,17 +35,9 @@ void unibus_intr(
     uint16_t const trap
 );
 
-uint16_t unibus_dati(Unibus *const self, uint16_t const address);
-uint16_t unibus_datip(Unibus *const self, uint16_t const address);
-void unibus_dato(
-    Unibus *const self,
-    uint16_t const address,
-    uint16_t const data
-);
-void unibus_datob(
-    Unibus *const self,
-    uint16_t const address,
-    uint8_t const data
-);
+uint16_t unibus_dati(Unibus *const self, uint16_t const addr);
+uint16_t unibus_datip(Unibus *const self, uint16_t const addr);
+void unibus_dato(Unibus *const self, uint16_t const addr, uint16_t const data);
+void unibus_datob(Unibus *const self, uint16_t const addr, uint8_t const data);
 
 #endif
