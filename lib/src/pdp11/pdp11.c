@@ -44,18 +44,19 @@ static void *pdp11_cpu_thread(void *const vself) {
  ************/
 
 Result pdp11_init(Pdp11 *const self) {
-    self->_should_stop = false;
+    UNROLL(pdp11_ram_init(&self->ram));
 
-    pthread_mutex_t sack_lock = PTHREAD_MUTEX_INITIALIZER,
-                    bbsy_lock = PTHREAD_MUTEX_INITIALIZER;
+    if (pthread_mutex_init(&self->_sack_lock, NULL) != 0 ||
+        pthread_mutex_init(&self->_sack_lock, NULL) != 0)
+        return pdp11_ram_uninit(&self->ram), RangeErr;
+
     unibus_init(
         &self->unibus,
         &self->cpu,
-        pthread_mutex_ww_unibus_lock(&sack_lock),
-        pthread_mutex_ww_unibus_lock(&bbsy_lock)
+        pthread_mutex_ww_unibus_lock(&self->_sack_lock),
+        pthread_mutex_ww_unibus_lock(&self->_bbsy_lock)
     );
 
-    UNROLL(pdp11_ram_init(&self->ram));
     pdp11_cpu_init(
         &self->cpu,
         &self->unibus,
@@ -63,14 +64,21 @@ Result pdp11_init(Pdp11 *const self) {
         PDP11_STARTUP_CPU_STAT
     );
 
+    self->_should_stop = true;
+
     return Ok;
 }
 void pdp11_uninit(Pdp11 *const self) {
-    pdp11_ram_uninit(&self->ram);
+    if (!self->_should_stop) pdp11_stop(self);
+
     pdp11_cpu_uninit(&self->cpu);
+    pthread_mutex_destroy(&self->_bbsy_lock);
+    pthread_mutex_destroy(&self->_sack_lock);
+    pdp11_ram_uninit(&self->ram);
 }
 
 void pdp11_start(Pdp11 *const self) {
+    self->_should_stop = false;
     pthread_create(&self->_cpu_thread, NULL, pdp11_cpu_thread, self);
 }
 void pdp11_stop(Pdp11 *const self) {

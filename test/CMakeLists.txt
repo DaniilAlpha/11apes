@@ -25,6 +25,6 @@ target_link_options(${TEST} PRIVATE ${COMPILE_AND_BUILD_FlAGS})
 
 
 add_subdirectory("../lib/" "${CMAKE_BINARY_DIR}/lib/")
-target_link_libraries(${TEST} lib)
+target_link_libraries(${TEST} lib pthread)
 
 

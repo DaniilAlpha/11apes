@@ -8,7 +8,7 @@
 #include "pdp11/unibus/unibus_lock.h"
 
 #define UNIBUS_DEVICE_INTERFACE(Self)                                          \
-    { void (*address)(Self *const self); }
+  { void (*address)(Self *const self); }
 WRAPPER(UnibusDevice, UNIBUS_DEVICE_INTERFACE);
 
 typedef struct Pdp11Cpu Pdp11Cpu;
