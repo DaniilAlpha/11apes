@@ -1,6 +1,7 @@
 // http://www.bitsavers.org/pdf/dec/pdp11/1170/PDP-11_70_Handbook_1977-78.pdf
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "pdp11/pdp11.h"
 
@@ -17,11 +18,22 @@ int main() {
     UNROLL(pdp11_init(&pdp));
 
     FILE *const file = fopen("res/m9342-248f1.bin", "r");
-    fread(&pdp11_ram_byte(&pdp.ram, 0), 1, fsize(file), file);
-    for (uint16_t *word_ptr = &pdp11_ram_word(&pdp.ram, 0);
-         word_ptr <= &pdp11_ram_word(&pdp.ram, PDP11_RAM_WORD_COUNT - 1);
-         word_ptr++)
-        *word_ptr = (uint16_t)(*word_ptr << 8) | (uint8_t)(*word_ptr >> 8);
+    if (!file) return 1;
+    size_t const file_data_size = fsize(file);
+    uint8_t *const file_data = malloc(file_data_size);
+    if (!file_data) return 1;
+    fread(file_data, 1, file_data_size, file);
+
+    assert((file_data_size & 1) == 0);
+    for (size_t i = 0; i < file_data_size; i += 2) {
+        unibus_dato(
+            &pdp.unibus,
+            PDP11_STARTUP_PC + i,
+            (uint16_t)(file_data[i] << 8) | (uint8_t)(file_data[i + 1] >> 8)
+        );
+    }
+
+    free(file_data);
     fclose(file);
 
     pdp11_start(&pdp);

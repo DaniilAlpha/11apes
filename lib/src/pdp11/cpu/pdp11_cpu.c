@@ -450,7 +450,6 @@ static uint16_t pdp11_stack_pop(Pdp11Cpu *const self) {
 
 static Pdp11Word
 pdp11_cpu_address_word(Pdp11Cpu *const self, unsigned const mode) {
-    // TODO trap CPU_ERR if odd address
     unsigned const r_i = BITS(mode, 0, 2);
 
     switch (BITS(mode, 3, 5)) {

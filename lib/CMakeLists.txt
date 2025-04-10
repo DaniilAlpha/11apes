@@ -17,7 +17,7 @@ target_include_directories(${LIB} PUBLIC ${INCLUDE_DIR})
 
 set(COMPILE_AND_BUILD_FlAGS
     -std=gnu2x
-    $<$<CONFIG:Debug>: -Og -g > $<$<CONFIG:Release>: -O3 >
+    $<$<CONFIG:Debug>: -O0 -g > $<$<CONFIG:Release>: -O3 >
     -W -Wall -Wextra -Wformat $<$<CONFIG:Release>: -Winline > 
     -Wno-unused-parameter
     -fsanitize=address)

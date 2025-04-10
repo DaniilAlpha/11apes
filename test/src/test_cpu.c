@@ -16,9 +16,11 @@ static uint16_t pdp11_cpu_dop_ra_instr(
     uint16_t const x,
     uint16_t const y
 ) {
+    unibus_dato(&pdp.unibus, pdp11_cpu_pc(&pdp.cpu), instr);
+
     pdp11_cpu_rx(&pdp.cpu, 0) = x;
     pdp11_cpu_rx(&pdp.cpu, 1) = y;
-    pdp11_cpu_decode_exec(&pdp.cpu, instr);
+    pdp11_cpu_decode_exec(&pdp.cpu, pdp11_cpu_fetch(&pdp.cpu));
     return pdp11_cpu_rx(&pdp.cpu, 0);
 }
 static uint16_t pdp11_cpu_dop_da_instr(
@@ -27,10 +29,12 @@ static uint16_t pdp11_cpu_dop_da_instr(
     uint16_t const x,
     uint16_t const y
 ) {
+    unibus_dato(&pdp.unibus, pdp11_cpu_pc(&pdp.cpu), instr);
+
     pdp11_cpu_rx(&pdp.cpu, 0) = addr;
     unibus_dato(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0), x);
     pdp11_cpu_rx(&pdp.cpu, 1) = y;
-    pdp11_cpu_decode_exec(&pdp.cpu, instr);
+    pdp11_cpu_decode_exec(&pdp.cpu, pdp11_cpu_fetch(&pdp.cpu));
     return unibus_dati(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0));
 }
 static uint16_t pdp11_cpu_dop_ia_instr(
@@ -40,11 +44,13 @@ static uint16_t pdp11_cpu_dop_ia_instr(
     uint16_t const x,
     uint16_t const y
 ) {
+    unibus_dato(&pdp.unibus, pdp11_cpu_pc(&pdp.cpu), instr);
+    unibus_dato(&pdp.unibus, pdp11_cpu_pc(&pdp.cpu) + 2, off);
+
     pdp11_cpu_rx(&pdp.cpu, 0) = addr;
     unibus_dato(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0) + off, x);
     pdp11_cpu_rx(&pdp.cpu, 1) = y;
-    unibus_dato(&pdp.unibus, pdp11_cpu_pc(&pdp.cpu) + 2, off);
-    pdp11_cpu_decode_exec(&pdp.cpu, instr);
+    pdp11_cpu_decode_exec(&pdp.cpu, pdp11_cpu_fetch(&pdp.cpu));
     return unibus_dati(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0) + off);
 }
 
@@ -70,17 +76,11 @@ static MiunteResult pdp11_cpu_test_addressing() {
         "register addressing should work correctly"
     );
     MIUNTE_EXPECT(
-        pdp11_cpu_dop_da_instr(0010110 /* mov (R0), R1 */, 0x0042, x, y) == y,
+        pdp11_cpu_dop_da_instr(0010110 /* mov (R0), R1 */, 3, x, y) == y,
         "deferred addressing should work correctly"
     );
     MIUNTE_EXPECT(
-        pdp11_cpu_dop_ia_instr(
-            0010160 /* mov 24(R0), R1 */,
-            0x0042,
-            24,
-            x,
-            y
-        ) == y,
+        pdp11_cpu_dop_ia_instr(0010160 /* mov 24(R0), R1 */, 3, 6, x, y) == y,
         "indexed deferred addressing should work correctly"
     );
     MIUNTE_PASS();

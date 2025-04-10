@@ -3,6 +3,8 @@
 #include <pthread.h>
 #include <stdio.h>
 
+#include <unistd.h>
+
 #include "pdp11/unibus/mutex_unibus_lock.h"
 
 /*************
@@ -11,10 +13,12 @@
 
 static void pdp11_cpu_thread_helper(Pdp11 *const self) {
     while (!self->_should_stop) {
+        usleep(100 * 1000);
         uint16_t const instr = pdp11_cpu_fetch(&self->cpu);
 
         printf(
-            "ps = %1o%s%s%s%s%s \t exec: 0%06o \t ",
+            "pc = 0%06o \t ps = %1o%s%s%s%s%s \t exec: 0%06o \t ",
+            pdp11_cpu_pc(&self->cpu),
             self->cpu.stat.priority,
             self->cpu.stat.tf ? "T" : "t",
             self->cpu.stat.nf ? "N" : "n",
@@ -44,7 +48,7 @@ static void *pdp11_cpu_thread(void *const vself) {
  ************/
 
 Result pdp11_init(Pdp11 *const self) {
-    UNROLL(pdp11_ram_init(&self->ram));
+    UNROLL(pdp11_ram_init(&self->ram, 0, 16 * 1024 * 2, true));
 
     if (pthread_mutex_init(&self->_sack_lock, NULL) != 0 ||
         pthread_mutex_init(&self->_sack_lock, NULL) != 0)

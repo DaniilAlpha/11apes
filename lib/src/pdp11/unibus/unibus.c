@@ -9,17 +9,73 @@
  ** private **
  *************/
 
-static inline uint16_t *
-unibus_device_try_address(UnibusDevice const *const self, uint16_t const addr) {
-    return WRAPPER_CALL(_try_address, self, addr);
+static inline bool unibus_device_try_read(
+    UnibusDevice const *const self,
+    uint16_t const addr,
+    uint16_t *const out_val
+) {
+    return WRAPPER_CALL(_try_read, self, addr, out_val);
 }
-static uint16_t *
-unibus_try_address(Unibus const *const self, uint16_t const addr) {
-    foreach (device_ptr, self->devices) {
-        uint16_t *const data_ptr = unibus_device_try_address(device_ptr, addr);
-        if (data_ptr) return data_ptr;
-    }
-    return NULL;
+static inline bool unibus_device_try_read_pause(
+    UnibusDevice const *const self,
+    uint16_t const addr,
+    uint16_t *const out_val
+
+) {
+    return WRAPPER_CALL(_try_read_pause, self, addr, out_val);
+}
+static inline bool unibus_device_try_write_word(
+    UnibusDevice const *const self,
+    uint16_t const addr,
+    uint16_t const val
+
+) {
+    return WRAPPER_CALL(_try_write_word, self, addr, val);
+}
+static inline bool unibus_device_try_write_byte(
+    UnibusDevice const *const self,
+    uint16_t const addr,
+    uint8_t const val
+
+) {
+    return WRAPPER_CALL(_try_write_byte, self, addr, val);
+}
+static bool unibus_try_read(
+    Unibus const *const self,
+    uint16_t const addr,
+    uint16_t *const out_val
+) {
+    foreach (device_ptr, self->devices, self->devices + UNIBUS_DEVICE_COUNT)
+        if (unibus_device_try_read(device_ptr, addr, out_val)) return true;
+    return false;
+}
+static bool unibus_try_read_pause(
+    Unibus const *const self,
+    uint16_t const addr,
+    uint16_t *const out_val
+) {
+    foreach (device_ptr, self->devices, self->devices + UNIBUS_DEVICE_COUNT)
+        if (unibus_device_try_read_pause(device_ptr, addr, out_val))
+            return true;
+    return false;
+}
+static bool unibus_try_write_word(
+    Unibus const *const self,
+    uint16_t const addr,
+    uint16_t const val
+) {
+    foreach (device_ptr, self->devices, self->devices + UNIBUS_DEVICE_COUNT)
+        if (unibus_device_try_write_word(device_ptr, addr, val)) return true;
+    return false;
+}
+static bool unibus_try_write_byte(
+    Unibus const *const self,
+    uint16_t const addr,
+    uint8_t const val
+) {
+    foreach (device_ptr, self->devices, self->devices + UNIBUS_DEVICE_COUNT)
+        if (unibus_device_try_write_byte(device_ptr, addr, val)) return true;
+    return false;
 }
 
 /************
@@ -35,8 +91,8 @@ void unibus_init(
     self->_sack = sack_lock;
     self->_bbsy = bbsy_lock;
 
-    foreach (device_ptr, self->devices) *device_ptr = no_unibus_device();
-
+    foreach (device_ptr, self->devices, self->devices + UNIBUS_DEVICE_COUNT)
+        *device_ptr = no_unibus_device();
     self->cpu = cpu;
 }
 
@@ -63,27 +119,39 @@ uint16_t unibus_dati(Unibus *const self, uint16_t const addr) {
     unibus_lock_lock(&self->_bbsy);
     unibus_lock_unlock(&self->_sack);
 
-    uint16_t const *const data_ptr = unibus_try_address(self, addr);
-    // TODO some error should be here
-    if (!data_ptr) return unibus_lock_unlock(&self->_bbsy), 0111111;
+    uint16_t data = 0111111;
+    if (!unibus_try_read(self, addr, &data)) {
+        // TODO some error should be here
+    }
 
     unibus_lock_unlock(&self->_bbsy);
 
-    return *data_ptr;
+    return data;
 }
 uint16_t unibus_datip(Unibus *const self, uint16_t const addr) {
-    return unibus_dati(self, addr);
-}
-void unibus_dato(Unibus *const self, uint16_t const addr, uint16_t const data) {
     unibus_lock_lock(&self->_sack);
     unibus_lock_lock(&self->_bbsy);
     unibus_lock_unlock(&self->_sack);
 
-    uint16_t *const data_ptr = unibus_try_address(self, addr);
-    // TODO some error should be here
-    if (!data_ptr) return unibus_lock_unlock(&self->_bbsy);
+    uint16_t data = 0111111;
+    if (!unibus_try_read_pause(self, addr, &data)) {
+        // TODO some error should be here
+    }
 
-    *data_ptr = data;
+    unibus_lock_unlock(&self->_bbsy);
+
+    return data;
+}
+void unibus_dato(Unibus *const self, uint16_t const addr, uint16_t const data) {
+    // TODO trap CPU_ERR if odd address
+
+    unibus_lock_lock(&self->_sack);
+    unibus_lock_lock(&self->_bbsy);
+    unibus_lock_unlock(&self->_sack);
+
+    if (!unibus_try_write_word(self, addr, data)) {
+        // TODO some error should be here
+    }
 
     unibus_lock_unlock(&self->_bbsy);
 }
@@ -92,13 +160,9 @@ void unibus_datob(Unibus *const self, uint16_t const addr, uint8_t const data) {
     unibus_lock_lock(&self->_bbsy);
     unibus_lock_unlock(&self->_sack);
 
-    // TODO! implement properly - currently not aligned, not checked, also, may
-    // be a different location
-    uint8_t *const data_ptr = (uint8_t *)unibus_try_address(self, addr);
-    // TODO some error should be here
-    if (!data_ptr) return unibus_lock_unlock(&self->_bbsy);
-
-    *data_ptr = data;
+    if (!unibus_try_write_byte(self, addr, data)) {
+        // TODO some error should be here
+    }
 
     unibus_lock_unlock(&self->_bbsy);
 }

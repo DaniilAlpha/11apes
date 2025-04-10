@@ -12,7 +12,6 @@
     "tasks": {
         "run": {
             "icon": "󰐊",
-            "desc": "build and run the project",
             "cmd": [
                 "export BUILD=./build/",
                 "cmake -B $BUILD -S ./ --log-level=$CMAKE_LOG_LEVEL -DCMAKE_BUILD_TYPE=$RUN_BUILD_TYPE; cmake --build $BUILD",
@@ -21,7 +20,7 @@
         },
         "debug": {
             "icon": "󰨰",
-            "desc": "run the project via gdb",
+            "desc": "debug via gdb",
             "cmd": [
                 "export BUILD=./build/",
                 "gdb $BUILD/main $ARGS"
@@ -29,7 +28,6 @@
         },
         "test": {
             "icon": "󰙨",
-            "desc": "build and test the project",
             "cmd": [
                 "cd $TEST",
                 "export BUILD=./build/",
@@ -38,7 +36,7 @@
             ]
         },
         "test gdb": {
-            "desc": "test the project via gdb",
+            "desc": "test with gdb",
             "cmd": [
                 "export BUILD=./test/build/",
                 "gdb $BUILD/test"
