@@ -29,9 +29,6 @@ void unibus_init(
     UnibusLock const bbsy_lock
 );
 
-// TODO consider what happens if someone interrupts CPU, but it is doing its job
-// and decides to cache the PC (for example). Interrupt may not happen in that
-// case, which is really undesireble
 void unibus_intr(
     Unibus *const self,
     unsigned const priority,

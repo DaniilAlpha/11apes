@@ -11,7 +11,7 @@
 
 typedef struct Pdp11Cpu {
     Pdp11CpuStat stat;
-    uint16_t _r[PDP11_CPU_REG_COUNT];
+    uint16_t __r[PDP11_CPU_REG_COUNT];
 
     Unibus *_unibus;
 } Pdp11Cpu;
@@ -38,8 +38,20 @@ void pdp11_cpu_init(
 );
 void pdp11_cpu_uninit(Pdp11Cpu *const self);
 
-#define pdp11_cpu_rx(SELF_, I_) (*(uint16_t *)((SELF_)->_r + (I_)))
-#define pdp11_cpu_rl(SELF_, I_) (*(uint8_t *)((SELF_)->_r + (I_)))
+// TODO `volatile` here are for what happens if someone interrupts CPU, but it
+// decides to cache the PC. interrupt may not happen in that case, which is
+// really undesireble. This can only be made volatile together
+
+static inline uint16_t volatile *
+pdp11_cpu_rx(Pdp11Cpu *const self, unsigned const i) {
+    return (uint16_t *)(self->__r + i);
+}
+#define pdp11_cpu_rx(SELF_, I_) (*pdp11_cpu_rx((SELF_), (I_)))
+static inline uint8_t volatile *
+pdp11_cpu_rl(Pdp11Cpu *const self, unsigned const i) {
+    return (uint8_t *)(self->__r + i);
+}
+#define pdp11_cpu_rl(SELF_, I_) (*pdp11_cpu_rl((SELF_), (I_)))
 #define pdp11_cpu_pc(SELF_)     pdp11_cpu_rx((SELF_), 7)
 #define pdp11_cpu_sp(SELF_)     pdp11_cpu_rx((SELF_), 6)
 

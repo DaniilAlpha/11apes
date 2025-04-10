@@ -77,7 +77,7 @@ Result pdp11_ram_init(
     return Ok;
 }
 void pdp11_ram_uninit(Pdp11Ram *const self) {
-    free(self->_ram), self->_ram = NULL;
+    free((void *)self->_ram), self->_ram = NULL;
 
     self->_starting_addr = self->_size = 0;
 }

@@ -105,7 +105,6 @@ pdp11_byte_from_unibus(Unibus *const unibus, uint16_t const addr) {
     };
     return (Pdp11Byte){.addr = addr, .owner = unibus, .vtbl = &vtbl};
 }
-// TODO allow addressing for PSW
 
 /****************
  ** instr decl **
@@ -376,13 +375,9 @@ forceinline void pdp11_cpu_instr_clnzvc_senzvc(
  ** private **
  *************/
 
-// extends a word with an additional sign bit for overflow detection. never try
-// to negate it.
 static inline uint32_t xword(uint16_t const word) {
     return (word & 0x8000 ? 0x10000 : 0x00000) | word;
 }
-// extends a byte with an additional sign bit for overflow detection. never try
-// to negate it.
 static inline uint16_t xbyte(uint8_t const byte) {
     return (byte & 0x80 ? 0x100 : 0x000) | byte;
 }
