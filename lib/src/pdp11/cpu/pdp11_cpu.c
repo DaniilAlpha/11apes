@@ -40,7 +40,8 @@ static Pdp11Word
 pdp11_word_from_cpu_reg(Pdp11Cpu *const cpu, uint16_t const r_i) {
     static Pdp11WordVtbl const vtbl = {
         .read = pdp11_cpu_reg_word_read,
-        .write = pdp11_cpu_reg_word_write};
+        .write = pdp11_cpu_reg_word_write
+    };
     return (Pdp11Word){.addr = r_i, .owner = cpu, .vtbl = &vtbl};
 }
 
@@ -55,7 +56,8 @@ static Pdp11Word
 pdp11_word_from_unibus(Unibus *const unibus, uint16_t const addr) {
     static Pdp11WordVtbl const vtbl = {
         .read = pdp11_unibus_word_read,
-        .write = pdp11_unibus_word_write};
+        .write = pdp11_unibus_word_write
+    };
     return (Pdp11Word){.addr = addr, .owner = unibus, .vtbl = &vtbl};
 }
 
@@ -80,7 +82,8 @@ pdp11_cpu_reg_byte_write(Pdp11Byte const *const self, uint8_t const value) {
 }
 static Pdp11ByteVtbl const pdp11_cpu_reg_byte_vtbl = {
     .read = pdp11_cpu_reg_byte_read,
-    .write = pdp11_cpu_reg_byte_write};
+    .write = pdp11_cpu_reg_byte_write
+};
 static Pdp11Byte
 pdp11_byte_from_cpu_reg(Pdp11Cpu *const cpu, uint16_t const r_i) {
     return (Pdp11Byte
@@ -98,7 +101,8 @@ static Pdp11Byte
 pdp11_byte_from_unibus(Unibus *const unibus, uint16_t const addr) {
     static Pdp11ByteVtbl const vtbl = {
         .read = pdp11_unibus_byte_read,
-        .write = pdp11_unibus_byte_write};
+        .write = pdp11_unibus_byte_write
+    };
     return (Pdp11Byte){.addr = addr, .owner = unibus, .vtbl = &vtbl};
 }
 // TODO allow addressing for PSW
@@ -830,10 +834,6 @@ void pdp11_cpu_decode_exec(Pdp11Cpu *const self, uint16_t const instr) {
  ** instr impl **
  ****************/
 
-// TODO when switched to accessign memory from unibus, a lot of excessive reads
-// (and writes) have appeared. will require refactoring of some instructions'
-// implementation
-
 // SINGLE-OP
 
 // general
@@ -1284,8 +1284,8 @@ void pdp11_cpu_instr_mul(
     Pdp11Word const dst0 = pdp11_word_from_cpu_reg(self, r_i),
                     dst1 = pdp11_word_from_cpu_reg(self, r_i | 1);
 
-    uint32_t const res = (uint32_t
-    )((int16_t)dst0.vtbl->read(&dst0) * (int16_t)src.vtbl->read(&src));
+    uint32_t const res = (uint32_t)((int16_t)dst0.vtbl->read(&dst0) *
+                                    (int16_t)src.vtbl->read(&src));
     self->stat = (Pdp11CpuStat){
         .priority = self->stat.priority,
         .tf = self->stat.tf,

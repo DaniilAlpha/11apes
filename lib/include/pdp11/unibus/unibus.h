@@ -38,10 +38,6 @@ void unibus_intr(
     uint16_t const trap
 );
 
-// TODO consider what happens if one thread reads (say, dati) then other writes
-// (dato) and the first one reads again. It may not work if memory is not
-// volatile, but maybe it will.
-
 uint16_t unibus_dati(Unibus *const self, uint16_t const addr);
 uint16_t unibus_datip(Unibus *const self, uint16_t const addr);
 void unibus_dato(Unibus *const self, uint16_t const addr, uint16_t const data);

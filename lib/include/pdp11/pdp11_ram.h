@@ -5,14 +5,15 @@
 
 #include <result.h>
 
-#include "pdp11/unibus/unibus.h"
+#include "pdp11/unibus/unibus_device.h"
 
 // PDP-11 can address has 32K words of RAM, but top 4096 are reserved
 // #define PDP11_ARRD_STACK_BOTTOM  (0400)
 // #define PDP11_ARRD_PERIPH_BOTTOM (160000)
 
 typedef struct Pdp11Ram {
-    void *_ram;
+    // NOTE you may argue that volatile is excessive, but it won't hurt anyway
+    void volatile *_ram;
 
     uint16_t _starting_addr, _size;
     bool _is_destructive_read;
