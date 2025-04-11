@@ -102,9 +102,11 @@ void unibus_intr(
     uint16_t const trap
 ) {
     // TODO somehow honor horizontal priorities
-    if (priority <= self->cpu->stat.priority) return;  // TODO? maybe just wait
+    // TODO this is bad, should be refactored in some future
+    while (priority <= ((Pdp11CpuStat volatile)self->cpu->stat).priority);
 
-    // TODO wait for CPU to finish executing an instruction
+    // TODO wait for CPU to finish executing an instruction (!when instruction
+    // causes trap, should wait one more: handbook p. 65!)
     unibus_lock_lock(&self->_sack);
     unibus_lock_lock(&self->_bbsy);
     unibus_lock_unlock(&self->_sack);

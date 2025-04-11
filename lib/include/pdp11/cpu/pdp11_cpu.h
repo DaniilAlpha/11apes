@@ -10,8 +10,9 @@
 #define PDP11_CPU_REG_COUNT (8)
 
 typedef struct Pdp11Cpu {
+    // TODO allow addressing registers and the PSW
     Pdp11CpuStat stat;
-    uint16_t __r[PDP11_CPU_REG_COUNT];
+    uint16_t _r[PDP11_CPU_REG_COUNT];
 
     Unibus *_unibus;
 } Pdp11Cpu;
@@ -39,11 +40,11 @@ void pdp11_cpu_init(
 void pdp11_cpu_uninit(Pdp11Cpu *const self);
 
 static inline uint16_t *pdp11_cpu_rx(Pdp11Cpu *const self, unsigned const i) {
-    return (uint16_t *)(self->__r + i);
+    return (uint16_t *)(self->_r + i);
 }
 #define pdp11_cpu_rx(SELF_, I_) (*pdp11_cpu_rx((SELF_), (I_)))
 static inline uint8_t *pdp11_cpu_rl(Pdp11Cpu *const self, unsigned const i) {
-    return (uint8_t *)(self->__r + i);
+    return (uint8_t *)(self->_r + i);
 }
 #define pdp11_cpu_rl(SELF_, I_) (*pdp11_cpu_rl((SELF_), (I_)))
 #define pdp11_cpu_pc(SELF_)     pdp11_cpu_rx((SELF_), 7)
