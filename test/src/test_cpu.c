@@ -76,11 +76,12 @@ static MiunteResult pdp11_cpu_test_addressing() {
         "register addressing should work correctly"
     );
     MIUNTE_EXPECT(
-        pdp11_cpu_dop_da_instr(0010110 /* mov (R0), R1 */, 3, x, y) == y,
+        pdp11_cpu_dop_da_instr(0010110 /* mov (R0), R1 */, 0x12, x, y) == y,
         "deferred addressing should work correctly"
     );
     MIUNTE_EXPECT(
-        pdp11_cpu_dop_ia_instr(0010160 /* mov 24(R0), R1 */, 3, 6, x, y) == y,
+        pdp11_cpu_dop_ia_instr(0010160 /* mov 24(R0), R1 */, 0x12, 42, x, y) ==
+            y,
         "indexed deferred addressing should work correctly"
     );
     MIUNTE_PASS();
