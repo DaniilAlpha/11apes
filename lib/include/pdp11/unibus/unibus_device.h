@@ -9,9 +9,10 @@
 #define UNIBUS_DEVICE_INTERFACE(Self)                                          \
   {                                                                            \
     bool (*const _try_read                                                     \
-    )(Self *const self, uint16_t const addr, uint16_t *const out_val);         \
-    bool (*const _try_read_pause                                               \
-    )(Self *const self, uint16_t const addr, uint16_t *const out_val);         \
+    )(Self *const self,                                                        \
+      uint16_t const addr,                                                     \
+      uint16_t *const out_val,                                                 \
+      bool const do_pause);                                                    \
     bool (*const _try_write_word                                               \
     )(Self *const self, uint16_t const addr, uint16_t const val);              \
     bool (*const _try_write_byte                                               \

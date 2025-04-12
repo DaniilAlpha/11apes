@@ -12,7 +12,7 @@
  *************/
 
 static void pdp11_cpu_thread_helper(Pdp11 *const self) {
-    while (!self->_should_stop) {
+    while (!self->_should_run) {
         usleep(100 * 1000);
         uint16_t const instr = pdp11_cpu_fetch(&self->cpu);
 
@@ -54,6 +54,13 @@ Result pdp11_init(Pdp11 *const self) {
         pthread_mutex_init(&self->_sack_lock, NULL) != 0)
         return pdp11_ram_uninit(&self->ram), RangeErr;
 
+    pdp11_cpu_init(
+        &self->cpu,
+        &self->unibus,
+        PDP11_STARTUP_PC,
+        PDP11_STARTUP_CPU_STAT
+    );
+
     unibus_init(
         &self->unibus,
         &self->cpu,
@@ -62,31 +69,25 @@ Result pdp11_init(Pdp11 *const self) {
     );
     self->unibus.devices[0] = pdp11_ram_ww_unibus_device(&self->ram);
 
-    pdp11_cpu_init(
-        &self->cpu,
-        &self->unibus,
-        PDP11_STARTUP_PC,
-        PDP11_STARTUP_CPU_STAT
-    );
-
-    self->_should_stop = true;
+    self->_should_run = false;
 
     return Ok;
 }
 void pdp11_uninit(Pdp11 *const self) {
-    if (!self->_should_stop) pdp11_stop(self);
+    if (self->_should_run) pdp11_stop(self);
 
-    pdp11_cpu_uninit(&self->cpu);
     pthread_mutex_destroy(&self->_bbsy_lock);
     pthread_mutex_destroy(&self->_sack_lock);
+
+    pdp11_cpu_uninit(&self->cpu);
     pdp11_ram_uninit(&self->ram);
 }
 
 void pdp11_start(Pdp11 *const self) {
-    self->_should_stop = false;
+    self->_should_run = true;
     pthread_create(&self->_cpu_thread, NULL, pdp11_cpu_thread, self);
 }
 void pdp11_stop(Pdp11 *const self) {
-    self->_should_stop = true;
+    self->_should_run = false;
     pthread_join(self->_cpu_thread, NULL);
 }

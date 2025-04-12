@@ -31,7 +31,7 @@ typedef struct Pdp11 {
     pthread_t _cpu_thread;
     pthread_mutex_t _sack_lock, _bbsy_lock;
 
-    bool volatile _should_stop;
+    bool volatile _should_run;
 } Pdp11;
 
 Result pdp11_init(Pdp11 *const self);

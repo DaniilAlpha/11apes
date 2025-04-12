@@ -10,6 +10,9 @@
 
 #define UNIBUS_DEVICE_COUNT (8)
 
+#define UNIBUS_CPU_REG_ADDRESS  (0177700)
+#define UNIBUS_CPU_STAT_ADDRESS (0177777)
+
 typedef struct Pdp11Cpu Pdp11Cpu;
 typedef struct Unibus {
     UnibusLock _bbsy,
@@ -17,9 +20,8 @@ typedef struct Unibus {
                 // emu may behave slightly different without it. should consider
                 // its removal later
 
+    Pdp11Cpu *_cpu;
     UnibusDevice devices[UNIBUS_DEVICE_COUNT];
-
-    Pdp11Cpu *cpu;
 } Unibus;
 
 void unibus_init(
@@ -29,7 +31,7 @@ void unibus_init(
     UnibusLock const bbsy_lock
 );
 
-void unibus_intr(
+void unibus_br(
     Unibus *const self,
     unsigned const priority,
     uint16_t const trap

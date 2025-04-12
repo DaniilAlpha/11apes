@@ -28,7 +28,7 @@ static MiunteResult unibus_test_br() {
         pdp11_cpu_pc(&pdp.cpu) != trap,
         "PC should not be on trap before BR"
     );
-    unibus_intr(&pdp.unibus, 07, trap);
+    unibus_br(&pdp.unibus, 07, trap);
     MIUNTE_EXPECT(
         pdp11_cpu_pc(&pdp.cpu) == trap,
         "PC should be on trap after BR"

@@ -357,6 +357,7 @@ int test_cpu_run(void) {
             // TODO test adc/sbc, especially flags
 
             // TODO test asr/asl
+            // TODO test ash/ashc
             // TODO test ror/rol
 
             pdp11_cpu_test_mov_movb,

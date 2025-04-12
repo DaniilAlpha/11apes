@@ -30,10 +30,24 @@ bitsb(unsigned char const num, unsigned const start_i, unsigned const end_i) {
 
 #define BIT(NUM_, I_) (((NUM_) >> (I_)) & 1)
 #define BITS(NUM_, START_I_, END_I_)                                           \
-  _Generic((NUM_), unsigned char                                               \
-           : bitsb((NUM_), (START_I_), (END_I_)), unsigned short               \
-           : bitsh((NUM_), (START_I_), (END_I_)), unsigned int                 \
-           : bits((NUM_), (START_I_), (END_I_)), unsigned long                 \
-           : bitsl((NUM_), (START_I_), (END_I_)))
+  _Generic((NUM_),                                                             \
+                                                                               \
+           unsigned char                                                       \
+           : bitsb, signed char                                                \
+           : bitsb,                                                            \
+                                                                               \
+             unsigned short                                                    \
+           : bitsh, signed short                                               \
+           : bitsh,                                                            \
+                                                                               \
+             unsigned                                                          \
+           : bits, signed                                                      \
+           : bits,                                                             \
+                                                                               \
+             unsigned long                                                     \
+           : bitsl, signed long                                                \
+           : bitsl                                                             \
+                                                                               \
+  )((NUM_), (START_I_), (END_I_))
 
 #endif

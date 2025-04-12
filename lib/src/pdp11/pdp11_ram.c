@@ -7,28 +7,16 @@
 static bool pdp11_ram_try_read(
     Pdp11Ram *const self,
     uint16_t const addr,
-    uint16_t *const out_val
-) {
-    if (self->_starting_addr >= addr ||
-        addr > self->_starting_addr + self->_size)
-        return false;
-
-    *out_val = *(uint16_t *)(self->_ram + addr);
-
-    return true;
-}
-static bool pdp11_ram_try_read_pause(
-    Pdp11Ram *const self,
-    uint16_t const addr,
-    uint16_t *const out_val
+    uint16_t *const out_val,
+    bool const do_pause
 ) {
     if (self->_starting_addr >= addr ||
         addr > self->_starting_addr + self->_size)
         return false;
 
     uint16_t *const data_ptr = (uint16_t *)(self->_ram + addr);
+    if (do_pause && self->_is_destructive_read) *data_ptr = 0;
     *out_val = *data_ptr;
-    if (self->_is_destructive_read) *data_ptr = 0;
 
     return true;
 }
@@ -88,7 +76,6 @@ UnibusDevice pdp11_ram_ww_unibus_device(Pdp11Ram *const self) {
         UNIBUS_DEVICE_INTERFACE(Pdp11Ram),
         {
             ._try_read = pdp11_ram_try_read,
-            ._try_read_pause = pdp11_ram_try_read_pause,
             ._try_write_word = pdp11_ram_try_write_word,
             ._try_write_byte = pdp11_ram_try_write_byte,
         }

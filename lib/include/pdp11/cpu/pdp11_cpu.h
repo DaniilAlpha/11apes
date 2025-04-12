@@ -10,7 +10,6 @@
 #define PDP11_CPU_REG_COUNT (8)
 
 typedef struct Pdp11Cpu {
-    // TODO allow addressing registers and the PSW
     Pdp11CpuStat stat;
     uint16_t _r[PDP11_CPU_REG_COUNT];
 
