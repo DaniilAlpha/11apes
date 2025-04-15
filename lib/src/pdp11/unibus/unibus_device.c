@@ -7,8 +7,7 @@
 static bool no_unibus_device_try_read(
     void *const self,
     uint16_t const addr,
-    uint16_t *const out_val,
-    bool const do_pause
+    uint16_t *const out_val
 ) {
     return false;
 }

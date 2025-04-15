@@ -2,20 +2,20 @@
 
 #include <stdlib.h>
 
+#include <assert.h>
+
 #include "woodi.h"
 
 static bool pdp11_ram_try_read(
     Pdp11Ram *const self,
     uint16_t const addr,
-    uint16_t *const out_val,
-    bool const do_pause
+    uint16_t *const out_val
 ) {
-    if (self->_starting_addr >= addr ||
-        addr > self->_starting_addr + self->_size)
+    if (!(self->_starting_addr <= addr &&
+          addr < self->_starting_addr + self->_size))
         return false;
 
-    uint16_t *const data_ptr = (uint16_t *)(self->_ram + addr);
-    if (do_pause && self->_is_destructive_read) *data_ptr = 0;
+    uint16_t *const data_ptr = (uint16_t *)(self->_data + addr);
     *out_val = *data_ptr;
 
     return true;
@@ -25,11 +25,11 @@ static bool pdp11_ram_try_write_word(
     uint16_t const addr,
     uint16_t const val
 ) {
-    if (self->_starting_addr >= addr ||
-        addr > self->_starting_addr + self->_size)
+    if (!(self->_starting_addr <= addr &&
+          addr < self->_starting_addr + self->_size))
         return false;
 
-    *(uint16_t *)(self->_ram + addr) = val;
+    *(uint16_t *)(self->_data + addr) = val;
 
     return true;
 }
@@ -38,11 +38,11 @@ static bool pdp11_ram_try_write_byte(
     uint16_t const addr,
     uint8_t const val
 ) {
-    if (self->_starting_addr >= addr ||
-        addr > self->_starting_addr + self->_size)
+    if (!(self->_starting_addr <= addr &&
+          addr < self->_starting_addr + self->_size))
         return false;
 
-    *(uint8_t *)(self->_ram + addr) = val;
+    *(uint8_t *)(self->_data + addr) = val;
 
     return true;
 }
@@ -50,22 +50,21 @@ static bool pdp11_ram_try_write_byte(
 Result pdp11_ram_init(
     Pdp11Ram *const self,
     uint16_t const starting_addr,
-    uint16_t const size,
-    bool const is_destructive_read
+    uint16_t const size
 ) {
-    void *const ram = malloc(size);
-    if (!ram) return OutOfMemErr;
-    self->_ram = ram;
+    assert(size <= PDP11_RAM_MAX_SIZE);
+
+    void *const data = malloc(size);
+    if (!data) return OutOfMemErr;
+    self->_data = data;
 
     self->_starting_addr = starting_addr;
     self->_size = size;
 
-    self->_is_destructive_read = is_destructive_read;
-
     return Ok;
 }
 void pdp11_ram_uninit(Pdp11Ram *const self) {
-    free((void *)self->_ram), self->_ram = NULL;
+    free((void *)self->_data), self->_data = NULL;
 
     self->_starting_addr = self->_size = 0;
 }

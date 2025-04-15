@@ -12,10 +12,9 @@
 static inline bool unibus_device_try_read(
     UnibusDevice const *const self,
     uint16_t const addr,
-    uint16_t *const out_val,
-    bool const do_pause
+    uint16_t *const out_val
 ) {
-    return WRAPPER_CALL(_try_read, self, addr, out_val, do_pause);
+    return WRAPPER_CALL(_try_read, self, addr, out_val);
 }
 static inline bool unibus_device_try_write_word(
     UnibusDevice const *const self,
@@ -36,8 +35,7 @@ static inline bool unibus_device_try_write_byte(
 static bool unibus_try_read(
     Unibus const *const self,
     uint16_t const addr,
-    uint16_t *const out_val,
-    bool const do_pause
+    uint16_t *const out_val
 ) {
     switch (addr) {
     case UNIBUS_CPU_REG_ADDRESS ... UNIBUS_CPU_REG_ADDRESS + 7 * 2:
@@ -49,8 +47,7 @@ static bool unibus_try_read(
     }
 
     foreach (device_ptr, self->devices, self->devices + UNIBUS_DEVICE_COUNT)
-        if (unibus_device_try_read(device_ptr, addr, out_val, do_pause))
-            return true;
+        if (unibus_device_try_read(device_ptr, addr, out_val)) return true;
     return false;
 }
 static bool unibus_try_write_word(
@@ -117,8 +114,7 @@ void unibus_br(
 ) {
     // TODO somehow honor horizontal priorities
     // TODO this is bad, should be refactored in some future
-    while (priority <= ((Pdp11CpuStat volatile)self->_cpu->stat).priority)
-        ;
+    while (priority <= ((Pdp11CpuStat volatile)self->_cpu->stat).priority);
 
     // TODO wait for CPU to finish executing an instruction (!when instruction
     // causes trap, should wait one more: handbook p. 65!)
@@ -137,21 +133,7 @@ uint16_t unibus_dati(Unibus *const self, uint16_t const addr) {
     unibus_lock_unlock(&self->_sack);
 
     uint16_t data = 0111111;
-    if (!unibus_try_read(self, addr, &data, false)) {
-        // TODO some error should be here
-    }
-
-    unibus_lock_unlock(&self->_bbsy);
-
-    return data;
-}
-uint16_t unibus_datip(Unibus *const self, uint16_t const addr) {
-    unibus_lock_lock(&self->_sack);
-    unibus_lock_lock(&self->_bbsy);
-    unibus_lock_unlock(&self->_sack);
-
-    uint16_t data = 0111111;
-    if (!unibus_try_read(self, addr, &data, true)) {
+    if (!unibus_try_read(self, addr, &data)) {
         // TODO some error should be here
     }
 

@@ -38,9 +38,6 @@ void unibus_br(
 );
 
 uint16_t unibus_dati(Unibus *const self, uint16_t const addr);
-// TODO? DATIP should be used when retreiving destination value in instructions,
-// but maybe there is not difference
-uint16_t unibus_datip(Unibus *const self, uint16_t const addr);
 void unibus_dato(Unibus *const self, uint16_t const addr, uint16_t const data);
 void unibus_datob(Unibus *const self, uint16_t const addr, uint8_t const data);
 

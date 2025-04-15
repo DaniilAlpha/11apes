@@ -1,9 +1,9 @@
 // http://www.bitsavers.org/pdf/dec/pdp11/1170/PDP-11_70_Handbook_1977-78.pdf
 
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "pdp11/pdp11.h"
+#include "pdp11/pdp11_rom.h"
 
 long fsize(FILE *const file) {
     long const pos = ftell(file);
@@ -15,26 +15,15 @@ long fsize(FILE *const file) {
 
 int main() {
     Pdp11 pdp = {0};
-    UNROLL(pdp11_init(&pdp));
+    assert(pdp11_init(&pdp) == Ok);
 
-    FILE *const file = fopen("res/m9342-248f1.bin", "r");
+    Pdp11Rom rom = {0};
+    FILE *const file = fopen("./res/m9342-248f1.bin", "r");
     if (!file) return 1;
-    size_t const file_data_size = fsize(file);
-    uint8_t *const file_data = malloc(file_data_size);
-    if (!file_data) return 1;
-    fread(file_data, 1, file_data_size, file);
-
-    assert((file_data_size & 1) == 0);
-    for (size_t i = 0; i < file_data_size; i += 2) {
-        unibus_dato(
-            &pdp.unibus,
-            PDP11_STARTUP_PC + i,
-            (uint16_t)(file_data[i] << 8) | (uint8_t)(file_data[i + 1] >> 8)
-        );
-    }
-
-    free(file_data);
+    assert(pdp11_rom_init_file(&rom, 0123456, file) == Ok);
     fclose(file);
+    pdp.unibus.devices[PDP11_FIRST_USER_DEVICE + 0] =
+        pdp11_rom_ww_unibus_device(&rom);
 
     pdp11_start(&pdp);
 

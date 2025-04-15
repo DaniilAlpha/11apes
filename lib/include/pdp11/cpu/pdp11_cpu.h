@@ -49,6 +49,8 @@ static inline uint8_t *pdp11_cpu_rl(Pdp11Cpu *const self, unsigned const i) {
 #define pdp11_cpu_pc(SELF_)     pdp11_cpu_rx((SELF_), 7)
 #define pdp11_cpu_sp(SELF_)     pdp11_cpu_rx((SELF_), 6)
 
+// TODO! this is badly designed function and is the worst part of the system at
+// this poing
 void pdp11_cpu_trap(Pdp11Cpu *const self, Pdp11CpuTrap const trap);
 
 uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self);
