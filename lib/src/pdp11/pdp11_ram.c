@@ -8,26 +8,23 @@
 
 static bool pdp11_ram_try_read(
     Pdp11Ram *const self,
-    uint16_t const addr,
+    uint16_t addr,
     uint16_t *const out_val
 ) {
-    if (!(self->_starting_addr <= addr &&
-          addr < self->_starting_addr + self->_size))
-        return false;
+    addr -= self->_starting_addr;
+    if (!(addr < self->_size)) return false;
 
-    uint16_t *const data_ptr = (uint16_t *)(self->_data + addr);
-    *out_val = *data_ptr;
+    *out_val = *(uint16_t *)(self->_data + addr);
 
     return true;
 }
 static bool pdp11_ram_try_write_word(
     Pdp11Ram *const self,
-    uint16_t const addr,
+    uint16_t addr,
     uint16_t const val
 ) {
-    if (!(self->_starting_addr <= addr &&
-          addr < self->_starting_addr + self->_size))
-        return false;
+    addr -= self->_starting_addr;
+    if (!(addr < self->_size)) return false;
 
     *(uint16_t *)(self->_data + addr) = val;
 
@@ -35,12 +32,11 @@ static bool pdp11_ram_try_write_word(
 }
 static bool pdp11_ram_try_write_byte(
     Pdp11Ram *const self,
-    uint16_t const addr,
+    uint16_t addr,
     uint8_t const val
 ) {
-    if (!(self->_starting_addr <= addr &&
-          addr < self->_starting_addr + self->_size))
-        return false;
+    addr -= self->_starting_addr;
+    if (!(addr < self->_size)) return false;
 
     *(uint8_t *)(self->_data + addr) = val;
 
@@ -52,7 +48,7 @@ Result pdp11_ram_init(
     uint16_t const starting_addr,
     uint16_t const size
 ) {
-    assert(size <= PDP11_RAM_MAX_SIZE);
+    assert(size <= PDP11_RAM_MAX_SIZE * 2);
 
     void *const data = malloc(size);
     if (!data) return OutOfMemErr;

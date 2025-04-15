@@ -16,9 +16,9 @@
 #include "pdp11/cpu/pdp11_cpu.h"
 #include "pdp11/pdp11_ram.h"
 
-#define PDP11_STARTUP_PC (0100)
+#define PDP11_STARTUP_PC (32 * 1024)
 #define PDP11_STARTUP_CPU_STAT                                                 \
-    ((Pdp11CpuStat){.priority = 0, .tf = 0, .nf = 0, .zf = 0, .vf = 0, .cf = 0})
+  ((Pdp11CpuStat){.priority = 0, .tf = 0, .nf = 0, .zf = 0, .vf = 0, .cf = 0})
 
 #define PDP11_FIRST_USER_DEVICE (1)
 

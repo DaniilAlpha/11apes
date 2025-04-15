@@ -12,7 +12,7 @@
  *************/
 
 static void pdp11_cpu_thread_helper(Pdp11 *const self) {
-    while (!self->_should_run) {
+    while (self->_should_run) {
         usleep(100 * 1000);
         uint16_t const instr = pdp11_cpu_fetch(&self->cpu);
 
