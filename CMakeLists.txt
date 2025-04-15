@@ -15,7 +15,6 @@ target_include_directories(${MAIN} PRIVATE ${INCLUDE_DIRS})
 set(COMPILE_AND_BUILD_FlAGS
     $<$<CONFIG:Debug>: -Og -g > $<$<CONFIG:Release>: -O3 >
     -W -Wall -Wextra -Wformat $<$<CONFIG:Release>: -Winline >
-    -Wno-unused-parameter
     -fsanitize=address)
 target_compile_options(${MAIN} PRIVATE ${COMPILE_AND_BUILD_FlAGS})
 target_link_options(${MAIN} PRIVATE ${COMPILE_AND_BUILD_FlAGS})

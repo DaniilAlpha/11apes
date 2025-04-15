@@ -26,16 +26,13 @@ static bool pdp11_rom_try_read(
 
     return true;
 }
-static bool pdp11_rom_try_write_word(
-    Pdp11Rom *const self,
-    uint16_t addr,
-    uint16_t const _
-) {
+static bool
+pdp11_rom_try_write_word(Pdp11Rom *const self, uint16_t addr, uint16_t const) {
     addr -= self->_starting_addr;
     return addr < self->_size;
 }
 static bool
-pdp11_rom_try_write_byte(Pdp11Rom *const self, uint16_t addr, uint8_t const _) {
+pdp11_rom_try_write_byte(Pdp11Rom *const self, uint16_t addr, uint8_t const) {
     addr -= self->_starting_addr;
     return addr < self->_size;
 }

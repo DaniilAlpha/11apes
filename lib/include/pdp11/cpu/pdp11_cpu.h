@@ -14,6 +14,11 @@ typedef struct Pdp11Cpu {
     uint16_t _r[PDP11_CPU_REG_COUNT];
 
     Unibus *_unibus;
+    enum {
+        PDP11_CPU_STATE_RUNNING,
+        PDP11_CPU_STATE_HALTED,
+        PDP11_CPU_STATE_WAITING
+    } volatile _state;  // TODO? maybe redo with condition vars
 } Pdp11Cpu;
 
 typedef enum Pdp11CpuTrap {
@@ -50,8 +55,9 @@ static inline uint8_t *pdp11_cpu_rl(Pdp11Cpu *const self, unsigned const i) {
 #define pdp11_cpu_sp(SELF_)     pdp11_cpu_rx((SELF_), 6)
 
 // TODO! this is badly designed function and is the worst part of the system at
-// this poing
+// this point
 void pdp11_cpu_trap(Pdp11Cpu *const self, Pdp11CpuTrap const trap);
+void pdp11_cpu_continue(Pdp11Cpu *const self);
 
 uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self);
 void pdp11_cpu_decode_exec(Pdp11Cpu *const self, uint16_t const instr);

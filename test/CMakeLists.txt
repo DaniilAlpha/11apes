@@ -18,8 +18,8 @@ set(COMPILE_AND_BUILD_FlAGS
     -D MIUNTE_STOP_ON_FAILURE=1
     $<$<CONFIG:Debug>: -Og -g > $<$<CONFIG:Release>: -O3 >
     -W -Wall -Wextra -Wformat $<$<CONFIG:Release>: -Winline >
-    -Wno-unused-parameter
     -fsanitize=address)
+
 target_compile_options(${TEST} PRIVATE ${COMPILE_AND_BUILD_FlAGS})
 target_link_options(${TEST} PRIVATE ${COMPILE_AND_BUILD_FlAGS})
 

@@ -20,17 +20,17 @@ int main() {
     Pdp11Rom rom = {0};
     FILE *const file = fopen("res/m9342-248f1.bin", "r");
     if (!file) return 1;
-    assert(pdp11_rom_init_file(&rom, PDP11_STARTUP_PC, file) == Ok);
+    assert(pdp11_rom_init_file(&rom, PDP11_BOOT_PC, file) == Ok);
     fclose(file);
     pdp.unibus.devices[PDP11_FIRST_USER_DEVICE + 0] =
         pdp11_rom_ww_unibus_device(&rom);
 
-    pdp11_start(&pdp);
+    pdp11_power_up(&pdp);
 
     getc(stdin);
 
     pdp11_rom_uninit(&rom);
 
-    pdp11_stop(&pdp);
+    pdp11_power_down(&pdp);
     pdp11_uninit(&pdp);
 }

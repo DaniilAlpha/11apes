@@ -16,7 +16,7 @@ static uint16_t pdp11_cpu_dop_ra_instr(
     uint16_t const x,
     uint16_t const y
 ) {
-    unibus_dato(&pdp.unibus, pdp11_cpu_pc(&pdp.cpu), instr);
+    unibus_dato(&pdp.unibus, UNIBUS_DEVICE_CPU, pdp11_cpu_pc(&pdp.cpu), instr);
 
     pdp11_cpu_rx(&pdp.cpu, 0) = x;
     pdp11_cpu_rx(&pdp.cpu, 1) = y;
@@ -29,13 +29,17 @@ static uint16_t pdp11_cpu_dop_da_instr(
     uint16_t const x,
     uint16_t const y
 ) {
-    unibus_dato(&pdp.unibus, pdp11_cpu_pc(&pdp.cpu), instr);
+    unibus_dato(&pdp.unibus, UNIBUS_DEVICE_CPU, pdp11_cpu_pc(&pdp.cpu), instr);
 
     pdp11_cpu_rx(&pdp.cpu, 0) = addr;
-    unibus_dato(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0), x);
+    unibus_dato(&pdp.unibus, UNIBUS_DEVICE_CPU, pdp11_cpu_rx(&pdp.cpu, 0), x);
     pdp11_cpu_rx(&pdp.cpu, 1) = y;
     pdp11_cpu_decode_exec(&pdp.cpu, pdp11_cpu_fetch(&pdp.cpu));
-    return unibus_dati(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0));
+    return unibus_dati(
+        &pdp.unibus,
+        UNIBUS_DEVICE_CPU,
+        pdp11_cpu_rx(&pdp.cpu, 0)
+    );
 }
 static uint16_t pdp11_cpu_dop_ia_instr(
     uint16_t const instr,
@@ -44,14 +48,28 @@ static uint16_t pdp11_cpu_dop_ia_instr(
     uint16_t const x,
     uint16_t const y
 ) {
-    unibus_dato(&pdp.unibus, pdp11_cpu_pc(&pdp.cpu), instr);
-    unibus_dato(&pdp.unibus, pdp11_cpu_pc(&pdp.cpu) + 2, off);
+    unibus_dato(&pdp.unibus, UNIBUS_DEVICE_CPU, pdp11_cpu_pc(&pdp.cpu), instr);
+    unibus_dato(
+        &pdp.unibus,
+        UNIBUS_DEVICE_CPU,
+        pdp11_cpu_pc(&pdp.cpu) + 2,
+        off
+    );
 
     pdp11_cpu_rx(&pdp.cpu, 0) = addr;
-    unibus_dato(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0) + off, x);
+    unibus_dato(
+        &pdp.unibus,
+        UNIBUS_DEVICE_CPU,
+        pdp11_cpu_rx(&pdp.cpu, 0) + off,
+        x
+    );
     pdp11_cpu_rx(&pdp.cpu, 1) = y;
     pdp11_cpu_decode_exec(&pdp.cpu, pdp11_cpu_fetch(&pdp.cpu));
-    return unibus_dati(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0) + off);
+    return unibus_dati(
+        &pdp.unibus,
+        UNIBUS_DEVICE_CPU,
+        pdp11_cpu_rx(&pdp.cpu, 0) + off
+    );
 }
 
 /***********

@@ -57,8 +57,8 @@ Result pdp11_init(Pdp11 *const self) {
     pdp11_cpu_init(
         &self->cpu,
         &self->unibus,
-        PDP11_STARTUP_PC,
-        PDP11_STARTUP_CPU_STAT
+        PDP11_BOOT_PC,
+        PDP11_BOOT_CPU_STAT
     );
 
     unibus_init(
@@ -74,7 +74,7 @@ Result pdp11_init(Pdp11 *const self) {
     return Ok;
 }
 void pdp11_uninit(Pdp11 *const self) {
-    if (self->_should_run) pdp11_stop(self);
+    if (self->_should_run) pdp11_power_down(self);
 
     pthread_mutex_destroy(&self->_bbsy_lock);
     pthread_mutex_destroy(&self->_sack_lock);
@@ -83,11 +83,13 @@ void pdp11_uninit(Pdp11 *const self) {
     pdp11_ram_uninit(&self->ram);
 }
 
-void pdp11_start(Pdp11 *const self) {
+void pdp11_power_up(Pdp11 *const self) {
     self->_should_run = true;
     pthread_create(&self->_cpu_thread, NULL, pdp11_cpu_thread, self);
 }
-void pdp11_stop(Pdp11 *const self) {
+void pdp11_power_down(Pdp11 *const self) {
+    // TODO? maybe cause power failure trap here?
     self->_should_run = false;
+    pdp11_cpu_continue(&self->cpu);
     pthread_join(self->_cpu_thread, NULL);
 }

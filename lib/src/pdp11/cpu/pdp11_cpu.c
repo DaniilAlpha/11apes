@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include <unistd.h>
+
 #include "conviniences.h"
 
 // TODO! Both JMP and JSR, used in address mode 2 (autoincrement), increment
@@ -46,11 +48,11 @@ pdp11_word_from_cpu_reg(Pdp11Cpu *const cpu, uint16_t const r_i) {
 }
 
 static uint16_t pdp11_unibus_word_read(Pdp11Word const *const self) {
-    return unibus_dati(self->owner, self->addr);
+    return unibus_dati(self->owner, UNIBUS_DEVICE_CPU, self->addr);
 }
 static void
 pdp11_unibus_word_write(Pdp11Word const *const self, uint16_t const value) {
-    unibus_dato(self->owner, self->addr, value);
+    unibus_dato(self->owner, UNIBUS_DEVICE_CPU, self->addr, value);
 }
 static Pdp11Word
 pdp11_word_from_unibus(Unibus *const unibus, uint16_t const addr) {
@@ -91,11 +93,11 @@ pdp11_byte_from_cpu_reg(Pdp11Cpu *const cpu, uint16_t const r_i) {
 }
 
 static uint8_t pdp11_unibus_byte_read(Pdp11Byte const *const self) {
-    return unibus_dati(self->owner, self->addr);
+    return unibus_dati(self->owner, UNIBUS_DEVICE_CPU, self->addr);
 }
 static void
 pdp11_unibus_byte_write(Pdp11Byte const *const self, uint8_t const value) {
-    unibus_datob(self->owner, self->addr, value);
+    unibus_datob(self->owner, UNIBUS_DEVICE_CPU, self->addr, value);
 }
 static Pdp11Byte
 pdp11_byte_from_unibus(Unibus *const unibus, uint16_t const addr) {
@@ -439,12 +441,12 @@ static inline void pdp11_cpu_stat_set_flags_from_xbyte(
 }
 
 static void pdp11_stack_push(Pdp11Cpu *const self, uint16_t const value) {
-    unibus_dato(self->_unibus, pdp11_cpu_sp(self), value);
+    unibus_dato(self->_unibus, UNIBUS_DEVICE_CPU, pdp11_cpu_sp(self), value);
     pdp11_cpu_sp(self) -= 2;
 }
 static uint16_t pdp11_stack_pop(Pdp11Cpu *const self) {
     pdp11_cpu_sp(self) += 2;
-    return unibus_dati(self->_unibus, pdp11_cpu_sp(self));
+    return unibus_dati(self->_unibus, UNIBUS_DEVICE_CPU, pdp11_cpu_sp(self));
 }
 
 static Pdp11Word
@@ -464,7 +466,11 @@ pdp11_cpu_address_word(Pdp11Cpu *const self, unsigned const mode) {
     case 03: {
         Pdp11Word const word = pdp11_word_from_unibus(
             self->_unibus,
-            unibus_dati(self->_unibus, pdp11_cpu_rx(self, r_i))
+            unibus_dati(
+                self->_unibus,
+                UNIBUS_DEVICE_CPU,
+                pdp11_cpu_rx(self, r_i)
+            )
         );
         pdp11_cpu_rx(self, r_i) += 2;
         return word;
@@ -477,21 +483,32 @@ pdp11_cpu_address_word(Pdp11Cpu *const self, unsigned const mode) {
     case 05:
         return pdp11_word_from_unibus(
             self->_unibus,
-            unibus_dati(self->_unibus, pdp11_cpu_rx(self, r_i) -= 2)
+            unibus_dati(
+                self->_unibus,
+                UNIBUS_DEVICE_CPU,
+                pdp11_cpu_rx(self, r_i) -= 2
+            )
         );
     case 06:
         return pdp11_word_from_unibus(
             self->_unibus,
-            unibus_dati(self->_unibus, pdp11_cpu_pc(self)++) +
-                pdp11_cpu_rx(self, r_i)
+            unibus_dati(
+                self->_unibus,
+                UNIBUS_DEVICE_CPU,
+                pdp11_cpu_pc(self)++
+            ) + pdp11_cpu_rx(self, r_i)
         );
     case 07:
         return pdp11_word_from_unibus(
             self->_unibus,
             unibus_dati(
                 self->_unibus,
-                unibus_dati(self->_unibus, pdp11_cpu_pc(self)++) +
-                    pdp11_cpu_rx(self, r_i)
+                UNIBUS_DEVICE_CPU,
+                unibus_dati(
+                    self->_unibus,
+                    UNIBUS_DEVICE_CPU,
+                    pdp11_cpu_pc(self)++
+                ) + pdp11_cpu_rx(self, r_i)
             )
         );
     }
@@ -516,7 +533,11 @@ pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
     case 03: {
         Pdp11Byte const byte = pdp11_byte_from_unibus(
             self->_unibus,
-            unibus_dati(self->_unibus, pdp11_cpu_rx(self, r_i))
+            unibus_dati(
+                self->_unibus,
+                UNIBUS_DEVICE_CPU,
+                pdp11_cpu_rx(self, r_i)
+            )
         );
         pdp11_cpu_rx(self, r_i) += 2;
         return byte;
@@ -529,21 +550,32 @@ pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
     case 05:
         return pdp11_byte_from_unibus(
             self->_unibus,
-            unibus_dati(self->_unibus, pdp11_cpu_rx(self, r_i) -= 2)
+            unibus_dati(
+                self->_unibus,
+                UNIBUS_DEVICE_CPU,
+                pdp11_cpu_rx(self, r_i) -= 2
+            )
         );
     case 06:
         return pdp11_byte_from_unibus(
             self->_unibus,
-            unibus_dati(self->_unibus, pdp11_cpu_pc(self)++) +
-                pdp11_cpu_rx(self, r_i)
+            unibus_dati(
+                self->_unibus,
+                UNIBUS_DEVICE_CPU,
+                pdp11_cpu_pc(self)++
+            ) + pdp11_cpu_rx(self, r_i)
         );
     case 07:
         return pdp11_byte_from_unibus(
             self->_unibus,
             unibus_dati(
                 self->_unibus,
-                unibus_dati(self->_unibus, pdp11_cpu_pc(self)++) +
-                    pdp11_cpu_rx(self, r_i)
+                UNIBUS_DEVICE_CPU,
+                unibus_dati(
+                    self->_unibus,
+                    UNIBUS_DEVICE_CPU,
+                    pdp11_cpu_pc(self)++
+                ) + pdp11_cpu_rx(self, r_i)
             )
         );
     }
@@ -802,6 +834,8 @@ void pdp11_cpu_init(
     self->stat = stat;
 
     self->_unibus = unibus;
+
+    self->_state = PDP11_CPU_STATE_RUNNING;
 }
 void pdp11_cpu_uninit(Pdp11Cpu *const self) {
     pdp11_cpu_pc(self) = 0;
@@ -811,8 +845,12 @@ void pdp11_cpu_uninit(Pdp11Cpu *const self) {
 void pdp11_cpu_trap(Pdp11Cpu *const self, Pdp11CpuTrap const trap) {
     pdp11_stack_push(self, pdp11_cpu_stat_to_word(&self->stat));
     pdp11_stack_push(self, pdp11_cpu_pc(self));
-    pdp11_cpu_pc(self) = unibus_dati(self->_unibus, trap);
-    self->stat = pdp11_cpu_stat(unibus_dati(self->_unibus, trap + 2));
+    pdp11_cpu_pc(self) = unibus_dati(self->_unibus, UNIBUS_DEVICE_CPU, trap);
+    self->stat =
+        pdp11_cpu_stat(unibus_dati(self->_unibus, UNIBUS_DEVICE_CPU, trap + 2));
+}
+void pdp11_cpu_continue(Pdp11Cpu *const self) {
+    self->_state = PDP11_CPU_STATE_RUNNING;
 }
 
 uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self) {
@@ -820,13 +858,19 @@ uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self) {
     // another thread is sync
     asm volatile("" ::: "memory");
 
-    uint16_t const instr = unibus_dati(self->_unibus, pdp11_cpu_pc(self));
+    uint16_t const instr =
+        unibus_dati(self->_unibus, UNIBUS_DEVICE_CPU, pdp11_cpu_pc(self));
     pdp11_cpu_pc(self) += 2;
     return instr;
 }
 void pdp11_cpu_decode_exec(Pdp11Cpu *const self, uint16_t const instr) {
     pdp11_cpu_decode_exec_helper(self, instr);
+
     if (self->stat.tf) pdp11_cpu_trap(self, PDP11_CPU_TRAP_BPT);
+
+    while (self->_state == PDP11_CPU_STATE_HALTED ||
+           self->_state == PDP11_CPU_STATE_WAITING)
+        usleep(0);
 }
 
 /****************
@@ -1551,26 +1595,26 @@ void pdp11_cpu_instr_rtt(Pdp11Cpu *const self) {
 // MISC.
 
 void pdp11_cpu_instr_halt(Pdp11Cpu *const self) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    self->_state = PDP11_CPU_STATE_HALTED;
 }
 void pdp11_cpu_instr_wait(Pdp11Cpu *const self) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    self->_state = PDP11_CPU_STATE_WAITING;
 }
 void pdp11_cpu_instr_reset(Pdp11Cpu *const self) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    unibus_reset(self->_unibus);
 }
 
 void pdp11_cpu_instr_mtpd(Pdp11Cpu *const self, Pdp11Word const dst) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    printf("\tsorry, %s was not implemented\n", __func__);
 }
 void pdp11_cpu_instr_mtpi(Pdp11Cpu *const self, Pdp11Word const dst) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    printf("\tsorry, %s was not implemented\n", __func__);
 }
 void pdp11_cpu_instr_mfpd(Pdp11Cpu *const self, Pdp11Word const src) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    printf("\tsorry, %s was not implemented\n", __func__);
 }
 void pdp11_cpu_instr_mfpi(Pdp11Cpu *const self, Pdp11Word const src) {
-    printf("\tsorry, %s was not implemented (yet)\n", __func__);
+    printf("\tsorry, %s was not implemented\n", __func__);
 }
 
 // CONDITION CODES
