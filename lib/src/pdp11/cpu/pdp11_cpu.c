@@ -1348,8 +1348,8 @@ void pdp11_cpu_instr_mul(
     Pdp11Word const dst0 = pdp11_word_from_cpu_reg(self, r_i),
                     dst1 = pdp11_word_from_cpu_reg(self, r_i | 1);
 
-    uint32_t const res = (uint32_t
-    )((int16_t)dst0.vtbl->read(&dst0) * (int16_t)src.vtbl->read(&src));
+    uint32_t const res = (uint32_t)((int16_t)dst0.vtbl->read(&dst0) *
+                                    (int16_t)src.vtbl->read(&src));
     self->stat = (Pdp11CpuStat){
         .priority = self->stat.priority,
         .tf = self->stat.tf,
@@ -1604,16 +1604,16 @@ void pdp11_cpu_instr_reset(Pdp11Cpu *const self) {
     unibus_reset(self->_unibus);
 }
 
-void pdp11_cpu_instr_mtpd(Pdp11Cpu *const self, Pdp11Word const dst) {
+void pdp11_cpu_instr_mtpd(Pdp11Cpu *const, Pdp11Word const) {
     printf("\tsorry, %s was not implemented\n", __func__);
 }
-void pdp11_cpu_instr_mtpi(Pdp11Cpu *const self, Pdp11Word const dst) {
+void pdp11_cpu_instr_mtpi(Pdp11Cpu *const, Pdp11Word const) {
     printf("\tsorry, %s was not implemented\n", __func__);
 }
-void pdp11_cpu_instr_mfpd(Pdp11Cpu *const self, Pdp11Word const src) {
+void pdp11_cpu_instr_mfpd(Pdp11Cpu *const, Pdp11Word const) {
     printf("\tsorry, %s was not implemented\n", __func__);
 }
-void pdp11_cpu_instr_mfpi(Pdp11Cpu *const self, Pdp11Word const src) {
+void pdp11_cpu_instr_mfpi(Pdp11Cpu *const, Pdp11Word const) {
     printf("\tsorry, %s was not implemented\n", __func__);
 }
 

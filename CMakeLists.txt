@@ -21,4 +21,4 @@ target_link_options(${MAIN} PRIVATE ${COMPILE_AND_BUILD_FlAGS})
 
 
 add_subdirectory("./lib/" "${CMAKE_BINARY_DIR}/lib/")
-target_link_libraries(${MAIN} lib)
+target_link_libraries(${MAIN} lib ncurses)

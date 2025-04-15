@@ -2,10 +2,8 @@
 #define PDP11_CONSOLE_H
 
 #include <stdint.h>
-#include <stdlib.h>
 
 #include "pdp11/pdp11.h"
-#include "pdp11/unibus/unibus.h"
 
 #define PDP11_CONSOLE_SWITCH_REGISTER_ADDR (0177570)
 
@@ -27,6 +25,8 @@ typedef struct Pdp11Console {
     bool _enable_switch;
 } Pdp11Console;
 
+void pdp11_console_init(Pdp11Console *const self, Pdp11 *const pdp11);
+
 static inline Pdp11ConsolePowerControl pdp11_console_power_control(
     Pdp11Console const *const self
 ) {
@@ -41,11 +41,17 @@ static inline uint16_t pdp11_console_switch_register(
 static inline uint16_t pdp11_console_address_indicator(
     Pdp11Console const *const self
 ) {
+    if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF)
+        return 0;
+
     return self->_addr_register;
 }
 static inline uint16_t pdp11_console_data_indicator(
     Pdp11Console const *const self
 ) {
+    if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF)
+        return 0;
+
     return self->_data_register;
 }
 
