@@ -14,6 +14,7 @@ static long fsize(FILE *const self) {
     return size;
 }
 
+static void pdp11_rom_reset(Pdp11Rom *const) {}
 static bool pdp11_rom_try_read(
     Pdp11Rom *const self,
     uint16_t addr,
@@ -66,6 +67,7 @@ UnibusDevice pdp11_rom_ww_unibus_device(Pdp11Rom *const self) {
         UnibusDevice,
         UNIBUS_DEVICE_INTERFACE(Pdp11Rom),
         {
+            ._reset = pdp11_rom_reset,
             ._try_read = pdp11_rom_try_read,
             ._try_write_word = pdp11_rom_try_write_word,
             ._try_write_byte = pdp11_rom_try_write_byte,

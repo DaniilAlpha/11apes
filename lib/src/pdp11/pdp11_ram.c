@@ -6,6 +6,7 @@
 
 #include "woodi.h"
 
+static void pdp11_ram_reset(Pdp11Ram *const) {}
 static bool pdp11_ram_try_read(
     Pdp11Ram *const self,
     uint16_t addr,
@@ -70,6 +71,7 @@ UnibusDevice pdp11_ram_ww_unibus_device(Pdp11Ram *const self) {
         UnibusDevice,
         UNIBUS_DEVICE_INTERFACE(Pdp11Ram),
         {
+            ._reset = pdp11_ram_reset,
             ._try_read = pdp11_ram_try_read,
             ._try_write_word = pdp11_ram_try_write_word,
             ._try_write_byte = pdp11_ram_try_write_byte,

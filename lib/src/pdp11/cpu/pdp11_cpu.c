@@ -8,6 +8,9 @@
 
 #include "conviniences.h"
 
+// TODO internal errors and traps should execute one more instruction before
+// honoring an interrupt
+
 // TODO! Both JMP and JSR, used in address mode 2 (autoincrement), increment
 // the register before using it as an address. This is a special case. and is
 // not true of any other instruction
@@ -1569,10 +1572,11 @@ void pdp11_cpu_instr_sob(
 // trap
 
 void pdp11_cpu_instr_emt(Pdp11Cpu *const self) {
+    // TODO user data could be passed through the low byte
     pdp11_cpu_trap(self, PDP11_CPU_TRAP_EMT);
 }
 void pdp11_cpu_instr_trap(Pdp11Cpu *const self) {
-    // TODO it user data could be passed through the low byte
+    // TODO user data could be passed through the low byte
     pdp11_cpu_trap(self, PDP11_CPU_TRAP_TRAP);
 }
 void pdp11_cpu_instr_bpt(Pdp11Cpu *const self) {
