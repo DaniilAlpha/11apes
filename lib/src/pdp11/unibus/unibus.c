@@ -7,6 +7,9 @@
 #include "conviniences.h"
 #include "pdp11/cpu/pdp11_cpu.h"
 
+// TODO redesign unibus with simething like `become_master` or `enslave`, keep
+// NPRs and interrutpt will automatically make CPU a master
+
 /*************
  ** private **
  *************/
@@ -128,6 +131,7 @@ void unibus_br(
     uint16_t const trap
 ) {
     // TODO somehow honor horizontal priorities
+
     // TODO this is bad, should be refactored in some future
     while (priority <= ((Pdp11CpuStat volatile)self->_cpu->stat).priority)
         usleep(0);
@@ -141,11 +145,12 @@ void unibus_br(
 
     unibus_lock_unlock(&self->_sack);
 
-    pdp11_cpu_trap(self->_cpu, trap);
-
     self->_current_master = self->_prev_master,
     self->_prev_master = UNIBUS_DEVICE_CPU;
     unibus_lock_unlock(&self->_bbsy);
+    // TODO bad but works for now
+
+    pdp11_cpu_trap(self->_cpu, trap);
 }
 
 uint16_t unibus_dati(
@@ -160,7 +165,7 @@ uint16_t unibus_dati(
 
     unibus_lock_unlock(&self->_sack);
 
-    uint16_t data = 0111111;
+    uint16_t data = 0xDEC;
     if (!unibus_try_read(self, addr, &data)) {
         // TODO trap to bus timeout error
     }

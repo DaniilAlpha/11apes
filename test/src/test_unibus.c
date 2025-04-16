@@ -18,23 +18,6 @@ static MiunteResult unibus_test_teardown() {
     MIUNTE_PASS();
 }
 
-// TODO this is not working as interrupted cpu tries to write to stack via the
-// unibus as well
-static MiunteResult unibus_test_br() {
-    MIUNTE_PASS();
-
-    uint16_t const trap = 0xDEAD;
-    MIUNTE_EXPECT(
-        pdp11_cpu_pc(&pdp.cpu) != trap,
-        "PC should not be on trap before BR"
-    );
-    unibus_br(&pdp.unibus, UNIBUS_DEVICE_CPU, 07, trap);
-    MIUNTE_EXPECT(
-        pdp11_cpu_pc(&pdp.cpu) == trap,
-        "PC should be on trap after BR"
-    );
-    MIUNTE_PASS();
-}
 static MiunteResult unibus_test_npr() {
     uint16_t const addr = 0x42;
     uint16_t const data = 0xF00D;
@@ -48,6 +31,23 @@ static MiunteResult unibus_test_npr() {
         unibus_dati(&pdp.unibus, UNIBUS_DEVICE_CPU, addr) ==
             ((uint16_t)(data << 8) | (uint8_t)data),
         "data should be written correctly"
+    );
+    MIUNTE_PASS();
+}
+// TODO this is not working as interrupted cpu tries to write to stack via the
+// unibus as well
+static MiunteResult unibus_test_br() {
+    uint16_t const trap = 0x42, trap_pc = 0xACE;
+    unibus_dato(&pdp.unibus, UNIBUS_DEVICE_CPU, trap, trap_pc);
+
+    MIUNTE_EXPECT(
+        pdp11_cpu_pc(&pdp.cpu) != trap_pc,
+        "PC should not be on trap before BR"
+    );
+    unibus_br(&pdp.unibus, UNIBUS_DEVICE_CPU, 07, trap);
+    MIUNTE_EXPECT(
+        pdp11_cpu_pc(&pdp.cpu) == trap_pc,
+        "PC should be on trap after BR"
     );
     MIUNTE_PASS();
 }
