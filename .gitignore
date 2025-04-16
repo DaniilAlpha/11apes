@@ -2,3 +2,5 @@
 build/
 
 z_docs/
+
+*.ram

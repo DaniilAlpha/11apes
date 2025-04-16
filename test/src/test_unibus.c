@@ -28,7 +28,7 @@ static MiunteResult unibus_test_br() {
         pdp11_cpu_pc(&pdp.cpu) != trap,
         "PC should not be on trap before BR"
     );
-    unibus_br(&pdp.unibus, 07, trap);
+    unibus_br(&pdp.unibus, UNIBUS_DEVICE_CPU, 07, trap);
     MIUNTE_EXPECT(
         pdp11_cpu_pc(&pdp.cpu) == trap,
         "PC should be on trap after BR"
@@ -38,14 +38,14 @@ static MiunteResult unibus_test_br() {
 static MiunteResult unibus_test_npr() {
     uint16_t const addr = 0x42;
     uint16_t const data = 0xF00D;
-    unibus_dato(&pdp.unibus, addr, data);
+    unibus_dato(&pdp.unibus, UNIBUS_DEVICE_CPU, addr, data);
     MIUNTE_EXPECT(
-        unibus_dati(&pdp.unibus, addr) == data,
+        unibus_dati(&pdp.unibus, UNIBUS_DEVICE_CPU, addr) == data,
         "data should be written correctly"
     );
-    unibus_datob(&pdp.unibus, addr + 1, (uint8_t)data);
+    unibus_datob(&pdp.unibus, UNIBUS_DEVICE_CPU, addr + 1, (uint8_t)data);
     MIUNTE_EXPECT(
-        unibus_dati(&pdp.unibus, addr) ==
+        unibus_dati(&pdp.unibus, UNIBUS_DEVICE_CPU, addr) ==
             ((uint16_t)(data << 8) | (uint8_t)data),
         "data should be written correctly"
     );

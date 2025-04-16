@@ -1,6 +1,8 @@
 #include "pdp11/pdp11_ram.h"
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <assert.h>
 
@@ -44,10 +46,32 @@ static bool pdp11_ram_try_write_byte(
     return true;
 }
 
+static Result pdp11_ram_read_from_file(Pdp11Ram *const self) {
+    FILE *const file = fopen(PDP11_RAM_FILEPATH, "r");
+    if (!file) return FileUnavailableErr;
+
+    if (fread((void *)self->_data, self->_size, 1, file) != 1)
+        return fclose(file), FileReadingErr;
+
+    fclose(file);
+    return Ok;
+}
+static Result pdp11_ram_write_to_file(Pdp11Ram *const self) {
+    FILE *const file = fopen(PDP11_RAM_FILEPATH, "w");
+    if (!file) return FileUnavailableErr;
+
+    if (fwrite((void *)self->_data, self->_size, 1, file) != 1)
+        return fclose(file), FileWritingErr;
+
+    fclose(file);
+    return Ok;
+}
+
 Result pdp11_ram_init(
     Pdp11Ram *const self,
     uint16_t const starting_addr,
-    uint16_t const size
+    uint16_t const size,
+    bool const is_volatile
 ) {
     assert(size <= PDP11_RAM_MAX_SIZE * 2);
 
@@ -57,10 +81,16 @@ Result pdp11_ram_init(
 
     self->_starting_addr = starting_addr;
     self->_size = size;
+    self->_is_volatile = is_volatile;
+
+    if (!self->_is_volatile || pdp11_ram_read_from_file(self) != Ok)
+        memset((void *)self->_data, 0, self->_size);
 
     return Ok;
 }
 void pdp11_ram_uninit(Pdp11Ram *const self) {
+    if (!self->_is_volatile) pdp11_ram_write_to_file(self);
+
     free((void *)self->_data), self->_data = NULL;
 
     self->_starting_addr = self->_size = 0;
