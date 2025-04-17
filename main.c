@@ -14,7 +14,7 @@ long fsize(FILE *const file) {
     return size;
 }
 
-// WARN shit code below VVV
+// WARN shit code below!!!
 
 #define COLOR_PAIR_OFF      1
 #define COLOR_PAIR_ON       2
@@ -57,8 +57,8 @@ typedef enum {
 
 // Function to draw a single bit (light or switch)
 void draw_bit(int y, int x, bool is_on, bool is_selected) {
-    attr_t attr =
-        is_on ? COLOR_PAIR(COLOR_PAIR_ON) : COLOR_PAIR(COLOR_PAIR_OFF);
+    attr_t attr = is_on ? COLOR_PAIR(COLOR_PAIR_ON) | A_REVERSE
+                        : COLOR_PAIR(COLOR_PAIR_OFF);
     if (is_selected) { attr = COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE; }
     attron(attr);
     // Using different symbols for lights vs switches can be nice
@@ -110,7 +110,7 @@ void draw_switch_register(
         mvprintw(
             y,
             x_start + i * 3 + (i + 2) / 3,
-            is_on ? "[^]" : "[v]"
+            is_on ? "/\"\\" : "\\_/"
         );  // Down=1, Up=0
         attroff(attr);
     }
@@ -118,7 +118,7 @@ void draw_switch_register(
 
 // Function to draw status lights
 void draw_status_lights(int y, int x, Pdp11Console const *console) {
-    attr_t attr_on = COLOR_PAIR(COLOR_PAIR_ON);
+    attr_t attr_on = COLOR_PAIR(COLOR_PAIR_ON) | A_REVERSE;
     attr_t attr_off = COLOR_PAIR(COLOR_PAIR_OFF);
 
     mvprintw(y - 1, x + 2, "RUN");
@@ -208,7 +208,7 @@ void draw_control_buttons(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
     );
-    mvprintw(y, x, "[x]");
+    mvprintw(y, x, "\\#/");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
@@ -222,7 +222,7 @@ void draw_control_buttons(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
     );
-    mvprintw(y, x, "[x]");
+    mvprintw(y, x, "\\#/");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
@@ -236,7 +236,7 @@ void draw_control_buttons(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
     );
-    mvprintw(y, x, "[x]");
+    mvprintw(y, x, "\\#/");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
@@ -251,7 +251,7 @@ void draw_control_buttons(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(enable_state ? COLOR_PAIR_ON : COLOR_PAIR_OFF)
     );
-    mvprintw(y, x, enable_state ? "[^]" : "[v]");
+    mvprintw(y, x, enable_state ? "/\"\\" : "\\_/");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(enable_state ? COLOR_PAIR_ON : COLOR_PAIR_OFF)
@@ -265,7 +265,7 @@ void draw_control_buttons(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
     );
-    mvprintw(y, x, "[x]");
+    mvprintw(y, x, "\\#/");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
@@ -281,7 +281,7 @@ void draw_control_buttons(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
     );
-    mvprintw(y, x, "[x]");
+    mvprintw(y, x, "\\#/");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
@@ -309,7 +309,7 @@ void run_console_ui(Pdp11Console *console) {
     start_color();
     // Define color pairs (foreground, background)
     init_pair(COLOR_PAIR_OFF, COLOR_WHITE, COLOR_BLACK);    // Off light/switch
-    init_pair(COLOR_PAIR_ON, COLOR_BLACK, COLOR_RED);       // On light/switch
+    init_pair(COLOR_PAIR_ON, COLOR_RED, COLOR_BLACK);       // On light/switch
     init_pair(COLOR_PAIR_LABEL, COLOR_WHITE, COLOR_BLACK);  // Labels
     init_pair(COLOR_PAIR_SELECTED, COLOR_YELLOW, COLOR_BLACK);  // Selected item
     init_pair(5, COLOR_WHITE, COLOR_WHITE);
@@ -361,12 +361,12 @@ void run_console_ui(Pdp11Console *console) {
         mvprintw(
             LINES - 3,
             1,
-            "Use ARROWS to navigate, SPACE/ENTER to toggle/press."
+            "LARROW/RARROW - navigation, SPACE/ENTER/UARROW/DARROW - toggle/press"
         );
         mvprintw(
             LINES - 2,
             1,
-            "L=LoadAddr E=Examine D=Deposit C=Cont H=Enable/Halt S=Start P=Power Q=Quit"
+            "shortcuts: L - load, E - exam, D - dep, C - cont, H - enbl/halt, S - start, P - next power, Q - quit"
         );
         attroff(COLOR_PAIR(COLOR_PAIR_LABEL));
 
