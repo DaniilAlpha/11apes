@@ -34,8 +34,6 @@ static MiunteResult unibus_test_npr() {
     );
     MIUNTE_PASS();
 }
-// TODO this is not working as interrupted cpu tries to write to stack via the
-// unibus as well
 static MiunteResult unibus_test_br() {
     uint16_t const trap = 0x42, trap_pc = 0xACE;
     unibus_dato(&pdp.unibus, UNIBUS_DEVICE_CPU, trap, trap_pc);

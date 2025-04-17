@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include <assert.h>
 #include <unistd.h>
 
 #include "conviniences.h"
@@ -17,6 +18,11 @@
 
 // TODO properly implement memory errors with traps: stack overflow, bus error,
 // and also illegal instructions
+
+// TODO integrate console operations directly into the CPU (for more accurate
+// emulation)
+
+// TODO improve instruction decoding, as in Processor Handbook
 
 /***********************
  ** a word and a byte **
@@ -514,10 +520,9 @@ pdp11_cpu_address_word(Pdp11Cpu *const self, unsigned const mode) {
                 ) + pdp11_cpu_rx(self, r_i)
             )
         );
-    }
 
-    // TODO do something meaningful
-    return (Pdp11Word){0};
+    default: assert(false);
+    }
 }
 static Pdp11Byte
 pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
@@ -581,10 +586,9 @@ pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
                 ) + pdp11_cpu_rx(self, r_i)
             )
         );
-    }
 
-    // TODO do something meaningful
-    return (Pdp11Byte){0};
+    default: assert(false);
+    }
 }
 
 static void

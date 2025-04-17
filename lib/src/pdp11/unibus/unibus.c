@@ -7,7 +7,7 @@
 #include "conviniences.h"
 #include "pdp11/cpu/pdp11_cpu.h"
 
-// TODO redesign unibus with simething like `become_master` or `enslave`, keep
+// TODO! redesign unibus with simething like `become_master` or `enslave`, keep
 // NPRs and interrutpt will automatically make CPU a master
 
 /*************
@@ -213,7 +213,7 @@ void unibus_datob(
     unibus_lock_unlock(&self->_sack);
 
     if (!unibus_try_write_byte(self, addr, data)) {
-        // TODO some error should be here
+        // TODO trap to bus timeout error
     }
 
     self->_current_master = self->_prev_master,
