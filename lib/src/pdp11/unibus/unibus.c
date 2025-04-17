@@ -51,7 +51,7 @@ static bool unibus_try_read(
         *out_val = pdp11_cpu_rx(self->_cpu, UNIBUS_CPU_REG_ADDRESS - addr);
         return true;
     case UNIBUS_CPU_STAT_ADDRESS:
-        *out_val = pdp11_cpu_stat_to_word(&self->_cpu->stat);
+        *out_val = pdp11_cpu_stat_to_word(&pdp11_cpu_stat(self->_cpu));
         return true;
     }
 
@@ -69,7 +69,7 @@ static bool unibus_try_write_word(
         pdp11_cpu_rx(self->_cpu, UNIBUS_CPU_REG_ADDRESS - addr) = val;
         return true;
     case UNIBUS_CPU_STAT_ADDRESS:
-        self->_cpu->stat = pdp11_cpu_stat(val);
+        pdp11_cpu_stat(self->_cpu) = pdp11_cpu_stat_from_word(val);
         return true;
     }
 
@@ -86,10 +86,11 @@ static bool unibus_try_write_byte(
     case UNIBUS_CPU_REG_ADDRESS ... UNIBUS_CPU_REG_ADDRESS + 7 * 2:
         pdp11_cpu_rl(self->_cpu, UNIBUS_CPU_REG_ADDRESS - addr) = val;
         return true;
-    case UNIBUS_CPU_STAT_ADDRESS:
-        self->_cpu->stat = pdp11_cpu_stat(
-            (pdp11_cpu_stat_to_word(&self->_cpu->stat) & 0xFF00) | val
+    case UNIBUS_CPU_STAT_ADDRESS: {
+        pdp11_cpu_stat(self->_cpu) = pdp11_cpu_stat_from_word(
+            (pdp11_cpu_stat_to_word(&pdp11_cpu_stat(self->_cpu)) & 0xFF00) | val
         );
+    }
         return true;
     }
 
@@ -115,7 +116,7 @@ void unibus_init(
         *device_ptr = no_unibus_device();
     self->_cpu = cpu;
 
-    self->_current_master = self->_prev_master = UNIBUS_DEVICE_CPU;
+    self->_current_master = self->_next_master = UNIBUS_DEVICE_CPU;
 }
 
 void unibus_reset(Unibus *const self) {
@@ -127,30 +128,44 @@ void unibus_reset(Unibus *const self) {
 void unibus_br(
     Unibus *const self,
     UnibusDevice const *const device,
-    unsigned const priority,
-    uint16_t const trap
+    unsigned const priority
 ) {
-    // TODO somehow honor horizontal priorities
-
-    // TODO this is bad, should be refactored in some future
-    while (priority <= ((Pdp11CpuStat volatile)self->_cpu->stat).priority)
-        usleep(0);
-
-    // TODO wait for CPU to finish executing an instruction (!when instruction
-    // causes trap, should wait one more: handbook p. 65!)
     unibus_lock_lock(&self->_sack);
+    while (priority <= pdp11_cpu_stat(self->_cpu).priority) {
+        // TODO wait for cpu prior changed
+        unibus_lock_unlock(&self->_sack);
+        usleep(0);
+        unibus_lock_lock(&self->_sack);
+    }
+
+    // TODO wait for CPU to finish executing an instruction (!when
+    // instruction causes trap, should wait one more: handbook p. 65!)
+
+    self->_next_master = device;
+}
+void unibus_npr(Unibus *const self, UnibusDevice const *const device) {
+    unibus_lock_lock(&self->_sack);
+    self->_next_master = device;
+}
+static void
+unibus_become_master(Unibus *const self, UnibusDevice const *const device) {
+    assert(self->_next_master == device);
 
     unibus_lock_lock(&self->_bbsy);
-    self->_prev_master = self->_current_master, self->_current_master = device;
-
+    self->_current_master = self->_next_master;
     unibus_lock_unlock(&self->_sack);
+}
+void unibus_intr(
+    Unibus *const self,
+    UnibusDevice const *const device,
+    uint8_t const intr
+) {
+    if (self->_current_master != device) unibus_become_master(self, device);
 
-    self->_current_master = self->_prev_master,
-    self->_prev_master = UNIBUS_DEVICE_CPU;
+    self->_current_master = self->_next_master = UNIBUS_DEVICE_CPU;
+    pdp11_cpu_trap(self->_cpu, intr);
+
     unibus_lock_unlock(&self->_bbsy);
-    // TODO bad but works for now
-
-    pdp11_cpu_trap(self->_cpu, trap);
 }
 
 uint16_t unibus_dati(
@@ -158,20 +173,17 @@ uint16_t unibus_dati(
     UnibusDevice const *const device,
     uint16_t const addr
 ) {
-    unibus_lock_lock(&self->_sack);
+    if (self->_current_master != device) unibus_become_master(self, device);
 
-    unibus_lock_lock(&self->_bbsy);
-    self->_prev_master = self->_current_master, self->_current_master = device;
-
-    unibus_lock_unlock(&self->_sack);
+    // TODO trap CPU_ERR if odd address
 
     uint16_t data = 0xDEC;
     if (!unibus_try_read(self, addr, &data)) {
         // TODO trap to bus timeout error
     }
 
-    self->_current_master = self->_prev_master,
-    self->_prev_master = UNIBUS_DEVICE_CPU;
+    self->_current_master = self->_next_master;
+    self->_next_master = UNIBUS_DEVICE_CPU;
     unibus_lock_unlock(&self->_bbsy);
 
     return data;
@@ -182,21 +194,16 @@ void unibus_dato(
     uint16_t const addr,
     uint16_t const data
 ) {
+    if (self->_current_master != device) unibus_become_master(self, device);
+
     // TODO trap CPU_ERR if odd address
-
-    unibus_lock_lock(&self->_sack);
-
-    unibus_lock_lock(&self->_bbsy);
-    self->_prev_master = self->_current_master, self->_current_master = device;
-
-    unibus_lock_unlock(&self->_sack);
 
     if (!unibus_try_write_word(self, addr, data)) {
         // TODO trap to bus timeout error
     }
 
-    self->_current_master = self->_prev_master,
-    self->_prev_master = UNIBUS_DEVICE_CPU;
+    self->_current_master = self->_next_master,
+    self->_next_master = UNIBUS_DEVICE_CPU;
     unibus_lock_unlock(&self->_bbsy);
 }
 void unibus_datob(
@@ -205,18 +212,15 @@ void unibus_datob(
     uint16_t const addr,
     uint8_t const data
 ) {
-    unibus_lock_lock(&self->_sack);
+    if (self->_current_master != device) unibus_become_master(self, device);
 
-    unibus_lock_lock(&self->_bbsy);
-    self->_prev_master = self->_current_master, self->_current_master = device;
-
-    unibus_lock_unlock(&self->_sack);
+    assert(self->_current_master == device);
 
     if (!unibus_try_write_byte(self, addr, data)) {
         // TODO trap to bus timeout error
     }
 
-    self->_current_master = self->_prev_master,
-    self->_prev_master = UNIBUS_DEVICE_CPU;
+    self->_current_master = self->_next_master;
+    self->_next_master = UNIBUS_DEVICE_CPU;
     unibus_lock_unlock(&self->_bbsy);
 }

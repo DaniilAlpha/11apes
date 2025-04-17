@@ -10,7 +10,7 @@
 #define PDP11_CPU_REG_COUNT (8)
 
 typedef struct Pdp11Cpu {
-    Pdp11CpuStat stat;
+    Pdp11CpuStat _stat;
     uint16_t _r[PDP11_CPU_REG_COUNT];
 
     Unibus *_unibus;
@@ -54,9 +54,16 @@ static inline uint8_t *pdp11_cpu_rl(Pdp11Cpu *const self, unsigned const i) {
 #define pdp11_cpu_pc(SELF_)     pdp11_cpu_rx((SELF_), 7)
 #define pdp11_cpu_sp(SELF_)     pdp11_cpu_rx((SELF_), 6)
 
+// TODO! volatile here is not actually needed. Instead better to place in some
+// specific places (waiting for sufficient priority, also in tests)
+static inline Pdp11CpuStat volatile *pdp11_cpu_stat(Pdp11Cpu *const self) {
+    return &self->_stat;
+}
+#define pdp11_cpu_stat(SELF_) (*pdp11_cpu_stat(SELF_))
+
 // TODO! this is badly designed function and is the worst part of the system at
 // this point
-void pdp11_cpu_trap(Pdp11Cpu *const self, Pdp11CpuTrap const trap);
+void pdp11_cpu_trap(Pdp11Cpu *const self, uint8_t const trap);
 void pdp11_cpu_continue(Pdp11Cpu *const self);
 
 uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self);

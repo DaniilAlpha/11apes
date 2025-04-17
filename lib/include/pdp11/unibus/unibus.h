@@ -25,7 +25,7 @@ typedef struct Unibus {
                 // emu may behave slightly different without it. should consider
                 // its removal later
 
-    UnibusDevice const *_prev_master, *_current_master;
+    UnibusDevice const *_current_master, *_next_master;
 
     Pdp11Cpu *_cpu;
 } Unibus;
@@ -49,10 +49,15 @@ void unibus_reset(Unibus *const self);
 void unibus_br(
     Unibus *const self,
     UnibusDevice const *const device,
-    unsigned const priority,
-    uint16_t const trap
+    unsigned const priority
 );
+void unibus_npr(Unibus *const self, UnibusDevice const *const device);
 
+void unibus_intr(
+    Unibus *const self,
+    UnibusDevice const *const device,
+    uint8_t const intr
+);
 uint16_t unibus_dati(
     Unibus *const self,
     UnibusDevice const *const device,

@@ -15,7 +15,7 @@ static inline uint16_t pdp11_cpu_stat_to_word(Pdp11CpuStat *const self) {
     return self->priority << 5 | self->tf << 4 | self->nf << 3 | self->zf << 2 |
            self->vf << 1 | self->cf << 0;
 }
-static inline Pdp11CpuStat pdp11_cpu_stat(uint16_t const word) {
+static inline Pdp11CpuStat pdp11_cpu_stat_from_word(uint16_t const word) {
     return (Pdp11CpuStat){
         .priority = BITS(word, 5, 7),
         .tf = BIT(word, 4),

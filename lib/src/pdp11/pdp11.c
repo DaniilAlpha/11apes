@@ -19,23 +19,23 @@ static void pdp11_cpu_thread_helper(Pdp11 *const self) {
         printf(
             "pc = 0%06o \t ps = %1o%s%s%s%s%s \t exec: 0%06o \t ",
             pdp11_cpu_pc(&self->cpu),
-            self->cpu.stat.priority,
-            self->cpu.stat.tf ? "T" : "t",
-            self->cpu.stat.nf ? "N" : "n",
-            self->cpu.stat.zf ? "Z" : "z",
-            self->cpu.stat.vf ? "V" : "v",
-            self->cpu.stat.cf ? "C" : "c",
+            self->cpu._stat.priority,
+            self->cpu._stat.tf ? "T" : "t",
+            self->cpu._stat.nf ? "N" : "n",
+            self->cpu._stat.zf ? "Z" : "z",
+            self->cpu._stat.vf ? "V" : "v",
+            self->cpu._stat.cf ? "C" : "c",
             instr
         );
         pdp11_cpu_decode_exec(&self->cpu, instr);
         printf(
             "ps = %1o%s%s%s%s%s\n",
-            self->cpu.stat.priority,
-            self->cpu.stat.tf ? "T" : "t",
-            self->cpu.stat.nf ? "N" : "n",
-            self->cpu.stat.zf ? "Z" : "z",
-            self->cpu.stat.vf ? "V" : "v",
-            self->cpu.stat.cf ? "C" : "c"
+            self->cpu._stat.priority,
+            self->cpu._stat.tf ? "T" : "t",
+            self->cpu._stat.nf ? "N" : "n",
+            self->cpu._stat.zf ? "Z" : "z",
+            self->cpu._stat.vf ? "V" : "v",
+            self->cpu._stat.cf ? "C" : "c"
         );
     }
 }

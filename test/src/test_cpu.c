@@ -106,7 +106,7 @@ static MiunteResult pdp11_cpu_test_addressing() {
 }
 
 static MiunteResult pdp11_cpu_test_mov_movb() {
-    Pdp11CpuStat *const stat = &pdp.cpu.stat;
+    Pdp11CpuStat *const stat = &pdp11_cpu_stat(&pdp.cpu);
     stat->cf = 1;
 
     {
@@ -157,7 +157,7 @@ static MiunteResult pdp11_cpu_test_mov_movb() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_add_sub() {
-    Pdp11CpuStat *const stat = &pdp.cpu.stat;
+    Pdp11CpuStat *const stat = &pdp11_cpu_stat(&pdp.cpu);
     {
         uint16_t const x = 3, y = 2;
 
@@ -245,7 +245,7 @@ static MiunteResult pdp11_cpu_test_add_sub() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_cmp() {
-    Pdp11CpuStat *const stat = &pdp.cpu.stat;
+    Pdp11CpuStat *const stat = &pdp11_cpu_stat(&pdp.cpu);
     uint16_t const x = 24;
 
     pdp11_cpu_dop_ra_instr(0020001 /* cmp R0, R1 */, x, x);
@@ -269,7 +269,7 @@ static MiunteResult pdp11_cpu_test_cmp() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_mul_div() {
-    Pdp11CpuStat *const stat = &pdp.cpu.stat;
+    Pdp11CpuStat *const stat = &pdp11_cpu_stat(&pdp.cpu);
     {
         uint16_t const x = 3, y = 2;
 
@@ -342,7 +342,7 @@ static MiunteResult pdp11_cpu_test_mul_div() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_bit() {
-    Pdp11CpuStat *const stat = &pdp.cpu.stat;
+    Pdp11CpuStat *const stat = &pdp11_cpu_stat(&pdp.cpu);
 
     uint16_t const x = 0x42;
 
