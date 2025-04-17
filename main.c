@@ -98,9 +98,9 @@ void draw_switch_register(
     printw(" = %06o", value);  // Display octal value
     attroff(COLOR_PAIR(COLOR_PAIR_VALUE));
 
-    for (int i = 0; i < 16; ++i) {
+    for (unsigned i = 0; i < 16; ++i) {
         bool is_on = (value >> (15 - i)) & 1;
-        bool is_selected = (current_selection == (SELECT_SWITCH_REG_BIT_0 + i));
+        bool is_selected = current_selection - SELECT_SWITCH_REG_BIT_0 == i;
         // Use different symbols for switches if desired, e.g., [v] /^]
         attr_t attr =
             is_on ? COLOR_PAIR(COLOR_PAIR_ON) : COLOR_PAIR(COLOR_PAIR_OFF);
@@ -476,7 +476,7 @@ int main() {
     Pdp11Rom rom = {0};
     FILE *const file = fopen("res/m9342-248f1.bin", "r");
     if (!file) return 1;
-    assert(pdp11_rom_init_file(&rom, PDP11_BOOT_PC, file) == Ok);
+    assert(pdp11_rom_init_file(&rom, 0077744, file) == Ok);
     fclose(file);
     pdp.unibus.devices[PDP11_FIRST_USER_DEVICE + 0] =
         pdp11_rom_ww_unibus_device(&rom);

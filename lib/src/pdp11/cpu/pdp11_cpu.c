@@ -521,7 +521,7 @@ pdp11_cpu_address_word(Pdp11Cpu *const self, unsigned const mode) {
             )
         );
 
-    default: assert(false);
+    default: assert(false); return (Pdp11Word){0};
     }
 }
 static Pdp11Byte
@@ -587,7 +587,7 @@ pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
             )
         );
 
-    default: assert(false);
+    default: assert(false); return (Pdp11Byte){0};
     }
 }
 
@@ -831,14 +831,10 @@ pdp11_cpu_decode_exec_helper(Pdp11Cpu *const self, uint16_t const instr) {
  ** public **
  ************/
 
-void pdp11_cpu_init(
-    Pdp11Cpu *const self,
-    Unibus *const unibus,
-    uint16_t const pc,
-    Pdp11CpuStat const stat
-) {
-    pdp11_cpu_pc(self) = pc;
-    self->_stat = stat;
+void pdp11_cpu_init(Pdp11Cpu *const self, Unibus *const unibus) {
+    for (unsigned i = 0; i < PDP11_CPU_REG_COUNT; i++)
+        pdp11_cpu_rx(self, i) = 0;
+    self->_stat = (Pdp11CpuStat){0};
 
     self->_unibus = unibus;
 

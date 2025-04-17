@@ -31,7 +31,7 @@
             "cmd": [
                 "cd $TEST",
                 "export BUILD=./build/",
-                "cmake -B $BUILD -S ./ --log-level=$CMAKE_LOG_LEVEL -DCMAKE_BUILD_TYPE=$RUN_BUILD_TYPE; cmake --build $BUILD",
+                "cmake -B $BUILD -S ./ --log-level=$CMAKE_LOG_LEVEL -DCMAKE_BUILD_TYPE=Release; cmake --build $BUILD",
                 "echo; $BUILD/test"
             ]
         },

@@ -24,8 +24,6 @@ static MiunteResult unibus_test_npr() {
     UnibusDevice const *const device =
         &pdp.unibus.devices[PDP11_FIRST_USER_DEVICE];
 
-    ;
-
     uint16_t const addr = 0x42;
     uint16_t const data = 0xF00D;
     (unibus_npr(&pdp.unibus, device),
@@ -68,7 +66,7 @@ static MiunteResult unibus_test_br() {
     pthread_t thread;
     pthread_create(&thread, NULL, lower_cpu_priority_thread, &pdp.cpu);
     MIUNTE_EXPECT(
-        pdp11_cpu_stat(&pdp.cpu).priority >= 03,
+        ((Pdp11CpuStat volatile)pdp11_cpu_stat(&pdp.cpu)).priority >= 03,
         "test will be more useful if starting priority is greater than that of an interrupt"
     );
 
@@ -76,7 +74,7 @@ static MiunteResult unibus_test_br() {
      unibus_intr(&pdp.unibus, device, trap));
 
     MIUNTE_EXPECT(
-        pdp11_cpu_stat(&pdp.cpu).priority < 03,
+        ((Pdp11CpuStat volatile)pdp11_cpu_stat(&pdp.cpu)).priority < 03,
         "interrupt should have happened at priority level lower than that of an interrupt"
     );
     pthread_cancel(thread);

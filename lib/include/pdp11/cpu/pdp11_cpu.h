@@ -35,12 +35,7 @@ typedef enum Pdp11CpuTrap {
     PDP11_CPU_TRAP_FP_ERR = 0240,
 } Pdp11CpuTrap;
 
-void pdp11_cpu_init(
-    Pdp11Cpu *const self,
-    Unibus *const unibus,
-    uint16_t const pc,
-    Pdp11CpuStat const stat
-);
+void pdp11_cpu_init(Pdp11Cpu *const self, Unibus *const unibus);
 void pdp11_cpu_uninit(Pdp11Cpu *const self);
 
 static inline uint16_t *pdp11_cpu_rx(Pdp11Cpu *const self, unsigned const i) {
@@ -54,9 +49,7 @@ static inline uint8_t *pdp11_cpu_rl(Pdp11Cpu *const self, unsigned const i) {
 #define pdp11_cpu_pc(SELF_)     pdp11_cpu_rx((SELF_), 7)
 #define pdp11_cpu_sp(SELF_)     pdp11_cpu_rx((SELF_), 6)
 
-// TODO! volatile here is not actually needed. Instead better to place in some
-// specific places (waiting for sufficient priority, also in tests)
-static inline Pdp11CpuStat volatile *pdp11_cpu_stat(Pdp11Cpu *const self) {
+static inline Pdp11CpuStat *pdp11_cpu_stat(Pdp11Cpu *const self) {
     return &self->_stat;
 }
 #define pdp11_cpu_stat(SELF_) (*pdp11_cpu_stat(SELF_))

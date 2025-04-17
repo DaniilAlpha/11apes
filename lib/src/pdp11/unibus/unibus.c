@@ -131,7 +131,8 @@ void unibus_br(
     unsigned const priority
 ) {
     unibus_lock_lock(&self->_sack);
-    while (priority <= pdp11_cpu_stat(self->_cpu).priority) {
+    while (priority <=
+           ((Pdp11CpuStat volatile)pdp11_cpu_stat(self->_cpu)).priority) {
         // TODO wait for cpu prior changed
         unibus_lock_unlock(&self->_sack);
         usleep(0);
