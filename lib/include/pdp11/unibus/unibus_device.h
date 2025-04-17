@@ -6,7 +6,6 @@
 
 #include <woodi.h>
 
-// TODO! implement reset for the console
 #define UNIBUS_DEVICE_INTERFACE(Self)                                          \
     {                                                                          \
         void (*const _reset)(Self *const self);                                \

@@ -2,19 +2,12 @@
 
 #include <stdlib.h>
 
-void pdp11_console_init(Pdp11Console *const self, Pdp11 *const pdp11) {
-    self->_pdp11 = pdp11;
-
-    self->_switch_register = 0;
+static void pdp11_console_reset(Pdp11Console *const self) {
     self->_addr_register = self->_data_register = 0;
-
-    self->_enable_switch = true;
-    self->_power_control_switch = PDP11_CONSOLE_POWER_CONTROL_OFF;
 
     self->_is_deposit_pressed_consecutively = false;
     self->_is_examine_pressed_consecutively = false;
 }
-
 static bool pdp11_console_try_read(
     Pdp11Console *const self,
     uint16_t const addr,
@@ -39,6 +32,19 @@ static bool pdp11_console_try_write_byte(
     uint8_t const
 ) {
     return addr == PDP11_CONSOLE_SWITCH_REGISTER_ADDR;
+}
+
+void pdp11_console_init(Pdp11Console *const self, Pdp11 *const pdp11) {
+    self->_pdp11 = pdp11;
+
+    self->_switch_register = 0;
+    self->_addr_register = self->_data_register = 0;
+
+    self->_enable_switch = true;
+    self->_power_control_switch = PDP11_CONSOLE_POWER_CONTROL_OFF;
+
+    self->_is_deposit_pressed_consecutively = false;
+    self->_is_examine_pressed_consecutively = false;
 }
 
 void pdp11_console_next_power_control(Pdp11Console *const self) {
@@ -190,6 +196,7 @@ UnibusDevice pdp11_console_ww_unibus_device(Pdp11Console *const self) {
         UnibusDevice,
         UNIBUS_DEVICE_INTERFACE(Pdp11Console),
         {
+            ._reset = pdp11_console_reset,
             ._try_read = pdp11_console_try_read,
             ._try_write_word = pdp11_console_try_write_word,
             ._try_write_byte = pdp11_console_try_write_byte,

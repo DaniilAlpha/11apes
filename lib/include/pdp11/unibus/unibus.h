@@ -20,11 +20,7 @@ typedef struct Pdp11Cpu Pdp11Cpu;
 typedef struct Unibus {
     UnibusDevice devices[UNIBUS_DEVICE_COUNT];
 
-    UnibusLock _bbsy,
-        _sack;  // TODO? sack seems completely redundant, but
-                // emu may behave slightly different without it. should consider
-                // its removal later
-
+    UnibusLock _bbsy, _sack;
     UnibusDevice const *_current_master, *_next_master;
 
     Pdp11Cpu *_cpu;

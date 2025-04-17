@@ -7,8 +7,10 @@
 #include "conviniences.h"
 #include "pdp11/cpu/pdp11_cpu.h"
 
-// TODO! redesign unibus with simething like `become_master` or `enslave`, keep
-// NPRs and interrutpt will automatically make CPU a master
+// TODO!! continue redesigning unibus with simething like `become_master` or
+// `enslave`, keep NPRs and interrutpt will automatically make CPU a master. The
+// best way is to return something like `UnibusChannel` that is one-time
+// channel, maybe even sepatate for Brs and Nprs.
 
 /*************
  ** private **
@@ -99,6 +101,21 @@ static bool unibus_try_write_byte(
     return false;
 }
 
+static void
+unibus_become_master(Unibus *const self, UnibusDevice const *const device) {
+    assert(self->_next_master == device);
+
+    unibus_lock_lock(&self->_bbsy);
+    self->_current_master = self->_next_master;
+    unibus_lock_unlock(&self->_sack);
+}
+static void unibus_trap_to_error(Unibus *const self) {
+    self->_current_master = self->_next_master = UNIBUS_DEVICE_CPU;
+    pdp11_cpu_trap(self->_cpu, PDP11_CPU_TRAP_UNIBUS_ERR);
+
+    unibus_lock_unlock(&self->_bbsy);
+}
+
 /************
  ** public **
  ************/
@@ -120,7 +137,7 @@ void unibus_init(
 }
 
 void unibus_reset(Unibus *const self) {
-    // TODO reset CPU
+    pdp11_cpu_reset(self->_cpu);
     foreach (device_ptr, self->devices, self->devices + UNIBUS_DEVICE_COUNT)
         unibus_device_reset(device_ptr);
 }
@@ -148,14 +165,6 @@ void unibus_npr(Unibus *const self, UnibusDevice const *const device) {
     unibus_lock_lock(&self->_sack);
     self->_next_master = device;
 }
-static void
-unibus_become_master(Unibus *const self, UnibusDevice const *const device) {
-    assert(self->_next_master == device);
-
-    unibus_lock_lock(&self->_bbsy);
-    self->_current_master = self->_next_master;
-    unibus_lock_unlock(&self->_sack);
-}
 void unibus_intr(
     Unibus *const self,
     UnibusDevice const *const device,
@@ -165,7 +174,6 @@ void unibus_intr(
 
     self->_current_master = self->_next_master = UNIBUS_DEVICE_CPU;
     pdp11_cpu_trap(self->_cpu, intr);
-
     unibus_lock_unlock(&self->_bbsy);
 }
 
@@ -176,12 +184,11 @@ uint16_t unibus_dati(
 ) {
     if (self->_current_master != device) unibus_become_master(self, device);
 
-    // TODO trap CPU_ERR if odd address
-
     uint16_t data = 0xDEC;
-    if (!unibus_try_read(self, addr, &data)) {
-        // TODO trap to bus timeout error
-    }
+
+    bool const was_device_addressed = unibus_try_read(self, addr, &data);
+    if ((addr & 1) == 1 || !was_device_addressed)
+        return unibus_trap_to_error(self), data;
 
     self->_current_master = self->_next_master;
     self->_next_master = UNIBUS_DEVICE_CPU;
@@ -197,11 +204,9 @@ void unibus_dato(
 ) {
     if (self->_current_master != device) unibus_become_master(self, device);
 
-    // TODO trap CPU_ERR if odd address
-
-    if (!unibus_try_write_word(self, addr, data)) {
-        // TODO trap to bus timeout error
-    }
+    bool const was_device_addressed = unibus_try_write_word(self, addr, data);
+    if ((addr & 1) == 1 || !was_device_addressed)
+        return unibus_trap_to_error(self);
 
     self->_current_master = self->_next_master,
     self->_next_master = UNIBUS_DEVICE_CPU;
@@ -217,9 +222,8 @@ void unibus_datob(
 
     assert(self->_current_master == device);
 
-    if (!unibus_try_write_byte(self, addr, data)) {
-        // TODO trap to bus timeout error
-    }
+    bool const was_device_addressed = unibus_try_write_byte(self, addr, data);
+    if (!was_device_addressed) return unibus_trap_to_error(self);
 
     self->_current_master = self->_next_master;
     self->_next_master = UNIBUS_DEVICE_CPU;

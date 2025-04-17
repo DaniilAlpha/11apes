@@ -6,14 +6,6 @@
 #include "pdp11/pdp11_console.h"
 #include "pdp11/pdp11_rom.h"
 
-long fsize(FILE *const file) {
-    long const pos = ftell(file);
-    fseek(file, 0, SEEK_END);
-    long const size = ftell(file);
-    fseek(file, pos, SEEK_SET);
-    return size;
-}
-
 // WARN shit code below!!!
 
 #define COLOR_PAIR_OFF      1
@@ -462,12 +454,8 @@ void run_console_ui(Pdp11Console *console) {
         }
     }
 
-    endwin();  // Restore normal terminal behavior
+    endwin();
 }
-
-// --- Example Main (Replace with your emulator integration) ---
-// You'll need to provide the actual Pdp11Console implementation
-// and the Pdp11 struct it points to.
 
 int main() {
     Pdp11 pdp = {0};

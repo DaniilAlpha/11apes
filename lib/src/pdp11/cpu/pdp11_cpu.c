@@ -16,9 +16,6 @@
 // the register before using it as an address. This is a special case. and is
 // not true of any other instruction
 
-// TODO properly implement memory errors with traps: stack overflow, bus error,
-// and also illegal instructions
-
 // TODO integrate console operations directly into the CPU (for more accurate
 // emulation)
 
@@ -844,6 +841,7 @@ void pdp11_cpu_uninit(Pdp11Cpu *const self) {
     pdp11_cpu_pc(self) = 0;
     self->_stat = (Pdp11CpuStat){0};
 }
+void pdp11_reset(Pdp11Cpu *const self) { pdp11_cpu_init(self, self->_unibus); }
 
 void pdp11_cpu_trap(Pdp11Cpu *const self, uint8_t const trap) {
     pdp11_stack_push(self, pdp11_cpu_stat_to_word(&self->_stat));
@@ -858,8 +856,8 @@ void pdp11_cpu_continue(Pdp11Cpu *const self) {
 }
 
 uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self) {
-    // NOTE this ensures that anything that may be changed by an interrupt from
-    // another thread is sync
+    // NOTE this ensures that any registers that may be changed by an interrupt
+    // from another thread is sync
     asm volatile("" ::: "memory");
 
     uint16_t const instr =
@@ -1600,6 +1598,7 @@ void pdp11_cpu_instr_rtt(Pdp11Cpu *const self) {
 // MISC.
 
 void pdp11_cpu_instr_halt(Pdp11Cpu *const self) {
+    // TODO terminate all unibus operations
     self->_state = PDP11_CPU_STATE_HALTED;
 }
 void pdp11_cpu_instr_wait(Pdp11Cpu *const self) {

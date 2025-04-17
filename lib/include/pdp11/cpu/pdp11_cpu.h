@@ -22,21 +22,25 @@ typedef struct Pdp11Cpu {
 } Pdp11Cpu;
 
 typedef enum Pdp11CpuTrap {
+    PDP11_CPU_TRAP_UNIBUS_ERR = 0004,
     PDP11_CPU_TRAP_CPU_ERR = 0004,
-    PDP11_CPU_TRAP_CPU_STACK_OVERFLOW = 0004,
+    PDP11_CPU_TRAP_CPU_STACK_OVERFLOW =
+        0004,  // TODO? maybe detect stack overflow
+
     PDP11_CPU_TRAP_ILLEGAL_INSTR = 0010,
+
     PDP11_CPU_TRAP_BPT = 0014,
     PDP11_CPU_TRAP_IOT = 0020,
+
     PDP11_CPU_TRAP_POWER_FAIL = 0024,
+
     PDP11_CPU_TRAP_EMT = 0030,
     PDP11_CPU_TRAP_TRAP = 0034,
-    PDP11_CPU_TRAP_MEM_ERR = 0114,
-    PDP11_CPU_TRAP_PROGRAM_IRQ = 0240,
-    PDP11_CPU_TRAP_FP_ERR = 0240,
 } Pdp11CpuTrap;
 
 void pdp11_cpu_init(Pdp11Cpu *const self, Unibus *const unibus);
 void pdp11_cpu_uninit(Pdp11Cpu *const self);
+void pdp11_cpu_reset(Pdp11Cpu *const self);
 
 static inline uint16_t *pdp11_cpu_rx(Pdp11Cpu *const self, unsigned const i) {
     return (uint16_t *)(self->_r + i);
@@ -54,8 +58,6 @@ static inline Pdp11CpuStat *pdp11_cpu_stat(Pdp11Cpu *const self) {
 }
 #define pdp11_cpu_stat(SELF_) (*pdp11_cpu_stat(SELF_))
 
-// TODO! this is badly designed function and is the worst part of the system at
-// this point
 void pdp11_cpu_trap(Pdp11Cpu *const self, uint8_t const trap);
 void pdp11_cpu_continue(Pdp11Cpu *const self);
 
