@@ -17,9 +17,6 @@
 #include "pdp11/pdp11_ram.h"
 
 #define PDP11_RAM_AMOUNT (16 * 1024 * 2)
-#define PDP11_BOOT_PC    (0077744)
-#define PDP11_BOOT_CPU_STAT                                                    \
-    ((Pdp11CpuStat){.priority = 0, .tf = 0, .nf = 0, .zf = 0, .vf = 0, .cf = 0})
 
 #define PDP11_FIRST_USER_DEVICE (1)
 

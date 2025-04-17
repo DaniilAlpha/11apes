@@ -54,12 +54,7 @@ Result pdp11_init(Pdp11 *const self) {
         pthread_mutex_init(&self->_sack_lock, NULL) != 0)
         return pdp11_ram_uninit(&self->ram), RangeErr;
 
-    pdp11_cpu_init(
-        &self->cpu,
-        &self->unibus,
-        PDP11_BOOT_PC,
-        PDP11_BOOT_CPU_STAT
-    );
+    pdp11_cpu_init(&self->cpu, &self->unibus, 0, (Pdp11CpuStat){0});
 
     unibus_init(
         &self->unibus,
