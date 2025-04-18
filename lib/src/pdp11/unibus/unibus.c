@@ -19,7 +19,6 @@
 static inline void unibus_device_reset(UnibusDevice const *const self) {
     return WRAPPER_CALL(_reset, self);
 }
-
 static inline bool unibus_device_try_read(
     UnibusDevice const *const self,
     uint16_t const addr,
@@ -43,6 +42,7 @@ static inline bool unibus_device_try_write_byte(
 ) {
     return WRAPPER_CALL(_try_write_byte, self, addr, val);
 }
+
 static bool unibus_try_read(
     Unibus const *const self,
     uint16_t const addr,
@@ -106,20 +106,86 @@ unibus_become_master(Unibus *const self, UnibusDevice const *const device) {
     assert(self->_next_master == device);
 
     unibus_lock_lock(&self->_bbsy);
-    self->_current_master = self->_next_master;
+    self->_master = self->_next_master;
     unibus_lock_unlock(&self->_sack);
 }
 static void unibus_trap_to_error(Unibus *const self) {
-    self->_current_master = self->_next_master = UNIBUS_DEVICE_CPU;
+    self->_master = self->_next_master = UNIBUS_DEVICE_CPU;
     pdp11_cpu_trap(self->_cpu, PDP11_CPU_TRAP_UNIBUS_ERR);
 
     unibus_lock_unlock(&self->_bbsy);
 }
+/* static void unibus_channel_open(UnibusChannel const *const self) {
+    if (self->unibus->_master == self->device) return;
+    assert(self->unibus->_next_master == self->device);
+    unibus_lock_lock(&self->unibus->_bbsy);
+    self->unibus->_master = self->unibus->_next_master;
+}
+static void unibus_channel_close(UnibusChannel const *const self) {
+    self->unibus->_master = self->unibus->_next_master;
+    self->unibus->_next_master = UNIBUS_DEVICE_CPU;
+    unibus_lock_unlock(&self->unibus->_sack);
+    unibus_lock_unlock(&self->unibus->_bbsy);
+}
+static void
+unibus_channel_trap_close(UnibusChannel const *const self, uint8_t const trap) {
+    self->unibus->_master = self->unibus->_next_master = UNIBUS_DEVICE_CPU;
+    unibus_lock_unlock(&self->unibus->_sack);
+    pdp11_cpu_trap(self->unibus->_cpu, trap);
+    unibus_lock_unlock(&self->unibus->_bbsy);
+} */
 
 /************
  ** public **
  ************/
 
+/* void br_unibus_channel_consume_intr(
+    UnibusChannel const *const self,
+    uint8_t const intr
+) {
+    unibus_channel_open(self);
+    unibus_channel_trap_close(self, intr);
+}
+
+uint16_t npr_unibus_channel_consume_dati(
+    UnibusChannel const *const self,
+    uint16_t const addr
+) {
+    unibus_channel_open(self);
+    uint16_t data = 0xDEC;
+    if ((addr & 1) == 1 || !unibus_try_read(self->unibus, addr, &data))
+        return unibus_channel_trap_close(self, PDP11_CPU_TRAP_UNIBUS_ERR), data;
+
+    unibus_channel_close(self);
+
+    return data;
+}
+
+void npr_unibus_channel_consume_dato(
+    UnibusChannel const *const self,
+    uint16_t const addr,
+    uint16_t const data
+) {
+    unibus_channel_open(self);
+
+    if ((addr & 1) == 1 || !unibus_try_write_word(self->unibus, addr, data))
+        return unibus_channel_trap_close(self, PDP11_CPU_TRAP_UNIBUS_ERR);
+
+    unibus_channel_close(self);
+}
+
+void npr_unibus_channel_consume_datob(
+    UnibusChannel const *const self,
+    uint16_t const addr,
+    uint8_t const data
+) {
+    unibus_channel_open(self);
+
+    if (!unibus_try_write_byte(self->unibus, addr, data))
+        return unibus_channel_trap_close(self, PDP11_CPU_TRAP_UNIBUS_ERR);
+
+    unibus_channel_close(self);
+} */
 void unibus_init(
     Unibus *const self,
     Pdp11Cpu *const cpu,
@@ -133,7 +199,7 @@ void unibus_init(
         *device_ptr = no_unibus_device();
     self->_cpu = cpu;
 
-    self->_current_master = self->_next_master = UNIBUS_DEVICE_CPU;
+    self->_master = self->_next_master = UNIBUS_DEVICE_CPU;
 }
 
 void unibus_reset(Unibus *const self) {
@@ -170,9 +236,9 @@ void unibus_intr(
     UnibusDevice const *const device,
     uint8_t const intr
 ) {
-    if (self->_current_master != device) unibus_become_master(self, device);
+    if (self->_master != device) unibus_become_master(self, device);
 
-    self->_current_master = self->_next_master = UNIBUS_DEVICE_CPU;
+    self->_master = self->_next_master = UNIBUS_DEVICE_CPU;
     pdp11_cpu_trap(self->_cpu, intr);
     unibus_lock_unlock(&self->_bbsy);
 }
@@ -182,7 +248,7 @@ uint16_t unibus_dati(
     UnibusDevice const *const device,
     uint16_t const addr
 ) {
-    if (self->_current_master != device) unibus_become_master(self, device);
+    if (self->_master != device) unibus_become_master(self, device);
 
     uint16_t data = 0xDEC;
 
@@ -190,7 +256,7 @@ uint16_t unibus_dati(
     if ((addr & 1) == 1 || !was_device_addressed)
         return unibus_trap_to_error(self), data;
 
-    self->_current_master = self->_next_master;
+    self->_master = self->_next_master;
     self->_next_master = UNIBUS_DEVICE_CPU;
     unibus_lock_unlock(&self->_bbsy);
 
@@ -202,14 +268,13 @@ void unibus_dato(
     uint16_t const addr,
     uint16_t const data
 ) {
-    if (self->_current_master != device) unibus_become_master(self, device);
+    if (self->_master != device) unibus_become_master(self, device);
 
     bool const was_device_addressed = unibus_try_write_word(self, addr, data);
     if ((addr & 1) == 1 || !was_device_addressed)
         return unibus_trap_to_error(self);
 
-    self->_current_master = self->_next_master,
-    self->_next_master = UNIBUS_DEVICE_CPU;
+    self->_master = self->_next_master, self->_next_master = UNIBUS_DEVICE_CPU;
     unibus_lock_unlock(&self->_bbsy);
 }
 void unibus_datob(
@@ -218,14 +283,14 @@ void unibus_datob(
     uint16_t const addr,
     uint8_t const data
 ) {
-    if (self->_current_master != device) unibus_become_master(self, device);
+    if (self->_master != device) unibus_become_master(self, device);
 
-    assert(self->_current_master == device);
+    assert(self->_master == device);
 
     bool const was_device_addressed = unibus_try_write_byte(self, addr, data);
     if (!was_device_addressed) return unibus_trap_to_error(self);
 
-    self->_current_master = self->_next_master;
+    self->_master = self->_next_master;
     self->_next_master = UNIBUS_DEVICE_CPU;
     unibus_lock_unlock(&self->_bbsy);
 }

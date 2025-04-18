@@ -841,7 +841,9 @@ void pdp11_cpu_uninit(Pdp11Cpu *const self) {
     pdp11_cpu_pc(self) = 0;
     self->_stat = (Pdp11CpuStat){0};
 }
-void pdp11_reset(Pdp11Cpu *const self) { pdp11_cpu_init(self, self->_unibus); }
+void pdp11_cpu_reset(Pdp11Cpu *const self) {
+    pdp11_cpu_init(self, self->_unibus);
+}
 
 void pdp11_cpu_trap(Pdp11Cpu *const self, uint8_t const trap) {
     pdp11_stack_push(self, pdp11_cpu_stat_to_word(&self->_stat));
@@ -1350,8 +1352,8 @@ void pdp11_cpu_instr_mul(
     Pdp11Word const dst0 = pdp11_word_from_cpu_reg(self, r_i),
                     dst1 = pdp11_word_from_cpu_reg(self, r_i | 1);
 
-    uint32_t const res = (uint32_t)((int16_t)dst0.vtbl->read(&dst0) *
-                                    (int16_t)src.vtbl->read(&src));
+    uint32_t const res =
+        (int16_t)dst0.vtbl->read(&dst0) * (int16_t)src.vtbl->read(&src);
     self->_stat = (Pdp11CpuStat){
         .priority = self->_stat.priority,
         .tf = self->_stat.tf,

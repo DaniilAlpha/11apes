@@ -47,7 +47,9 @@ static bool pdp11_ram_try_write_byte(
 }
 
 static Result pdp11_ram_read_from_file(Pdp11Ram *const self) {
-    FILE *const file = fopen(PDP11_RAM_FILEPATH, "r");
+    if (!self->_filepath) return StateErr;
+
+    FILE *const file = fopen(self->_filepath, "r");
     if (!file) return FileUnavailableErr;
 
     if (fread((void *)self->_data, self->_size, 1, file) != 1)
@@ -57,7 +59,9 @@ static Result pdp11_ram_read_from_file(Pdp11Ram *const self) {
     return Ok;
 }
 static Result pdp11_ram_write_to_file(Pdp11Ram *const self) {
-    FILE *const file = fopen(PDP11_RAM_FILEPATH, "w");
+    if (!self->_filepath) return StateErr;
+
+    FILE *const file = fopen(self->_filepath, "w");
     if (!file) return FileUnavailableErr;
 
     if (fwrite((void *)self->_data, self->_size, 1, file) != 1)
@@ -71,9 +75,9 @@ Result pdp11_ram_init(
     Pdp11Ram *const self,
     uint16_t const starting_addr,
     uint16_t const size,
-    bool const is_volatile
+    char const *const filepath
 ) {
-    assert(size <= PDP11_RAM_MAX_SIZE * 2);
+    assert(size <= PDP11_RAM_MAX_SIZE);
 
     void *const data = malloc(size);
     if (!data) return OutOfMemErr;
@@ -81,15 +85,15 @@ Result pdp11_ram_init(
 
     self->_starting_addr = starting_addr;
     self->_size = size;
-    self->_is_volatile = is_volatile;
+    self->_filepath = filepath;
 
-    if (!self->_is_volatile || pdp11_ram_read_from_file(self) != Ok)
+    if (pdp11_ram_read_from_file(self) != Ok)
         memset((void *)self->_data, 0, self->_size);
 
     return Ok;
 }
 void pdp11_ram_uninit(Pdp11Ram *const self) {
-    if (!self->_is_volatile) pdp11_ram_write_to_file(self);
+    pdp11_ram_write_to_file(self);
 
     free((void *)self->_data), self->_data = NULL;
 

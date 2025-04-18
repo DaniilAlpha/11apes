@@ -21,7 +21,7 @@ typedef struct Unibus {
     UnibusDevice devices[UNIBUS_DEVICE_COUNT];
 
     UnibusLock _bbsy, _sack;
-    UnibusDevice const *_current_master, *_next_master;
+    UnibusDevice const *_master, *_next_master;
 
     Pdp11Cpu *_cpu;
 } Unibus;
@@ -34,10 +34,10 @@ void unibus_init(
 );
 
 static inline bool unibus_is_running(Unibus const *const self) {
-    return self->_current_master == NULL;
+    return self->_master == NULL;
 }
 static inline bool unibus_is_periph_master(Unibus const *const self) {
-    return self->_current_master != NULL;
+    return self->_master != NULL;
 }
 
 void unibus_reset(Unibus *const self);

@@ -44,8 +44,11 @@
         },
         "clean": {
             "icon": "󰃢",
-            "desc": "clean",
             "cmd": "rm -r ./build/*"
+        },
+        "clean test": {
+            "icon": "󰃢",
+            "cmd": "rm -r ./test/build/*"
         }
     }
 }
