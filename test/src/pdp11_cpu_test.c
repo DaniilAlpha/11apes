@@ -1,4 +1,4 @@
-#include "test_cpu.h"
+#include "pdp11_cpu_test.h"
 
 #include <assert.h>
 #include <miunte.h>

@@ -1,5 +1,5 @@
-#include "test_cpu.h"
-#include "test_unibus.h"
+#include "pdp11_cpu_test.h"
+#include "unibus_test.h"
 
 int main() {
     test_unibus_run();
