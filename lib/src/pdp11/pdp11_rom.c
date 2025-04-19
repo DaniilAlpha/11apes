@@ -3,8 +3,7 @@
 #include <stdlib.h>
 
 #include <assert.h>
-
-#include "woodi.h"
+#include <woodi.h>
 
 static long fsize(FILE *const self) {
     long const cur = ftell(self);

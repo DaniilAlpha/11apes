@@ -58,7 +58,7 @@ static inline Pdp11CpuStat *pdp11_cpu_stat(Pdp11Cpu *const self) {
 }
 #define pdp11_cpu_stat(SELF_) (*pdp11_cpu_stat(SELF_))
 
-void pdp11_cpu_trap(Pdp11Cpu *const self, uint8_t const trap);
+void pdp11_cpu_intr(Pdp11Cpu *const self, uint8_t const intr);
 void pdp11_cpu_continue(Pdp11Cpu *const self);
 
 uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self);

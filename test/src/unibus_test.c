@@ -26,17 +26,15 @@ static MiunteResult unibus_test_npr() {
 
     uint16_t const addr = 0x42;
     uint16_t const data = 0xF00D;
-    (unibus_npr(&pdp.unibus, device),
-     unibus_dato(&pdp.unibus, device, addr, data));
+    unibus_npr_dato(&pdp.unibus, device, addr, data);
     MIUNTE_EXPECT(
-        unibus_dati(&pdp.unibus, device, addr) == data,
+        unibus_npr_dati(&pdp.unibus, device, addr) == data,
         "data should be written correctly"
     );
-    (unibus_npr(&pdp.unibus, device),
-     unibus_datob(&pdp.unibus, device, addr + 1, (uint8_t)data));
+    unibus_npr_datob(&pdp.unibus, device, addr + 1, (uint8_t)data);
     MIUNTE_EXPECT(
-        (unibus_npr(&pdp.unibus, device), unibus_dati(&pdp.unibus, device, addr)
-        ) == ((uint16_t)(data << 8) | (uint8_t)data),
+        unibus_npr_dati(&pdp.unibus, device, addr) ==
+            ((uint16_t)(data << 8) | (uint8_t)data),
         "data should be written correctly"
     );
     MIUNTE_PASS();
@@ -54,8 +52,7 @@ static MiunteResult unibus_test_br() {
         &pdp.unibus.devices[PDP11_FIRST_USER_DEVICE];
 
     uint16_t const trap = 0x42, trap_pc = 0xACE;
-    (unibus_npr(&pdp.unibus, device),
-     unibus_dato(&pdp.unibus, device, trap, trap_pc));
+    unibus_npr_dato(&pdp.unibus, device, trap, trap_pc);
 
     MIUNTE_EXPECT(
         pdp11_cpu_pc(&pdp.cpu) != trap_pc,
@@ -70,8 +67,7 @@ static MiunteResult unibus_test_br() {
         "test will be more useful if starting priority is greater than that of an interrupt"
     );
 
-    (unibus_br(&pdp.unibus, device, 03),
-     unibus_intr(&pdp.unibus, device, trap));
+    unibus_br_intr(&pdp.unibus, 03, device, trap);
 
     MIUNTE_EXPECT(
         ((Pdp11CpuStat volatile)pdp11_cpu_stat(&pdp.cpu)).priority < 03,

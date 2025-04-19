@@ -5,8 +5,7 @@
 #include <string.h>
 
 #include <assert.h>
-
-#include "woodi.h"
+#include <woodi.h>
 
 static void pdp11_ram_reset(Pdp11Ram *const) {}
 static bool pdp11_ram_try_read(

@@ -104,9 +104,8 @@ void pdp11_console_press_deposit(Pdp11Console *const self) {
     self->_is_examine_pressed_consecutively = false;
 
     self->_data_register = self->_switch_register;
-    unibus_dato(
+    unibus_cpu_dato(
         &self->_pdp11->unibus,
-        UNIBUS_DEVICE_CPU,
         self->_addr_register,
         self->_data_register
     );
@@ -120,11 +119,8 @@ void pdp11_console_press_examine(Pdp11Console *const self) {
     self->_is_examine_pressed_consecutively = true;
     self->_is_deposit_pressed_consecutively = false;
 
-    self->_data_register = unibus_dati(
-        &self->_pdp11->unibus,
-        UNIBUS_DEVICE_CPU,
-        self->_addr_register
-    );
+    self->_data_register =
+        unibus_cpu_dati(&self->_pdp11->unibus, self->_addr_register);
 }
 
 void pdp11_console_press_continue(Pdp11Console *const self) {

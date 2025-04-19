@@ -1,16 +1,12 @@
 #include "pdp11/unibus/unibus.h"
 
 #include <stddef.h>
+#include <stdlib.h>
 
 #include <unistd.h>
 
 #include "conviniences.h"
 #include "pdp11/cpu/pdp11_cpu.h"
-
-// TODO!! continue redesigning unibus with simething like `become_master` or
-// `enslave`, keep NPRs and interrutpt will automatically make CPU a master. The
-// best way is to return something like `UnibusChannel` that is one-time
-// channel, maybe even sepatate for Brs and Nprs.
 
 /*************
  ** private **
@@ -103,89 +99,78 @@ static bool unibus_try_write_byte(
 
 static void
 unibus_become_master(Unibus *const self, UnibusDevice const *const device) {
-    assert(self->_next_master == device);
+    if (self->_master != device) {
+        // TODO replace with cond var
+        unibus_lock_lock(&self->_bbsy);
+        while (self->_next_master != device) {
+            // TODO wait for cpu prior changed
+            unibus_lock_unlock(&self->_bbsy);
+            usleep(0);
+            unibus_lock_lock(&self->_bbsy);
+        }
 
-    unibus_lock_lock(&self->_bbsy);
-    self->_master = self->_next_master;
-    unibus_lock_unlock(&self->_sack);
+        self->_master = self->_next_master;
+        self->_next_master = UNIBUS_DEVICE_CPU;
+    }
 }
-static void unibus_trap_to_error(Unibus *const self) {
-    self->_master = self->_next_master = UNIBUS_DEVICE_CPU;
-    pdp11_cpu_trap(self->_cpu, PDP11_CPU_TRAP_UNIBUS_ERR);
-
+static void unibus_drop_current_master(Unibus *const self) {
+    self->_master = UNIBUS_DEVICE_CPU;
     unibus_lock_unlock(&self->_bbsy);
 }
-/* static void unibus_channel_open(UnibusChannel const *const self) {
-    if (self->unibus->_master == self->device) return;
-    assert(self->unibus->_next_master == self->device);
-    unibus_lock_lock(&self->unibus->_bbsy);
-    self->unibus->_master = self->unibus->_next_master;
-}
-static void unibus_channel_close(UnibusChannel const *const self) {
-    self->unibus->_master = self->unibus->_next_master;
-    self->unibus->_next_master = UNIBUS_DEVICE_CPU;
-    unibus_lock_unlock(&self->unibus->_sack);
-    unibus_lock_unlock(&self->unibus->_bbsy);
-}
+
+/* Assumes BBSY is locked. Transfers control to CPU and services the interrupt.
+ */
 static void
-unibus_channel_trap_close(UnibusChannel const *const self, uint8_t const trap) {
-    self->unibus->_master = self->unibus->_next_master = UNIBUS_DEVICE_CPU;
-    unibus_lock_unlock(&self->unibus->_sack);
-    pdp11_cpu_trap(self->unibus->_cpu, trap);
-    unibus_lock_unlock(&self->unibus->_bbsy);
-} */
+unibus_transfer_control_to_cpu_trap(Unibus *const self, uint8_t const intr) {
+    self->_master = UNIBUS_DEVICE_CPU;
+    pdp11_cpu_trap(self->_cpu, intr);
+}
+
+static uint16_t unibus_dati_helper(
+    Unibus *const self,
+    UnibusDevice const *const device,
+    uint16_t const addr
+) {
+    unibus_become_master(self, device);
+
+    uint16_t data = 0xDEC;
+    if ((addr & 1) == 1 || !unibus_try_read(self, addr, &data))
+        unibus_transfer_control_to_cpu_trap(self, PDP11_CPU_TRAP_UNIBUS_ERR);
+
+    unibus_drop_current_master(self);
+    return data;
+}
+static void unibus_dato_helper(
+    Unibus *const self,
+    UnibusDevice const *const device,
+    uint16_t const addr,
+    uint16_t const data
+) {
+    unibus_become_master(self, device);
+
+    if ((addr & 1) == 1 || !unibus_try_write_word(self, addr, data))
+        unibus_transfer_control_to_cpu_trap(self, PDP11_CPU_TRAP_UNIBUS_ERR);
+
+    unibus_drop_current_master(self);
+}
+static void unibus_datob_helper(
+    Unibus *const self,
+    UnibusDevice const *const device,
+    uint16_t const addr,
+    uint8_t const data
+) {
+    unibus_become_master(self, device);
+
+    if (!unibus_try_write_byte(self, addr, data))
+        unibus_transfer_control_to_cpu_trap(self, PDP11_CPU_TRAP_UNIBUS_ERR);
+
+    unibus_drop_current_master(self);
+}
 
 /************
  ** public **
  ************/
 
-/* void br_unibus_channel_consume_intr(
-    UnibusChannel const *const self,
-    uint8_t const intr
-) {
-    unibus_channel_open(self);
-    unibus_channel_trap_close(self, intr);
-}
-
-uint16_t npr_unibus_channel_consume_dati(
-    UnibusChannel const *const self,
-    uint16_t const addr
-) {
-    unibus_channel_open(self);
-    uint16_t data = 0xDEC;
-    if ((addr & 1) == 1 || !unibus_try_read(self->unibus, addr, &data))
-        return unibus_channel_trap_close(self, PDP11_CPU_TRAP_UNIBUS_ERR), data;
-
-    unibus_channel_close(self);
-
-    return data;
-}
-
-void npr_unibus_channel_consume_dato(
-    UnibusChannel const *const self,
-    uint16_t const addr,
-    uint16_t const data
-) {
-    unibus_channel_open(self);
-
-    if ((addr & 1) == 1 || !unibus_try_write_word(self->unibus, addr, data))
-        return unibus_channel_trap_close(self, PDP11_CPU_TRAP_UNIBUS_ERR);
-
-    unibus_channel_close(self);
-}
-
-void npr_unibus_channel_consume_datob(
-    UnibusChannel const *const self,
-    uint16_t const addr,
-    uint8_t const data
-) {
-    unibus_channel_open(self);
-
-    if (!unibus_try_write_byte(self->unibus, addr, data))
-        return unibus_channel_trap_close(self, PDP11_CPU_TRAP_UNIBUS_ERR);
-
-    unibus_channel_close(self);
-} */
 void unibus_init(
     Unibus *const self,
     Pdp11Cpu *const cpu,
@@ -208,11 +193,18 @@ void unibus_reset(Unibus *const self) {
         unibus_device_reset(device_ptr);
 }
 
-void unibus_br(
+/* Waits til CPU priority is sufficient, waits and locks SACK, then makes device
+ * next master. Other devices are unable to BR or NPR until unlocked again.
+ * Switches to the next master (intermediate), transfers to CPU to service the
+ * interrupt, unlocking BBSY after. */
+void unibus_br_intr(
     Unibus *const self,
+    unsigned const priority,
     UnibusDevice const *const device,
-    unsigned const priority
+    uint8_t const intr
 ) {
+    // br
+
     unibus_lock_lock(&self->_sack);
     while (priority <=
            ((Pdp11CpuStat volatile)pdp11_cpu_stat(self->_cpu)).priority) {
@@ -226,71 +218,85 @@ void unibus_br(
     // instruction causes trap, should wait one more: handbook p. 65!)
 
     self->_next_master = device;
-}
-void unibus_npr(Unibus *const self, UnibusDevice const *const device) {
-    unibus_lock_lock(&self->_sack);
-    self->_next_master = device;
-}
-void unibus_intr(
-    Unibus *const self,
-    UnibusDevice const *const device,
-    uint8_t const intr
-) {
-    if (self->_master != device) unibus_become_master(self, device);
 
-    self->_master = self->_next_master = UNIBUS_DEVICE_CPU;
-    pdp11_cpu_trap(self->_cpu, intr);
-    unibus_lock_unlock(&self->_bbsy);
+    // intr
+
+    unibus_become_master(self, UNIBUS_DEVICE_CPU);
+    unibus_transfer_control_to_cpu_trap(self, intr);
+    unibus_drop_current_master(self);
+    unibus_lock_unlock(&self->_sack);
 }
 
-uint16_t unibus_dati(
+uint16_t unibus_npr_dati(
     Unibus *const self,
     UnibusDevice const *const device,
     uint16_t const addr
 ) {
-    if (self->_master != device) unibus_become_master(self, device);
-
-    uint16_t data = 0xDEC;
-
-    bool const was_device_addressed = unibus_try_read(self, addr, &data);
-    if ((addr & 1) == 1 || !was_device_addressed)
-        return unibus_trap_to_error(self), data;
-
-    self->_master = self->_next_master;
-    self->_next_master = UNIBUS_DEVICE_CPU;
-    unibus_lock_unlock(&self->_bbsy);
-
-    return data;
+    unibus_lock_lock(&self->_sack);
+    self->_next_master = device;
+    uint16_t const val = unibus_dati_helper(self, device, addr);
+    unibus_lock_unlock(&self->_sack);
+    return val;
 }
-void unibus_dato(
+void unibus_npr_dato(
     Unibus *const self,
     UnibusDevice const *const device,
     uint16_t const addr,
     uint16_t const data
 ) {
-    if (self->_master != device) unibus_become_master(self, device);
-
-    bool const was_device_addressed = unibus_try_write_word(self, addr, data);
-    if ((addr & 1) == 1 || !was_device_addressed)
-        return unibus_trap_to_error(self);
-
-    self->_master = self->_next_master, self->_next_master = UNIBUS_DEVICE_CPU;
-    unibus_lock_unlock(&self->_bbsy);
+    unibus_lock_lock(&self->_sack);
+    self->_next_master = device;
+    unibus_dato_helper(self, device, addr, data);
+    unibus_lock_unlock(&self->_sack);
 }
-void unibus_datob(
+void unibus_npr_datob(
     Unibus *const self,
     UnibusDevice const *const device,
     uint16_t const addr,
     uint8_t const data
 ) {
-    if (self->_master != device) unibus_become_master(self, device);
+    unibus_lock_lock(&self->_sack);
+    self->_next_master = device;
+    unibus_datob_helper(self, device, addr, data);
+    unibus_lock_unlock(&self->_sack);
+}
 
-    assert(self->_master == device);
+uint16_t unibus_cpu_dati(Unibus *const self, uint16_t const addr) {
+    uint16_t const value = unibus_dati_helper(self, UNIBUS_DEVICE_CPU, addr);
+    unibus_lock_unlock(&self->_sack);
+    return value;
+}
+void unibus_cpu_dato(
+    Unibus *const self,
+    uint16_t const addr,
+    uint16_t const data
+) {
+    unibus_dato_helper(self, UNIBUS_DEVICE_CPU, addr, data);
+    unibus_lock_unlock(&self->_sack);
+}
+void unibus_cpu_datob(
+    Unibus *const self,
+    uint16_t const addr,
+    uint8_t const data
+) {
+    unibus_datob_helper(self, UNIBUS_DEVICE_CPU, addr, data);
+    unibus_lock_unlock(&self->_sack);
+}
 
-    bool const was_device_addressed = unibus_try_write_byte(self, addr, data);
-    if (!was_device_addressed) return unibus_trap_to_error(self);
-
-    self->_master = self->_next_master;
-    self->_next_master = UNIBUS_DEVICE_CPU;
-    unibus_lock_unlock(&self->_bbsy);
+uint16_t unibus_cpu_dati_intermediate(Unibus *const self, uint16_t const addr) {
+    return unibus_dati_helper(self, UNIBUS_DEVICE_CPU, addr);
+}
+void unibus_cpu_dato_intermediate(
+    Unibus *const self,
+    uint16_t const addr,
+    uint16_t const data
+) {
+    unibus_dato_helper(self, UNIBUS_DEVICE_CPU, addr, data);
+}
+void unibus_cpu_datob_intermediate(
+    Unibus *const self,
+    uint16_t const addr,
+    uint8_t const data
+) {
+    unibus_datob_helper(self, UNIBUS_DEVICE_CPU, addr, data);
 }
