@@ -121,9 +121,10 @@ static void unibus_drop_current_master(Unibus *const self) {
 /* Assumes BBSY is locked. Transfers control to CPU and services the interrupt.
  */
 static void
-unibus_transfer_control_to_cpu_trap(Unibus *const self, uint8_t const intr) {
+knibus_transfer_control_to_cpu_intr(Unibus *const self, uint8_t const intr) {
     self->_master = UNIBUS_DEVICE_CPU;
-    pdp11_cpu_trap(self->_cpu, intr);
+    // TODO!!! should not be INTR in case of unibus error
+    pdp11_cpu_intr(self->_cpu, intr);
 }
 
 static uint16_t unibus_dati_helper(
@@ -135,7 +136,7 @@ static uint16_t unibus_dati_helper(
 
     uint16_t data = 0xDEC;
     if ((addr & 1) == 1 || !unibus_try_read(self, addr, &data))
-        unibus_transfer_control_to_cpu_trap(self, PDP11_CPU_TRAP_UNIBUS_ERR);
+        unibus_transfer_control_to_cpu_intr(self, PDP11_CPU_TRAP_UNIBUS_ERR);
 
     unibus_drop_current_master(self);
     return data;
@@ -149,7 +150,7 @@ static void unibus_dato_helper(
     unibus_become_master(self, device);
 
     if ((addr & 1) == 1 || !unibus_try_write_word(self, addr, data))
-        unibus_transfer_control_to_cpu_trap(self, PDP11_CPU_TRAP_UNIBUS_ERR);
+        unibus_transfer_control_to_cpu_intr(self, PDP11_CPU_TRAP_UNIBUS_ERR);
 
     unibus_drop_current_master(self);
 }
@@ -162,7 +163,7 @@ static void unibus_datob_helper(
     unibus_become_master(self, device);
 
     if (!unibus_try_write_byte(self, addr, data))
-        unibus_transfer_control_to_cpu_trap(self, PDP11_CPU_TRAP_UNIBUS_ERR);
+        unibus_transfer_control_to_cpu_intr(self, PDP11_CPU_TRAP_UNIBUS_ERR);
 
     unibus_drop_current_master(self);
 }
@@ -222,7 +223,7 @@ void unibus_br_intr(
     // intr
 
     unibus_become_master(self, UNIBUS_DEVICE_CPU);
-    unibus_transfer_control_to_cpu_trap(self, intr);
+    unibus_transfer_control_to_cpu_intr(self, intr);
     unibus_drop_current_master(self);
     unibus_lock_unlock(&self->_sack);
 }
@@ -281,22 +282,4 @@ void unibus_cpu_datob(
 ) {
     unibus_datob_helper(self, UNIBUS_DEVICE_CPU, addr, data);
     unibus_lock_unlock(&self->_sack);
-}
-
-uint16_t unibus_cpu_dati_intermediate(Unibus *const self, uint16_t const addr) {
-    return unibus_dati_helper(self, UNIBUS_DEVICE_CPU, addr);
-}
-void unibus_cpu_dato_intermediate(
-    Unibus *const self,
-    uint16_t const addr,
-    uint16_t const data
-) {
-    unibus_dato_helper(self, UNIBUS_DEVICE_CPU, addr, data);
-}
-void unibus_cpu_datob_intermediate(
-    Unibus *const self,
-    uint16_t const addr,
-    uint8_t const data
-) {
-    unibus_datob_helper(self, UNIBUS_DEVICE_CPU, addr, data);
 }

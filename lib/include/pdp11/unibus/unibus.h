@@ -80,16 +80,4 @@ void unibus_cpu_datob(
     uint8_t const data
 );
 
-// uint16_t unibus_cpu_dati_intermediate(Unibus *const self, uint16_t const
-// addr); void unibus_cpu_dato_intermediate(
-//     Unibus *const self,
-//     uint16_t const addr,
-//     uint16_t const data
-// );
-// void unibus_cpu_datob_intermediate(
-//     Unibus *const self,
-//     uint16_t const addr,
-//     uint8_t const data
-// );
-
 #endif
