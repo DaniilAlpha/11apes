@@ -1,6 +1,8 @@
 #include "pdp11/cpu/pdp11_cpu.h"
 
+#include <pthread.h>
 #include <stdalign.h>
+#include <stdatomic.h>
 #include <stddef.h>
 #include <stdio.h>
 
@@ -801,11 +803,23 @@ pdp11_cpu_decode_exec_helper(Pdp11Cpu *const self, uint16_t const instr) {
     pdp11_cpu_trap(self, PDP11_CPU_TRAP_ILLEGAL_INSTR);
 }
 
+static void pdp11_cpu_service_intr(Pdp11Cpu *const self) {
+    uint8_t const pending_intr =
+        atomic_exchange(&self->__pending_intr, PDP11_CPU_NO_TRAP);
+    if (pending_intr == PDP11_CPU_NO_TRAP) return;
+
+    pdp11_cpu_trap(self, pending_intr);
+
+    sem_post(&self->__pending_intr_sem);
+}
+
 /************
  ** public **
  ************/
 
 void pdp11_cpu_init(Pdp11Cpu *const self, Unibus *const unibus) {
+    sem_init(&self->__pending_intr_sem, false, 1);
+
     for (unsigned i = 0; i < PDP11_CPU_REG_COUNT; i++)
         pdp11_cpu_rx(self, i) = 0;
     self->_stat = (Pdp11CpuStat){0};
@@ -815,25 +829,26 @@ void pdp11_cpu_init(Pdp11Cpu *const self, Unibus *const unibus) {
     self->_state = PDP11_CPU_STATE_RUNNING;
 }
 void pdp11_cpu_uninit(Pdp11Cpu *const self) {
+    sem_destroy(&self->__pending_intr_sem);
+
     pdp11_cpu_pc(self) = 0;
     self->_stat = (Pdp11CpuStat){0};
 }
 void pdp11_cpu_reset(Pdp11Cpu *const self) {
-    pdp11_cpu_init(self, self->_unibus);
+    for (unsigned i = 0; i < PDP11_CPU_REG_COUNT; i++)
+        pdp11_cpu_rx(self, i) = 0;
+    self->_stat = (Pdp11CpuStat){0};
 }
 
 void pdp11_cpu_intr(Pdp11Cpu *const self, uint8_t const intr) {
-    // TODO!!! mark as executing an instruction
-    pdp11_cpu_trap(self, intr);
-    // TODO!!! unmark as executing an instruction
+    sem_wait(&self->__pending_intr_sem);
+    assert(atomic_exchange(&self->__pending_intr, intr) == PDP11_CPU_NO_TRAP);
 }
 void pdp11_cpu_continue(Pdp11Cpu *const self) {
     self->_state = PDP11_CPU_STATE_RUNNING;
 }
 
 uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self) {
-    // TODO!!! mark as executing an instruction
-
     // NOTE this ensures that any registers that may be changed by an interrupt
     // from another thread is sync
     asm volatile("" ::: "memory");
@@ -851,7 +866,7 @@ void pdp11_cpu_decode_exec(Pdp11Cpu *const self, uint16_t const instr) {
            self->_state == PDP11_CPU_STATE_WAITING)
         sleep(0);
 
-    // TODO!!! unmark as executing an instruction
+    pdp11_cpu_service_intr(self);
 }
 
 /****************

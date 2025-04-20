@@ -5,8 +5,6 @@
 
 #include <unistd.h>
 
-#include "pdp11/unibus/mutex_unibus_lock.h"
-
 /*************
  ** private **
  *************/
@@ -56,12 +54,7 @@ Result pdp11_init(Pdp11 *const self) {
 
     pdp11_cpu_init(&self->cpu, &self->unibus);
 
-    unibus_init(
-        &self->unibus,
-        &self->cpu,
-        pthread_mutex_ww_unibus_lock(&self->_sack_lock),
-        pthread_mutex_ww_unibus_lock(&self->_bbsy_lock)
-    );
+    unibus_init(&self->unibus, &self->cpu);
     self->unibus.devices[0] = pdp11_ram_ww_unibus_device(&self->ram);
 
     self->_should_run = false;

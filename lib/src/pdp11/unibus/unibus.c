@@ -1,7 +1,6 @@
 #include "pdp11/unibus/unibus.h"
 
 #include <stddef.h>
-#include <stdlib.h>
 
 #include <unistd.h>
 
@@ -101,12 +100,12 @@ static void
 unibus_become_master(Unibus *const self, UnibusDevice const *const device) {
     if (self->_master != device) {
         // TODO replace with cond var
-        unibus_lock_lock(&self->_bbsy);
+        pthread_mutex_lock(&self->_bbsy);
         while (self->_next_master != device) {
             // TODO wait for cpu prior changed
-            unibus_lock_unlock(&self->_bbsy);
+            pthread_mutex_unlock(&self->_bbsy);
             usleep(0);
-            unibus_lock_lock(&self->_bbsy);
+            pthread_mutex_lock(&self->_bbsy);
         }
 
         self->_master = self->_next_master;
@@ -115,13 +114,13 @@ unibus_become_master(Unibus *const self, UnibusDevice const *const device) {
 }
 static void unibus_drop_current_master(Unibus *const self) {
     self->_master = UNIBUS_DEVICE_CPU;
-    unibus_lock_unlock(&self->_bbsy);
+    pthread_mutex_unlock(&self->_bbsy);
 }
 
 /* Assumes BBSY is locked. Transfers control to CPU and services the interrupt.
  */
 static void
-knibus_transfer_control_to_cpu_intr(Unibus *const self, uint8_t const intr) {
+unibus_transfer_control_to_cpu_intr(Unibus *const self, uint8_t const intr) {
     self->_master = UNIBUS_DEVICE_CPU;
     // TODO!!! should not be INTR in case of unibus error
     pdp11_cpu_intr(self->_cpu, intr);
@@ -172,20 +171,19 @@ static void unibus_datob_helper(
  ** public **
  ************/
 
-void unibus_init(
-    Unibus *const self,
-    Pdp11Cpu *const cpu,
-    UnibusLock const sack_lock,
-    UnibusLock const bbsy_lock
-) {
-    self->_sack = sack_lock;
-    self->_bbsy = bbsy_lock;
+void unibus_init(Unibus *const self, Pdp11Cpu *const cpu) {
+    pthread_mutex_init(&self->_sack, NULL);
+    pthread_mutex_init(&self->_bbsy, NULL);
 
     foreach (device_ptr, self->devices, self->devices + UNIBUS_DEVICE_COUNT)
         *device_ptr = no_unibus_device();
     self->_cpu = cpu;
 
     self->_master = self->_next_master = UNIBUS_DEVICE_CPU;
+}
+void unibus_uninit(Unibus *const self) {
+    pthread_mutex_destroy(&self->_sack);
+    pthread_mutex_destroy(&self->_bbsy);
 }
 
 void unibus_reset(Unibus *const self) {
@@ -206,17 +204,14 @@ void unibus_br_intr(
 ) {
     // br
 
-    unibus_lock_lock(&self->_sack);
+    pthread_mutex_lock(&self->_sack);
     while (priority <=
            ((Pdp11CpuStat volatile)pdp11_cpu_stat(self->_cpu)).priority) {
         // TODO wait for cpu prior changed
-        unibus_lock_unlock(&self->_sack);
+        pthread_mutex_unlock(&self->_sack);
         usleep(0);
-        unibus_lock_lock(&self->_sack);
+        pthread_mutex_lock(&self->_sack);
     }
-
-    // TODO wait for CPU to finish executing an instruction (!when
-    // instruction causes trap, should wait one more: handbook p. 65!)
 
     self->_next_master = device;
 
@@ -225,7 +220,8 @@ void unibus_br_intr(
     unibus_become_master(self, UNIBUS_DEVICE_CPU);
     unibus_transfer_control_to_cpu_intr(self, intr);
     unibus_drop_current_master(self);
-    unibus_lock_unlock(&self->_sack);
+    // TODO!!!? maybe too long for a sack
+    pthread_mutex_unlock(&self->_sack);
 }
 
 uint16_t unibus_npr_dati(
@@ -233,10 +229,11 @@ uint16_t unibus_npr_dati(
     UnibusDevice const *const device,
     uint16_t const addr
 ) {
-    unibus_lock_lock(&self->_sack);
+    pthread_mutex_lock(&self->_sack);
     self->_next_master = device;
     uint16_t const val = unibus_dati_helper(self, device, addr);
-    unibus_lock_unlock(&self->_sack);
+    // TODO!!!? maybe too long for a sack
+    pthread_mutex_unlock(&self->_sack);
     return val;
 }
 void unibus_npr_dato(
@@ -245,10 +242,11 @@ void unibus_npr_dato(
     uint16_t const addr,
     uint16_t const data
 ) {
-    unibus_lock_lock(&self->_sack);
+    pthread_mutex_lock(&self->_sack);
     self->_next_master = device;
     unibus_dato_helper(self, device, addr, data);
-    unibus_lock_unlock(&self->_sack);
+    // TODO!!!? maybe too long for a sack
+    pthread_mutex_unlock(&self->_sack);
 }
 void unibus_npr_datob(
     Unibus *const self,
@@ -256,15 +254,17 @@ void unibus_npr_datob(
     uint16_t const addr,
     uint8_t const data
 ) {
-    unibus_lock_lock(&self->_sack);
+    pthread_mutex_lock(&self->_sack);
     self->_next_master = device;
     unibus_datob_helper(self, device, addr, data);
-    unibus_lock_unlock(&self->_sack);
+    // TODO!!!? maybe too long for a sack
+    pthread_mutex_unlock(&self->_sack);
 }
 
 uint16_t unibus_cpu_dati(Unibus *const self, uint16_t const addr) {
     uint16_t const value = unibus_dati_helper(self, UNIBUS_DEVICE_CPU, addr);
-    unibus_lock_unlock(&self->_sack);
+    // TODO!!!? is even needed?
+    pthread_mutex_unlock(&self->_sack);
     return value;
 }
 void unibus_cpu_dato(
@@ -273,7 +273,8 @@ void unibus_cpu_dato(
     uint16_t const data
 ) {
     unibus_dato_helper(self, UNIBUS_DEVICE_CPU, addr, data);
-    unibus_lock_unlock(&self->_sack);
+    // TODO!!!? is even needed?
+    pthread_mutex_unlock(&self->_sack);
 }
 void unibus_cpu_datob(
     Unibus *const self,
@@ -281,5 +282,6 @@ void unibus_cpu_datob(
     uint8_t const data
 ) {
     unibus_datob_helper(self, UNIBUS_DEVICE_CPU, addr, data);
-    unibus_lock_unlock(&self->_sack);
+    // TODO!!!? is even needed?
+    pthread_mutex_unlock(&self->_sack);
 }

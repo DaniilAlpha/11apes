@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <semaphore.h>
+
 #include "pdp11/cpu/pdp11_cpu_stat.h"
 #include "pdp11/unibus/unibus.h"
 
@@ -12,6 +14,9 @@
 typedef struct Pdp11Cpu {
     Pdp11CpuStat _stat;
     uint16_t _r[PDP11_CPU_REG_COUNT];
+
+    _Atomic uint8_t __pending_intr;
+    sem_t __pending_intr_sem;
 
     Unibus *_unibus;
     enum {
@@ -22,6 +27,8 @@ typedef struct Pdp11Cpu {
 } Pdp11Cpu;
 
 typedef enum Pdp11CpuTrap {
+    PDP11_CPU_NO_TRAP = 0000,  // NOTE assumes 'zero' as no trap
+
     PDP11_CPU_TRAP_UNIBUS_ERR = 0004,
     PDP11_CPU_TRAP_CPU_ERR = 0004,
     PDP11_CPU_TRAP_CPU_STACK_OVERFLOW =

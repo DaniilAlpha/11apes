@@ -1,6 +1,7 @@
 #ifndef UNIBUS_H
 #define UNIBUS_H
 
+#include <pthread.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -8,7 +9,6 @@
 #include <woodi.h>
 
 #include "pdp11/unibus/unibus_device.h"
-#include "pdp11/unibus/unibus_lock.h"
 
 #define UNIBUS_DEVICE_COUNT (8)
 
@@ -21,18 +21,15 @@ typedef struct Pdp11Cpu Pdp11Cpu;
 typedef struct Unibus {
     UnibusDevice devices[UNIBUS_DEVICE_COUNT];
 
-    UnibusLock _bbsy, _sack;
+    pthread_mutex_t _bbsy, _sack;
     UnibusDevice const volatile *_master, *_next_master;
 
     Pdp11Cpu *_cpu;
 } Unibus;
 
-void unibus_init(
-    Unibus *const self,
-    Pdp11Cpu *const cpu,
-    UnibusLock const sack_lock,
-    UnibusLock const bbsy_lock
-);
+void unibus_init(Unibus *const self, Pdp11Cpu *const cpu);
+void unibus_uninit(Unibus *const self);
+void unibus_reset(Unibus *const self);
 
 static inline bool unibus_is_running(Unibus const *const self) {
     return self->_master == NULL;
@@ -40,8 +37,6 @@ static inline bool unibus_is_running(Unibus const *const self) {
 static inline bool unibus_is_periph_master(Unibus const *const self) {
     return self->_master != NULL;
 }
-
-void unibus_reset(Unibus *const self);
 
 void unibus_br_intr(
     Unibus *const self,

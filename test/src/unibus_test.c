@@ -75,6 +75,8 @@ static MiunteResult unibus_test_br() {
     );
     pthread_cancel(thread);
 
+    // TODO!!! should wait til next instruction as interrupt may not be serviced
+    // immediately
     MIUNTE_EXPECT(
         pdp11_cpu_pc(&pdp.cpu) == trap_pc,
         "PC should be on trap after BR"
@@ -92,8 +94,8 @@ int test_unibus_run(void) {
         unibus_test_setup,
         unibus_test_teardown,
         {
-            unibus_test_br,
             unibus_test_npr,
+            unibus_test_br,
         }
     );
 }
