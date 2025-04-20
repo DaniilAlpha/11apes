@@ -25,7 +25,7 @@ static void pdp11_cpu_thread_helper(Pdp11 *const self) {
             self->cpu._stat.cf ? "C" : "c",
             instr
         );
-        pdp11_cpu_decode_exec(&self->cpu, instr);
+        pdp11_cpu_exec(&self->cpu, pdp11_cpu_decode(&self->cpu, instr));
         printf(
             "ps = %1o%s%s%s%s%s\n",
             self->cpu._stat.priority,

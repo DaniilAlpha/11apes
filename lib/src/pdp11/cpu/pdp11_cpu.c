@@ -804,6 +804,68 @@ pdp11_cpu_decode_exec_helper(Pdp11Cpu *const self, uint16_t const instr) {
 
     pdp11_cpu_trap(self, PDP11_CPU_TRAP_ILLEGAL_INSTR);
 }
+static Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
+    // TODO!!! should chech for invalid instruction here and not decode it
+
+    switch (BITS(encoded, 0, 15)) {
+    case 0000000 ... 0000007:
+    case 0104000 ... 0104777:
+        return (Pdp11CpuInstr){
+            .type = PDP11_CPU_INSTR_TYPE_MISC,
+            .u.misc = {.opcode = BITS(encoded, 0, 15)},
+        };
+    }
+    switch (BITS(encoded, 3, 15)) {
+    case 000020:
+    case 000023:
+        return (Pdp11CpuInstr){
+            .type = PDP11_CPU_INSTR_TYPE_R,
+            .u.r = {.opcode = BITS(encoded, 3, 15), .r = BITS(encoded, 0, 2)},
+        };
+    }
+    // TODO account the MSB
+    switch (BITS(encoded, 6, 14)) {
+    case 0050 ... 0067:
+    case 0001 ... 0003:
+        return (Pdp11CpuInstr){
+            .type = PDP11_CPU_INSTR_TYPE_O,
+            .u.o = {.opcode = BITS(encoded, 6, 15), .o = BITS(encoded, 0, 5)},
+        };
+    }
+    // TODO account the MSB
+    switch (BITS(encoded, 9, 14)) {
+    case 070 ... 077:
+    case 004:
+        return (Pdp11CpuInstr){
+            .type = PDP11_CPU_INSTR_TYPE_RO,
+            .u.ro =
+                {.opcode = BITS(encoded, 9, 15),
+                 .r = BITS(encoded, 6, 8),
+                 .o = BITS(encoded, 0, 5)},
+        };
+    case 000 ... 003:
+        return (Pdp11CpuInstr){
+            .type = PDP11_CPU_INSTR_TYPE_BRANCH,
+            .u.branch =
+                {.opcode = BITS(encoded, 9, 15),
+                 .cond = BIT(encoded, 8),
+                 .off = BITS(encoded, 0, 7)},
+        };
+    }
+    // TODO account the MSB
+    switch (BITS(encoded, 12, 14)) {
+    case 01 ... 06:
+        return (Pdp11CpuInstr){
+            .type = PDP11_CPU_INSTR_TYPE_OO,
+            .u.oo =
+                {.opcode = BITS(encoded, 12, 15),
+                 .o0 = BITS(encoded, 6, 11),
+                 .o1 = BITS(encoded, 0, 5)},
+        };
+    }
+
+    return (Pdp11CpuInstr){.type = PDP11_CPU_INSTR_TYPE_ILLEGAL};
+}
 
 static void pdp11_cpu_service_intr(Pdp11Cpu *const self) {
     uint8_t const pending_intr =
@@ -853,19 +915,25 @@ void pdp11_cpu_continue(Pdp11Cpu *const self) {
 }
 
 uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self) {
-    // NOTE this ensures that any registers that may be changed by an interrupt
-    // from another thread is sync
-    asm volatile("" ::: "memory");
-
     uint16_t instr;
-    unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self), &instr);
+    if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self), &instr) != Ok) {
+        pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
+        return pdp11_cpu_fetch(self);
+    }
+
     pdp11_cpu_pc(self) += 2;
     return instr;
 }
-void pdp11_cpu_decode_exec(Pdp11Cpu *const self, uint16_t const instr) {
-    pdp11_cpu_decode_exec_helper(self, instr);
+Pdp11CpuInstr pdp11_cpu_decode(Pdp11Cpu *const self, uint16_t const encoded) {
+    Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
+    if (!instr.type) pdp11_cpu_trap(self, PDP11_CPU_TRAP_ILLEGAL_INSTR);
+    return instr;
+}
+void pdp11_cpu_exec(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
+    // TODO!!! exec
 
     if (self->_stat.tf) pdp11_cpu_trap(self, PDP11_CPU_TRAP_BPT);
+
     pdp11_cpu_service_intr(self);
 
     while (self->_state == PDP11_CPU_STATE_HALTED ||
@@ -1589,8 +1657,8 @@ void pdp11_cpu_instr_rti(Pdp11Cpu *const self) {
 void pdp11_cpu_instr_rtt(Pdp11Cpu *const self) {
     pdp11_cpu_pc(self) = pdp11_stack_pop(self);
     self->_stat = pdp11_cpu_stat_from_word(pdp11_stack_pop(self));
-    // TODO the only difference from an RTI is that 'T' trap won't be executed
-    // after an RTT, and will after on RTI
+    // TODO the only difference from an RTI is that 'T' trap won't be
+    // executed after an RTT, and will after on RTI
 }
 
 // MISC.

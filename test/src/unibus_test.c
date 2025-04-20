@@ -98,7 +98,10 @@ static MiunteResult unibus_test_br() {
         pdp11_cpu_pc(&pdp.cpu) != trap_pc,
         "PC should not be on trap even after the BR, before instruction is finished executing"
     );
-    pdp11_cpu_decode_exec(&pdp.cpu, pdp11_cpu_fetch(&pdp.cpu));
+    pdp11_cpu_exec(
+        &pdp.cpu,
+        pdp11_cpu_decode(&pdp.cpu, pdp11_cpu_fetch(&pdp.cpu))
+    );
     MIUNTE_EXPECT(
         pdp11_cpu_pc(&pdp.cpu) == trap_pc,
         "PC should be on trap after BR, after the next instruction is executed"

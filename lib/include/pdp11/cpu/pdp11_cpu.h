@@ -6,27 +6,13 @@
 
 #include <semaphore.h>
 
+#include "pdp11/cpu/pdp11_cpu_instr.h"
 #include "pdp11/cpu/pdp11_cpu_stat.h"
 #include "pdp11/unibus/unibus.h"
 
 #define PDP11_CPU_REG_COUNT (8)
 
-typedef struct Pdp11Cpu {
-    Pdp11CpuStat _stat;
-    uint16_t _r[PDP11_CPU_REG_COUNT];
-
-    _Atomic uint8_t __pending_intr;
-    sem_t __pending_intr_sem;
-
-    Unibus *_unibus;
-    enum {
-        PDP11_CPU_STATE_RUNNING,
-        PDP11_CPU_STATE_HALTED,
-        PDP11_CPU_STATE_WAITING
-    } volatile _state;  // TODO? maybe redo with condition vars
-} Pdp11Cpu;
-
-typedef enum Pdp11CpuTrap {
+enum {
     PDP11_CPU_NO_TRAP = 0000,  // NOTE assumes 'zero' as no trap
 
     PDP11_CPU_TRAP_CPU_ERR = 0004,
@@ -42,7 +28,22 @@ typedef enum Pdp11CpuTrap {
 
     PDP11_CPU_TRAP_EMT = 0030,
     PDP11_CPU_TRAP_TRAP = 0034,
-} Pdp11CpuTrap;
+};
+
+typedef struct Pdp11Cpu {
+    Pdp11CpuStat _stat;
+    uint16_t _r[PDP11_CPU_REG_COUNT];
+
+    _Atomic uint8_t __pending_intr;
+    sem_t __pending_intr_sem;
+
+    Unibus *_unibus;
+    enum {
+        PDP11_CPU_STATE_RUNNING,
+        PDP11_CPU_STATE_HALTED,
+        PDP11_CPU_STATE_WAITING
+    } volatile _state;  // TODO? maybe redo with condition vars
+} Pdp11Cpu;
 
 void pdp11_cpu_init(Pdp11Cpu *const self, Unibus *const unibus);
 void pdp11_cpu_uninit(Pdp11Cpu *const self);
@@ -68,6 +69,7 @@ void pdp11_cpu_intr(Pdp11Cpu *const self, uint8_t const intr);
 void pdp11_cpu_continue(Pdp11Cpu *const self);
 
 uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self);
-void pdp11_cpu_decode_exec(Pdp11Cpu *const self, uint16_t const instr);
+Pdp11CpuInstr pdp11_cpu_decode(Pdp11Cpu *const self, uint16_t const instr);
+void pdp11_cpu_exec(Pdp11Cpu *const self, Pdp11CpuInstr const instr);
 
 #endif
