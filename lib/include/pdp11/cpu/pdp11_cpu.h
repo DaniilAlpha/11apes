@@ -29,7 +29,6 @@ typedef struct Pdp11Cpu {
 typedef enum Pdp11CpuTrap {
     PDP11_CPU_NO_TRAP = 0000,  // NOTE assumes 'zero' as no trap
 
-    PDP11_CPU_TRAP_UNIBUS_ERR = 0004,
     PDP11_CPU_TRAP_CPU_ERR = 0004,
     PDP11_CPU_TRAP_CPU_STACK_OVERFLOW =
         0004,  // TODO? maybe detect stack overflow

@@ -35,11 +35,8 @@ static uint16_t pdp11_cpu_dop_da_instr(
     unibus_cpu_dato(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0), x);
     pdp11_cpu_rx(&pdp.cpu, 1) = y;
     pdp11_cpu_decode_exec(&pdp.cpu, pdp11_cpu_fetch(&pdp.cpu));
-    return unibus_cpu_dati(
-        &pdp.unibus,
-
-        pdp11_cpu_rx(&pdp.cpu, 0)
-    );
+    uint16_t res;
+    return unibus_cpu_dati(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0), &res), res;
 }
 static uint16_t pdp11_cpu_dop_ia_instr(
     uint16_t const instr,
@@ -55,7 +52,9 @@ static uint16_t pdp11_cpu_dop_ia_instr(
     unibus_cpu_dato(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0) + off, x);
     pdp11_cpu_rx(&pdp.cpu, 1) = y;
     pdp11_cpu_decode_exec(&pdp.cpu, pdp11_cpu_fetch(&pdp.cpu));
-    return unibus_cpu_dati(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0) + off);
+    uint16_t res;
+    return unibus_cpu_dati(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0) + off, &res),
+           res;
 }
 
 /***********

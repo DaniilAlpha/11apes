@@ -119,8 +119,11 @@ void pdp11_console_press_examine(Pdp11Console *const self) {
     self->_is_examine_pressed_consecutively = true;
     self->_is_deposit_pressed_consecutively = false;
 
-    self->_data_register =
-        unibus_cpu_dati(&self->_pdp11->unibus, self->_addr_register);
+    unibus_cpu_dati(
+        &self->_pdp11->unibus,
+        self->_addr_register,
+        &self->_data_register
+    );
 }
 
 void pdp11_console_press_continue(Pdp11Console *const self) {

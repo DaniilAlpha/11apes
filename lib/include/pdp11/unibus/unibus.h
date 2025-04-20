@@ -45,34 +45,30 @@ void unibus_br_intr(
     uint8_t const intr
 );
 
-uint16_t unibus_npr_dati(
+Result unibus_npr_dati(
     Unibus *const self,
     UnibusDevice const *const device,
-    uint16_t const addr
+    uint16_t const addr,
+    uint16_t *const out
 );
-void unibus_npr_dato(
+Result unibus_npr_dato(
     Unibus *const self,
     UnibusDevice const *const device,
     uint16_t const addr,
     uint16_t const data
 );
-void unibus_npr_datob(
+Result unibus_npr_datob(
     Unibus *const self,
     UnibusDevice const *const device,
     uint16_t const addr,
     uint8_t const data
 );
 
-uint16_t unibus_cpu_dati(Unibus *const self, uint16_t const addr);
-void unibus_cpu_dato(
-    Unibus *const self,
-    uint16_t const addr,
-    uint16_t const data
-);
-void unibus_cpu_datob(
-    Unibus *const self,
-    uint16_t const addr,
-    uint8_t const data
-);
+Result
+unibus_cpu_dati(Unibus *const self, uint16_t const addr, uint16_t *const out);
+Result
+unibus_cpu_dato(Unibus *const self, uint16_t const addr, uint16_t const data);
+Result
+unibus_cpu_datob(Unibus *const self, uint16_t const addr, uint8_t const data);
 
 #endif

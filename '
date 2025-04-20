@@ -17,9 +17,9 @@ static inline void unibus_device_reset(UnibusDevice const *const self) {
 static inline bool unibus_device_try_read(
     UnibusDevice const *const self,
     uint16_t const addr,
-    uint16_t *const out
+    uint16_t *const out_val
 ) {
-    return WRAPPER_CALL(_try_read, self, addr, out);
+    return WRAPPER_CALL(_try_read, self, addr, out_val);
 }
 static inline bool unibus_device_try_write_word(
     UnibusDevice const *const self,
@@ -41,19 +41,19 @@ static inline bool unibus_device_try_write_byte(
 static bool unibus_try_read(
     Unibus const *const self,
     uint16_t const addr,
-    uint16_t *const out
+    uint16_t *const out_val
 ) {
     switch (addr) {
     case UNIBUS_CPU_REG_ADDRESS ... UNIBUS_CPU_REG_ADDRESS + 7 * 2:
-        *out = pdp11_cpu_rx(self->_cpu, UNIBUS_CPU_REG_ADDRESS - addr);
+        *out_val = pdp11_cpu_rx(self->_cpu, UNIBUS_CPU_REG_ADDRESS - addr);
         return true;
     case UNIBUS_CPU_STAT_ADDRESS:
-        *out = pdp11_cpu_stat_to_word(&pdp11_cpu_stat(self->_cpu));
+        *out_val = pdp11_cpu_stat_to_word(&pdp11_cpu_stat(self->_cpu));
         return true;
     }
 
     foreach (device_ptr, self->devices, self->devices + UNIBUS_DEVICE_COUNT)
-        if (unibus_device_try_read(device_ptr, addr, out)) return true;
+        if (unibus_device_try_read(device_ptr, addr, out_val)) return true;
     return false;
 }
 static bool unibus_try_write_word(
@@ -119,6 +119,36 @@ static void unibus_drop_cpu_master(Unibus *const self) {
     pthread_mutex_unlock(&self->_bbsy);
 }
 
+/* Assumes BBSY is locked. */
+static bool unibus_dati_helper(
+    Unibus *const self,
+    uint16_t const addr,
+    uint16_t *const out
+) {
+    return (addr & 1) == 0 && unibus_try_read(self, addr, out);
+    // unibus_transfer_control_to_cpu_intr(self, PDP11_CPU_TRAP_UNIBUS_ERR);
+
+    // return data;
+}
+/* Assumes BBSY is locked. */
+static bool unibus_dato_helper(
+    Unibus *const self,
+    uint16_t const addr,
+    uint16_t const data
+) {
+    if ((addr & 1) == 1 || !unibus_try_write_word(self, addr, data))
+        unibus_transfer_control_to_cpu_intr(self, PDP11_CPU_TRAP_UNIBUS_ERR);
+}
+/* Assumes BBSY is locked. */
+static bool unibus_datob_helper(
+    Unibus *const self,
+    uint16_t const addr,
+    uint8_t const data
+) {
+    if (!unibus_try_write_byte(self, addr, data))
+        unibus_transfer_control_to_cpu_intr(self, PDP11_CPU_TRAP_UNIBUS_ERR);
+}
+
 /************
  ** public **
  ************/
@@ -166,23 +196,21 @@ void unibus_br_intr(
     unibus_drop_current_master(self);
 }
 
-Result unibus_npr_dati(
+uint16_t unibus_npr_dati(
     Unibus *const self,
     UnibusDevice const *const device,
-    uint16_t const addr,
-    uint16_t *const out
+    uint16_t const addr
 ) {
     // npr
     pthread_mutex_lock(&self->_sack);
     self->_next_master = device;
     // dati
     unibus_switch_to_next_master(self);
-    if ((addr & 1) == 1 || !unibus_try_read(self, addr, out))
-        return unibus_drop_current_master(self), UnknownErr;
+    uint16_t const data = unibus_dati_helper(self, addr);
     unibus_drop_current_master(self);
-    return Ok;
+    return data;
 }
-Result unibus_npr_dato(
+void unibus_npr_dato(
     Unibus *const self,
     UnibusDevice const *const device,
     uint16_t const addr,
@@ -193,12 +221,10 @@ Result unibus_npr_dato(
     self->_next_master = device;
     // dato
     unibus_switch_to_next_master(self);
-    if ((addr & 1) == 1 || !unibus_try_write_word(self, addr, data))
-        return unibus_drop_current_master(self), UnknownErr;
+    unibus_dato_helper(self, addr, data);
     unibus_drop_current_master(self);
-    return Ok;
 }
-Result unibus_npr_datob(
+void unibus_npr_datob(
     Unibus *const self,
     UnibusDevice const *const device,
     uint16_t const addr,
@@ -209,33 +235,31 @@ Result unibus_npr_datob(
     self->_next_master = device;
     // dato
     unibus_switch_to_next_master(self);
-    if (!unibus_try_write_byte(self, addr, data))
-        return unibus_drop_current_master(self), UnknownErr;
+    unibus_datob_helper(self, addr, data);
     unibus_drop_current_master(self);
-    return Ok;
 }
 
-Result
-unibus_cpu_dati(Unibus *const self, uint16_t const addr, uint16_t *const out) {
+uint16_t unibus_cpu_dati(Unibus *const self, uint16_t const addr) {
     unibus_switch_to_cpu_master(self);
-    if ((addr & 1) == 1 || !unibus_try_read(self, addr, out))
-        return unibus_drop_cpu_master(self), UnknownErr;
+    uint16_t const value = unibus_dati_helper(self, addr);
     unibus_drop_cpu_master(self);
-    return Ok;
+    return value;
 }
-Result
-unibus_cpu_dato(Unibus *const self, uint16_t const addr, uint16_t const data) {
+void unibus_cpu_dato(
+    Unibus *const self,
+    uint16_t const addr,
+    uint16_t const data
+) {
     unibus_switch_to_cpu_master(self);
-    if ((addr & 1) == 1 || !unibus_try_write_word(self, addr, data))
-        return unibus_drop_cpu_master(self), UnknownErr;
+    unibus_dato_helper(self, addr, data);
     unibus_drop_cpu_master(self);
-    return Ok;
 }
-Result
-unibus_cpu_datob(Unibus *const self, uint16_t const addr, uint8_t const data) {
+void unibus_cpu_datob(
+    Unibus *const self,
+    uint16_t const addr,
+    uint8_t const data
+) {
     unibus_switch_to_cpu_master(self);
-    if (!unibus_try_write_byte(self, addr, data))
-        return unibus_drop_cpu_master(self), UnknownErr;
+    unibus_datob_helper(self, addr, data);
     unibus_drop_cpu_master(self);
-    return Ok;
 }
