@@ -69,6 +69,8 @@ pdp11_word_from_unibus(Unibus *const unibus, uint16_t const addr) {
         .read = pdp11_unibus_word_read,
         .write = pdp11_unibus_word_write,
     };
+    uint16_t _;
+    if (unibus_cpu_dati(unibus, addr, &_) != Ok) return (Pdp11Word){0};
     return (Pdp11Word){.addr = addr, .owner = unibus, .vtbl = &vtbl};
 }
 
@@ -115,6 +117,8 @@ pdp11_byte_from_unibus(Unibus *const unibus, uint16_t const addr) {
         .read = pdp11_unibus_byte_read,
         .write = pdp11_unibus_byte_write,
     };
+    uint16_t _;
+    if (unibus_cpu_dati(unibus, addr, &_) != Ok) return (Pdp11Byte){0};
     return (Pdp11Byte){.addr = addr, .owner = unibus, .vtbl = &vtbl};
 }
 
@@ -484,10 +488,12 @@ pdp11_cpu_address_word(Pdp11Cpu *const self, unsigned const mode) {
     } break;
     case 03: {
         uint16_t addr;
-        unibus_cpu_dati(self->_unibus, pdp11_cpu_rx(self, r_i), &addr);
-        Pdp11Word const word = pdp11_word_from_unibus(self->_unibus, addr);
-        pdp11_cpu_rx(self, r_i) += 2;
-        return word;
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_rx(self, r_i), &addr) ==
+            Ok) {
+            Pdp11Word const word = pdp11_word_from_unibus(self->_unibus, addr);
+            pdp11_cpu_rx(self, r_i) += 2;
+            return word;
+        }
     } break;
     case 04:
         return pdp11_word_from_unibus(
@@ -496,27 +502,35 @@ pdp11_cpu_address_word(Pdp11Cpu *const self, unsigned const mode) {
         );
     case 05: {
         uint16_t addr;
-        unibus_cpu_dati(self->_unibus, pdp11_cpu_rx(self, r_i) -= 2, &addr);
-        return pdp11_word_from_unibus(self->_unibus, addr);
+        if (unibus_cpu_dati(
+                self->_unibus,
+                pdp11_cpu_rx(self, r_i) -= 2,
+                &addr
+            ) == Ok)
+            return pdp11_word_from_unibus(self->_unibus, addr);
     } break;
     case 06: {
         uint16_t off;
-        unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self)++, &off);
-        return pdp11_word_from_unibus(
-            self->_unibus,
-            off + pdp11_cpu_rx(self, r_i)
-        );
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self)++, &off) == Ok)
+            return pdp11_word_from_unibus(
+                self->_unibus,
+                off + pdp11_cpu_rx(self, r_i)
+            );
     } break;
     case 07: {
-        uint16_t off;
-        unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self)++, &off);
-        uint16_t addr;
-        unibus_cpu_dati(self->_unibus, off + pdp11_cpu_rx(self, r_i), &addr);
-        return pdp11_word_from_unibus(self->_unibus, addr);
+        uint16_t off, addr;
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self)++, &off) == Ok &&
+            unibus_cpu_dati(
+                self->_unibus,
+                off + pdp11_cpu_rx(self, r_i),
+                &addr
+            ) == Ok)
+            return pdp11_word_from_unibus(self->_unibus, addr);
     } break;
-
-    default: assert(false); return (Pdp11Word){0};
+    default: assert(false);
     }
+
+    return (Pdp11Word){0};
 }
 static Pdp11Byte
 pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
@@ -534,10 +548,12 @@ pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
     } break;
     case 03: {
         uint16_t addr;
-        unibus_cpu_dati(self->_unibus, pdp11_cpu_rx(self, r_i), &addr);
-        Pdp11Byte const byte = pdp11_byte_from_unibus(self->_unibus, addr);
-        pdp11_cpu_rx(self, r_i) += 2;
-        return byte;
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_rx(self, r_i), &addr) ==
+            Ok) {
+            Pdp11Byte const byte = pdp11_byte_from_unibus(self->_unibus, addr);
+            pdp11_cpu_rx(self, r_i) += 2;
+            return byte;
+        }
     } break;
     case 04:
         return pdp11_byte_from_unibus(
@@ -546,27 +562,35 @@ pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
         );
     case 05: {
         uint16_t addr;
-        unibus_cpu_dati(self->_unibus, pdp11_cpu_rx(self, r_i) -= 2, &addr);
-        return pdp11_byte_from_unibus(self->_unibus, addr);
+        if (unibus_cpu_dati(
+                self->_unibus,
+                pdp11_cpu_rx(self, r_i) -= 2,
+                &addr
+            ) == Ok)
+            return pdp11_byte_from_unibus(self->_unibus, addr);
     } break;
     case 06: {
         uint16_t off;
-        unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self)++, &off);
-        return pdp11_byte_from_unibus(
-            self->_unibus,
-            off + pdp11_cpu_rx(self, r_i)
-        );
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self)++, &off) == Ok)
+            return pdp11_byte_from_unibus(
+                self->_unibus,
+                off + pdp11_cpu_rx(self, r_i)
+            );
     } break;
     case 07: {
-        uint16_t off;
-        unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self)++, &off);
-        uint16_t addr;
-        unibus_cpu_dati(self->_unibus, off + pdp11_cpu_rx(self, r_i), &addr);
-        return pdp11_byte_from_unibus(self->_unibus, addr);
+        uint16_t off, addr;
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self)++, &off) == Ok &&
+            unibus_cpu_dati(
+                self->_unibus,
+                off + pdp11_cpu_rx(self, r_i),
+                &addr
+            ) == Ok)
+            return pdp11_byte_from_unibus(self->_unibus, addr);
     } break;
-
-    default: assert(false); return (Pdp11Byte){0};
+    default: assert(false);
     }
+
+    return (Pdp11Byte){0};
 }
 
 static Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
@@ -645,7 +669,9 @@ static Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
 static void pdp11_cpu_exec_oo(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
     if (instr.u.oo.opcode & 010 && instr.u.oo.opcode != 016) {
         Pdp11Byte const o0 = pdp11_cpu_address_byte(self, instr.u.oo.o0);
+        if (!o0.vtbl) return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
         Pdp11Byte const o1 = pdp11_cpu_address_byte(self, instr.u.oo.o1);
+        if (!o1.vtbl) return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
         switch (instr.u.oo.opcode) {
         case 011: return pdp11_cpu_instr_movb(self, o0, o1);
         case 012: return pdp11_cpu_instr_cmpb(self, o0, o1);
@@ -655,7 +681,9 @@ static void pdp11_cpu_exec_oo(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
         }
     } else {
         Pdp11Word const o0 = pdp11_cpu_address_word(self, instr.u.oo.o0);
+        if (!o0.vtbl) return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
         Pdp11Word const o1 = pdp11_cpu_address_word(self, instr.u.oo.o1);
+        if (!o1.vtbl) return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
         switch (instr.u.oo.opcode) {
         case 001: return pdp11_cpu_instr_mov(self, o0, o1);
         case 002: return pdp11_cpu_instr_cmp(self, o0, o1);
@@ -671,10 +699,12 @@ static void pdp11_cpu_exec_ro(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
     if (instr.u.ro.opcode == 0072) {
         uint16_t const r = instr.u.ro.r;
         Pdp11Byte const o = pdp11_cpu_address_byte(self, instr.u.ro.o);
+        if (!o.vtbl) return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
         return pdp11_cpu_instr_ash(self, r, o);
     } else {
         uint16_t const r = instr.u.ro.r;
         Pdp11Word const o = pdp11_cpu_address_word(self, instr.u.ro.o);
+        if (!o.vtbl) return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
         switch (instr.u.ro.opcode) {
         case 0070: return pdp11_cpu_instr_mul(self, r, o);
         case 0071: return pdp11_cpu_instr_div(self, r, o);
@@ -703,6 +733,7 @@ static void pdp11_cpu_exec_o(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
     if (instr.u.o.opcode & 010 && instr.u.o.opcode != 01065 &&
         instr.u.o.opcode != 01066) {
         Pdp11Byte const o = pdp11_cpu_address_byte(self, instr.u.o.o);
+        if (!o.vtbl) return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
         switch (instr.u.o.opcode) {
         case 01050: return pdp11_cpu_instr_clrb(self, o);
         case 01051: return pdp11_cpu_instr_comb(self, o);
@@ -719,6 +750,7 @@ static void pdp11_cpu_exec_o(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
         }
     } else {
         Pdp11Word const o = pdp11_cpu_address_word(self, instr.u.o.o);
+        if (!o.vtbl) return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
         switch (instr.u.o.opcode) {
         case 00001: return pdp11_cpu_instr_jmp(self, o);
         case 00003: return pdp11_cpu_instr_swab(self, o);

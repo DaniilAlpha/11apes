@@ -16,7 +16,7 @@
 #include "pdp11/cpu/pdp11_cpu.h"
 #include "pdp11/pdp11_ram.h"
 
-#define PDP11_RAM_AMOUNT (16 * 1024 * 2)
+#define PDP11_RAM_SIZE (16 * 1024 * 2)
 
 #define PDP11_FIRST_USER_DEVICE (1)
 

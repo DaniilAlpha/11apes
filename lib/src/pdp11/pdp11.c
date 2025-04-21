@@ -46,7 +46,7 @@ static void *pdp11_cpu_thread(void *const vself) {
  ************/
 
 Result pdp11_init(Pdp11 *const self) {
-    UNROLL(pdp11_ram_init(&self->ram, 0, 16 * 1024 * 2, ".ram"));
+    UNROLL(pdp11_ram_init(&self->ram, 0, PDP11_RAM_SIZE, ".ram"));
 
     if (pthread_mutex_init(&self->_sack_lock, NULL) != 0 ||
         pthread_mutex_init(&self->_sack_lock, NULL) != 0)

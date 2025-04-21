@@ -72,6 +72,7 @@ static uint16_t pdp11_cpu_dop_ia_instr(
 
 static MiunteResult pdp11_cpu_test_setup() {
     MIUNTE_EXPECT(pdp11_init(&pdp) == Ok, "`pdp11_init` should not fail");
+    pdp11_cpu_pc(&pdp.cpu) = 0x100;
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_teardown() {
@@ -97,19 +98,24 @@ static MiunteResult pdp11_cpu_test_decoding_and_execution() {
         pdp11_cpu_exec(&pdp.cpu, instr);
     }
     {
-        Pdp11CpuInstr const illegal = pdp11_cpu_decode(&pdp.cpu, 0177000);
-        MIUNTE_EXPECT(
-            illegal.type == PDP11_CPU_INSTR_TYPE_ILLEGAL,
-            "illegal instruction should result in an illegal type"
-        );
-        pdp11_cpu_exec(&pdp.cpu, illegal);
-
         uint16_t illegal_instr_trap;
         unibus_cpu_dati(
             &pdp.unibus,
             PDP11_CPU_TRAP_ILLEGAL_INSTR,
             &illegal_instr_trap
         );
+
+        Pdp11CpuInstr const illegal = pdp11_cpu_decode(&pdp.cpu, 0177000);
+        MIUNTE_EXPECT(
+            illegal.type == PDP11_CPU_INSTR_TYPE_ILLEGAL,
+            "illegal instruction should result in an illegal type"
+        );
+
+        MIUNTE_EXPECT(
+            pdp11_cpu_pc(&pdp.cpu) != illegal_instr_trap,
+            "before executing an illegal instruction should not be on illegal instr location"
+        );
+        pdp11_cpu_exec(&pdp.cpu, illegal);
         MIUNTE_EXPECT(
             pdp11_cpu_pc(&pdp.cpu) == illegal_instr_trap,
             "after executing an illegal instruction should trap to illegal instr location"
@@ -118,23 +124,67 @@ static MiunteResult pdp11_cpu_test_decoding_and_execution() {
 
     MIUNTE_PASS();
 }
-static MiunteResult pdp11_cpu_test_addressing() {
-    uint16_t const x = 0xDEAD, y = 0xBEEF;
-    MIUNTE_EXPECT(x != y, "this just makes no sense");
 
-    MIUNTE_EXPECT(
-        pdp11_cpu_dop_ra_instr(0010100 /* mov R0, R1 */, x, y) == y,
-        "register addressing should work correctly"
-    );
-    MIUNTE_EXPECT(
-        pdp11_cpu_dop_da_instr(0010110 /* mov (R0), R1 */, 0x12, x, y) == y,
-        "deferred addressing should work correctly"
-    );
-    MIUNTE_EXPECT(
-        pdp11_cpu_dop_ia_instr(0010160 /* mov 24(R0), R1 */, 0x12, 42, x, y) ==
-            y,
-        "indexed deferred addressing should work correctly"
-    );
+static MiunteResult pdp11_cpu_test_addressing() {
+    {
+        uint16_t const x = 0xDEAD, y = 0xBEEF;
+        MIUNTE_EXPECT(x != y, "this just makes no sense");
+
+        MIUNTE_EXPECT(
+            pdp11_cpu_dop_ra_instr(0010100 /* mov R0, R1 */, x, y) == y,
+            "register addressing should work correctly"
+        );
+        MIUNTE_EXPECT(
+            pdp11_cpu_dop_da_instr(0010110 /* mov (R0), R1 */, 0x112, x, y) ==
+                y,
+            "deferred addressing should work correctly"
+        );
+        MIUNTE_EXPECT(
+            pdp11_cpu_dop_ia_instr(
+                0010160 /* mov 24(R0), R1 */,
+                0x112,
+                42,
+                x,
+                y
+            ) == y,
+            "indexed deferred addressing should work correctly"
+        );
+    }
+    {
+        uint16_t cpu_err_trap;
+        unibus_cpu_dati(&pdp.unibus, PDP11_CPU_TRAP_CPU_ERR, &cpu_err_trap);
+
+        pdp11_cpu_rx(&pdp.cpu, 0) = PDP11_RAM_SIZE;
+
+        MIUNTE_EXPECT(
+            pdp11_cpu_pc(&pdp.cpu) != cpu_err_trap,
+            "before timeout error (accessing illegal address) should not trap to cpu err location"
+        );
+        pdp11_cpu_exec(
+            &pdp.cpu,
+            pdp11_cpu_decode(&pdp.cpu, 0010110 /* mov (R0), R1 */)
+        );
+        MIUNTE_EXPECT(
+            pdp11_cpu_pc(&pdp.cpu) == cpu_err_trap,
+            "after timeout error (accessing illegal address) should trap to cpu err location"
+        );
+
+        pdp11_cpu_pc(&pdp.cpu) = 0x100;
+
+        MIUNTE_EXPECT(
+            pdp11_cpu_pc(&pdp.cpu) != cpu_err_trap,
+            "before timeout error (accessing illegal address) should not trap to cpu err location"
+        );
+        pdp11_cpu_exec(
+            &pdp.cpu,
+            pdp11_cpu_decode(&pdp.cpu, 0010130 /* mov @(R0)+, R1 */)
+        );
+        MIUNTE_EXPECT(
+            pdp11_cpu_pc(&pdp.cpu) == cpu_err_trap,
+            "after timeout error (accessing illegal address) should trap to cpu err location"
+        );
+    }
+
     MIUNTE_PASS();
 }
 
