@@ -21,8 +21,6 @@
 // TODO integrate console operations directly into the CPU (for more accurate
 // emulation)
 
-// TODO improve instruction decoding, as in Processor Handbook
-
 /***********************
  ** a word and a byte **
  ***********************/
@@ -454,21 +452,23 @@ static inline void pdp11_cpu_stat_set_flags_from_xbyte(
     };
 }
 
-static void pdp11_stack_push(Pdp11Cpu *const self, uint16_t const value) {
-    unibus_cpu_dato(self->_unibus, pdp11_cpu_sp(self), value);
+static Result pdp11_stack_push(Pdp11Cpu *const self, uint16_t const value) {
+    UNROLL(unibus_cpu_dato(self->_unibus, pdp11_cpu_sp(self), value));
     pdp11_cpu_sp(self) -= 2;
+    return Ok;
 }
-static uint16_t pdp11_stack_pop(Pdp11Cpu *const self) {
+static Result pdp11_stack_pop(Pdp11Cpu *const self, uint16_t *const out) {
     pdp11_cpu_sp(self) += 2;
-    uint16_t data;
-    return unibus_cpu_dati(self->_unibus, pdp11_cpu_sp(self), &data), data;
+    UNROLL(unibus_cpu_dati(self->_unibus, pdp11_cpu_sp(self), out));
+    return Ok;
 }
 static void pdp11_cpu_trap(Pdp11Cpu *const self, uint8_t const trap) {
-    pdp11_stack_push(self, pdp11_cpu_stat_to_word(&self->_stat));
-    pdp11_stack_push(self, pdp11_cpu_pc(self));
-    unibus_cpu_dati(self->_unibus, trap, &pdp11_cpu_pc(self));
     uint16_t cpu_stat_word;
-    unibus_cpu_dati(self->_unibus, trap + 2, &cpu_stat_word);
+    if (pdp11_stack_push(self, pdp11_cpu_stat_to_word(&self->_stat)) != Ok ||
+        pdp11_stack_push(self, pdp11_cpu_pc(self)) != Ok ||
+        unibus_cpu_dati(self->_unibus, trap, &pdp11_cpu_pc(self)) != Ok ||
+        unibus_cpu_dati(self->_unibus, trap + 2, &cpu_stat_word) != Ok)
+        return pdp11_cpu_halt(self);
     self->_stat = pdp11_cpu_stat_from_word(cpu_stat_word);
 }
 
@@ -856,6 +856,9 @@ void pdp11_cpu_intr(Pdp11Cpu *const self, uint8_t const intr) {
     sem_wait(&self->__pending_intr_sem);
     uint8_t const old_intr = atomic_exchange(&self->__pending_intr, intr);
     assert(old_intr == PDP11_CPU_NO_TRAP), (void)old_intr;
+}
+void pdp11_cpu_halt(Pdp11Cpu *const self) {
+    self->_state = PDP11_CPU_STATE_HALTED;
 }
 void pdp11_cpu_continue(Pdp11Cpu *const self) {
     self->_state = PDP11_CPU_STATE_RUNNING;
@@ -1558,19 +1561,24 @@ void pdp11_cpu_instr_jsr(
     Pdp11Word const src
 ) {
     Pdp11Word const dst = pdp11_word_from_cpu_reg(self, r_i);
-    pdp11_stack_push(self, dst.vtbl->read(&dst));
+    if (pdp11_stack_push(self, dst.vtbl->read(&dst)) != Ok)
+        return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
     dst.vtbl->write(&dst, pdp11_cpu_pc(self));
     pdp11_cpu_pc(self) = src.vtbl->read(&src);
 }
 void pdp11_cpu_instr_mark(Pdp11Cpu *const self, unsigned const param_count) {
     pdp11_cpu_sp(self) = pdp11_cpu_pc(self) + 2 * param_count;
     pdp11_cpu_pc(self) = pdp11_cpu_rx(self, 5);
-    pdp11_cpu_pc(self) = pdp11_stack_pop(self);
+    if (pdp11_stack_pop(self, &pdp11_cpu_rx(self, 5)))
+        return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
 }
 void pdp11_cpu_instr_rts(Pdp11Cpu *const self, unsigned const r_i) {
     Pdp11Word const dst = pdp11_word_from_cpu_reg(self, r_i);
     pdp11_cpu_pc(self) = dst.vtbl->read(&dst);
-    dst.vtbl->write(&dst, pdp11_stack_pop(self));
+    uint16_t new_val;
+    if (pdp11_stack_pop(self, &new_val) != Ok)
+        return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
+    dst.vtbl->write(&dst, new_val);
 }
 
 // program control
@@ -1608,12 +1616,18 @@ void pdp11_cpu_instr_iot(Pdp11Cpu *const self) {
     pdp11_cpu_trap(self, PDP11_CPU_TRAP_IOT);
 }
 void pdp11_cpu_instr_rti(Pdp11Cpu *const self) {
-    pdp11_cpu_pc(self) = pdp11_stack_pop(self);
-    self->_stat = pdp11_cpu_stat_from_word(pdp11_stack_pop(self));
+    uint16_t old_stat_word;
+    if (pdp11_stack_pop(self, &pdp11_cpu_pc(self)) != Ok ||
+        pdp11_stack_pop(self, &old_stat_word) != Ok)
+        return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
+    self->_stat = pdp11_cpu_stat_from_word(old_stat_word);
 }
 void pdp11_cpu_instr_rtt(Pdp11Cpu *const self) {
-    pdp11_cpu_pc(self) = pdp11_stack_pop(self);
-    self->_stat = pdp11_cpu_stat_from_word(pdp11_stack_pop(self));
+    uint16_t old_stat_word;
+    if (pdp11_stack_pop(self, &pdp11_cpu_pc(self)) != Ok ||
+        pdp11_stack_pop(self, &old_stat_word) != Ok)
+        return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
+    self->_stat = pdp11_cpu_stat_from_word(old_stat_word);
     // TODO the only difference from an RTI is that 'T' trap won't be
     // executed after an RTT, and will after on RTI
 }
