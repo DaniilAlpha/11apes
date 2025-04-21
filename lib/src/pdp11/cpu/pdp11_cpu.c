@@ -11,14 +11,11 @@
 
 #include "conviniences.h"
 
-// TODO internal errors and traps should execute one more instruction before
-// honoring an interrupt
-
 // TODO! Both JMP and JSR, used in address mode 2 (autoincrement), increment
 // the register before using it as an address. This is a special case. and is
 // not true of any other instruction
 
-// TODO integrate console operations directly into the CPU (for more accurate
+// TODO!!! integrate console operations directly into the CPU (for more accurate
 // emulation)
 
 /***********************
@@ -355,8 +352,7 @@ forceinline void pdp11_cpu_instr_emt(Pdp11Cpu *const self);
 forceinline void pdp11_cpu_instr_trap(Pdp11Cpu *const self);
 forceinline void pdp11_cpu_instr_bpt(Pdp11Cpu *const self);
 forceinline void pdp11_cpu_instr_iot(Pdp11Cpu *const self);
-forceinline void pdp11_cpu_instr_rti(Pdp11Cpu *const self);
-forceinline void pdp11_cpu_instr_rtt(Pdp11Cpu *const self);
+forceinline void pdp11_cpu_instr_rti_rtt(Pdp11Cpu *const self);
 
 // MISC.
 
@@ -470,6 +466,16 @@ static void pdp11_cpu_trap(Pdp11Cpu *const self, uint8_t const trap) {
         unibus_cpu_dati(self->_unibus, trap + 2, &cpu_stat_word) != Ok)
         return pdp11_cpu_halt(self);
     self->_stat = pdp11_cpu_stat_from_word(cpu_stat_word);
+}
+
+static void pdp11_cpu_service_intr(Pdp11Cpu *const self) {
+    uint8_t const pending_intr =
+        atomic_exchange(&self->__pending_intr, PDP11_CPU_NO_TRAP);
+    if (pending_intr == PDP11_CPU_NO_TRAP) return;
+
+    pdp11_cpu_trap(self, pending_intr);
+
+    sem_post(&self->__pending_intr_sem);
 }
 
 static Pdp11Word
@@ -802,25 +808,15 @@ pdp11_cpu_exec_misc(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
     case 0006400 ... 0006477:
         return pdp11_cpu_instr_mark(self, BITS(opcode, 0, 5));
 
-    case 0000002: return pdp11_cpu_instr_rti(self);
+    case 0000006:
+    case 0000002: return pdp11_cpu_instr_rti_rtt(self);
     case 0000003: return pdp11_cpu_instr_bpt(self);
     case 0000004: return pdp11_cpu_instr_iot(self);
-    case 0000006: return pdp11_cpu_instr_rtt(self);
 
     case 0000000: return pdp11_cpu_instr_halt(self);
     case 0000001: return pdp11_cpu_instr_wait(self);
     case 0000005: return pdp11_cpu_instr_reset(self);
     }
-}
-
-static void pdp11_cpu_service_intr(Pdp11Cpu *const self) {
-    uint8_t const pending_intr =
-        atomic_exchange(&self->__pending_intr, PDP11_CPU_NO_TRAP);
-    if (pending_intr == PDP11_CPU_NO_TRAP) return;
-
-    pdp11_cpu_trap(self, pending_intr);
-
-    sem_post(&self->__pending_intr_sem);
 }
 
 /************
@@ -837,7 +833,7 @@ void pdp11_cpu_init(Pdp11Cpu *const self, Unibus *const unibus) {
 
     self->_unibus = unibus;
 
-    self->_state = PDP11_CPU_STATE_RUNNING;
+    self->_state = PDP11_CPU_STATE_RUN;
 }
 void pdp11_cpu_uninit(Pdp11Cpu *const self) {
     sem_destroy(&self->__pending_intr_sem);
@@ -856,12 +852,15 @@ void pdp11_cpu_intr(Pdp11Cpu *const self, uint8_t const intr) {
     sem_wait(&self->__pending_intr_sem);
     uint8_t const old_intr = atomic_exchange(&self->__pending_intr, intr);
     assert(old_intr == PDP11_CPU_NO_TRAP), (void)old_intr;
+
+    if (self->_state == PDP11_CPU_STATE_WAIT)
+        self->_state = PDP11_CPU_STATE_RUN;
 }
 void pdp11_cpu_halt(Pdp11Cpu *const self) {
-    self->_state = PDP11_CPU_STATE_HALTED;
+    self->_state = PDP11_CPU_STATE_HALT;
 }
 void pdp11_cpu_continue(Pdp11Cpu *const self) {
-    self->_state = PDP11_CPU_STATE_RUNNING;
+    self->_state = PDP11_CPU_STATE_RUN;
 }
 
 uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self) {
@@ -878,6 +877,7 @@ Pdp11CpuInstr pdp11_cpu_decode(Pdp11Cpu *const, uint16_t const encoded) {
     return instr;
 }
 void pdp11_cpu_exec(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
+    bool const should_trap = self->_stat.tf;
     switch (instr.type) {
     case PDP11_CPU_INSTR_TYPE_OO: pdp11_cpu_exec_oo(self, instr); break;
     case PDP11_CPU_INSTR_TYPE_RO: pdp11_cpu_exec_ro(self, instr); break;
@@ -892,13 +892,13 @@ void pdp11_cpu_exec(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
         return pdp11_cpu_trap(self, PDP11_CPU_TRAP_ILLEGAL_INSTR);
     }
 
-    if (self->_stat.tf) pdp11_cpu_trap(self, PDP11_CPU_TRAP_BPT);
+    while (self->_state == PDP11_CPU_STATE_HALT ||
+           self->_state == PDP11_CPU_STATE_WAIT)
+        sleep(0);
+
+    if (should_trap) pdp11_cpu_trap(self, PDP11_CPU_TRAP_BPT);
 
     pdp11_cpu_service_intr(self);
-
-    while (self->_state == PDP11_CPU_STATE_HALTED ||
-           self->_state == PDP11_CPU_STATE_WAITING)
-        sleep(0);
 }
 
 /****************
@@ -1615,31 +1615,21 @@ void pdp11_cpu_instr_bpt(Pdp11Cpu *const self) {
 void pdp11_cpu_instr_iot(Pdp11Cpu *const self) {
     pdp11_cpu_trap(self, PDP11_CPU_TRAP_IOT);
 }
-void pdp11_cpu_instr_rti(Pdp11Cpu *const self) {
+void pdp11_cpu_instr_rti_rtt(Pdp11Cpu *const self) {
     uint16_t old_stat_word;
     if (pdp11_stack_pop(self, &pdp11_cpu_pc(self)) != Ok ||
         pdp11_stack_pop(self, &old_stat_word) != Ok)
         return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
     self->_stat = pdp11_cpu_stat_from_word(old_stat_word);
-}
-void pdp11_cpu_instr_rtt(Pdp11Cpu *const self) {
-    uint16_t old_stat_word;
-    if (pdp11_stack_pop(self, &pdp11_cpu_pc(self)) != Ok ||
-        pdp11_stack_pop(self, &old_stat_word) != Ok)
-        return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
-    self->_stat = pdp11_cpu_stat_from_word(old_stat_word);
-    // TODO the only difference from an RTI is that 'T' trap won't be
-    // executed after an RTT, and will after on RTI
 }
 
 // MISC.
 
 void pdp11_cpu_instr_halt(Pdp11Cpu *const self) {
-    // TODO terminate all unibus operations
-    self->_state = PDP11_CPU_STATE_HALTED;
+    self->_state = PDP11_CPU_STATE_HALT;
 }
 void pdp11_cpu_instr_wait(Pdp11Cpu *const self) {
-    self->_state = PDP11_CPU_STATE_WAITING;
+    self->_state = PDP11_CPU_STATE_WAIT;
 }
 void pdp11_cpu_instr_reset(Pdp11Cpu *const self) {
     unibus_reset(self->_unibus);

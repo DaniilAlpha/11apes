@@ -129,17 +129,16 @@ void pdp11_console_press_examine(Pdp11Console *const self) {
 void pdp11_console_press_continue(Pdp11Console *const self) {
     if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_LOCK) return;
 
-    // TODO system clear
-    if (self->_enable_switch) {
-        // TODO restart programm at the last loaded address
-    }
+    uint16_t const addr = self->_addr_register;
+
+    unibus_reset(&self->_pdp11->unibus);
+    if (self->_enable_switch) pdp11_cpu_pc(&self->_pdp11->cpu) = addr;
 }
 void pdp11_console_toggle_enable(Pdp11Console *const self) {
     if (self->_enable_switch) {
-        // TODO! halt
+        pdp11_cpu_halt(&self->_pdp11->cpu);
         self->_enable_switch = false;
     } else {
-        // TODO? what?
         self->_enable_switch = true;
     }
 }
@@ -147,7 +146,8 @@ void pdp11_console_press_start(Pdp11Console *const self) {
     if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_LOCK) return;
 
     if (self->_enable_switch) {
-        // TODO unhalt and continue
+        pdp11_cpu_pc(&self->_pdp11->cpu) = 0;  // TODO!!! defenetely not
+        pdp11_cpu_continue(&self->_pdp11->cpu);
     } else {
         // TODO single step programm
     }

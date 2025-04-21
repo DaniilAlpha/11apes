@@ -76,7 +76,6 @@ void pdp11_power_up(Pdp11 *const self) {
     pthread_create(&self->_cpu_thread, NULL, pdp11_cpu_thread, self);
 }
 void pdp11_power_down(Pdp11 *const self) {
-    // TODO? maybe cause power failure trap here?
     self->_should_run = false;
     pdp11_cpu_continue(&self->cpu);
     pthread_join(self->_cpu_thread, NULL);

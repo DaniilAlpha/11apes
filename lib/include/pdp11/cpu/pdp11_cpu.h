@@ -16,15 +16,11 @@ enum {
     PDP11_CPU_NO_TRAP = 0000,  // NOTE assumes 'zero' as no trap
 
     PDP11_CPU_TRAP_CPU_ERR = 0004,
-    PDP11_CPU_TRAP_CPU_STACK_OVERFLOW =
-        0004,  // TODO? maybe detect stack overflow
 
     PDP11_CPU_TRAP_ILLEGAL_INSTR = 0010,
 
     PDP11_CPU_TRAP_BPT = 0014,
     PDP11_CPU_TRAP_IOT = 0020,
-
-    PDP11_CPU_TRAP_POWER_FAIL = 0024,
 
     PDP11_CPU_TRAP_EMT = 0030,
     PDP11_CPU_TRAP_TRAP = 0034,
@@ -39,9 +35,9 @@ typedef struct Pdp11Cpu {
 
     Unibus *_unibus;
     enum {
-        PDP11_CPU_STATE_RUNNING,
-        PDP11_CPU_STATE_HALTED,
-        PDP11_CPU_STATE_WAITING
+        PDP11_CPU_STATE_RUN,
+        PDP11_CPU_STATE_HALT,
+        PDP11_CPU_STATE_WAIT
     } volatile _state;  // TODO? maybe redo with condition vars
 } Pdp11Cpu;
 
