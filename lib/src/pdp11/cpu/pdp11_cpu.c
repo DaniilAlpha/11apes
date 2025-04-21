@@ -569,247 +569,12 @@ pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
     }
 }
 
-static void
-pdp11_cpu_decode_exec_helper(Pdp11Cpu *const self, uint16_t const instr) {
-    uint16_t const opcode_15_12 = BITS(instr, 12, 15),
-                   opcode_15_9 = BITS(instr, 9, 15),
-                   opcode_15_6 = BITS(instr, 6, 15),
-                   opcode_15_3 = BITS(instr, 3, 15),
-                   opcode_15_0 = BITS(instr, 0, 15);
-
-    unsigned const op_11_6 = BITS(instr, 6, 11), op_8_6 = BITS(instr, 6, 8),
-                   op_5_0 = BITS(instr, 0, 5), op_8 = BIT(instr, 8),
-                   op_7_0 = BITS(instr, 0, 7), op_2_0 = BITS(instr, 0, 2);
-
-    switch (opcode_15_12) {
-    case 001:
-        return pdp11_cpu_instr_mov(
-            self,
-            pdp11_cpu_address_word(self, op_11_6),
-            pdp11_cpu_address_word(self, op_5_0)
-        );
-    case 011:
-        return pdp11_cpu_instr_movb(
-            self,
-            pdp11_cpu_address_byte(self, op_11_6),
-            pdp11_cpu_address_byte(self, op_5_0)
-        );
-    case 002:
-        return pdp11_cpu_instr_cmp(
-            self,
-            pdp11_cpu_address_word(self, op_11_6),
-            pdp11_cpu_address_word(self, op_5_0)
-        );
-    case 012:
-        return pdp11_cpu_instr_cmpb(
-            self,
-            pdp11_cpu_address_byte(self, op_11_6),
-            pdp11_cpu_address_byte(self, op_5_0)
-        );
-    case 003:
-        return pdp11_cpu_instr_bit(
-            self,
-            pdp11_cpu_address_word(self, op_11_6),
-            pdp11_cpu_address_word(self, op_5_0)
-        );
-    case 013:
-        return pdp11_cpu_instr_bitb(
-            self,
-            pdp11_cpu_address_byte(self, op_11_6),
-            pdp11_cpu_address_byte(self, op_5_0)
-        );
-    case 004:
-        return pdp11_cpu_instr_bic(
-            self,
-            pdp11_cpu_address_word(self, op_11_6),
-            pdp11_cpu_address_word(self, op_5_0)
-        );
-    case 014:
-        return pdp11_cpu_instr_bicb(
-            self,
-            pdp11_cpu_address_byte(self, op_11_6),
-            pdp11_cpu_address_byte(self, op_5_0)
-        );
-    case 005:
-        return pdp11_cpu_instr_bis(
-            self,
-            pdp11_cpu_address_word(self, op_11_6),
-            pdp11_cpu_address_word(self, op_5_0)
-        );
-    case 015:
-        return pdp11_cpu_instr_bisb(
-            self,
-            pdp11_cpu_address_byte(self, op_11_6),
-            pdp11_cpu_address_byte(self, op_5_0)
-        );
-    case 006:
-        return pdp11_cpu_instr_add(
-            self,
-            pdp11_cpu_address_word(self, op_11_6),
-            pdp11_cpu_address_word(self, op_5_0)
-        );
-    case 016:
-        return pdp11_cpu_instr_sub(
-            self,
-            pdp11_cpu_address_word(self, op_11_6),
-            pdp11_cpu_address_word(self, op_5_0)
-        );
-    }
-    switch (opcode_15_9) {
-    case 0070:
-        return pdp11_cpu_instr_mul(
-            self,
-            op_8_6,
-            pdp11_cpu_address_word(self, op_5_0)
-        );
-    case 0071:
-        return pdp11_cpu_instr_div(
-            self,
-            op_8_6,
-            pdp11_cpu_address_word(self, op_5_0)
-        );
-    case 0072:
-        return pdp11_cpu_instr_ash(
-            self,
-            op_8_6,
-            pdp11_cpu_address_byte(self, op_5_0)
-        );
-    case 0073:
-        return pdp11_cpu_instr_ashc(
-            self,
-            op_8_6,
-            pdp11_cpu_address_word(self, op_5_0)
-        );
-    case 0074:
-        return pdp11_cpu_instr_xor(
-            self,
-            op_8_6,
-            pdp11_cpu_address_word(self, op_5_0)
-        );
-
-    case 0000:
-        if (op_8 != 1) break;
-        return pdp11_cpu_instr_br(self, op_7_0);
-    case 0001: return pdp11_cpu_instr_bne_be(self, op_8, op_7_0);
-    case 0002: return pdp11_cpu_instr_bge_bl(self, op_8, op_7_0);
-    case 0003: return pdp11_cpu_instr_bg_ble(self, op_8, op_7_0);
-    case 0100: return pdp11_cpu_instr_bpl_bmi(self, op_8, op_7_0);
-    case 0101: return pdp11_cpu_instr_bhi_blos(self, op_8, op_7_0);
-    case 0102: return pdp11_cpu_instr_bvc_bvs(self, op_8, op_7_0);
-    case 0103: return pdp11_cpu_instr_bcc_bcs(self, op_8, op_7_0);
-
-    case 0077: return pdp11_cpu_instr_sob(self, op_8_6, op_5_0);
-
-    case 0004:
-        return pdp11_cpu_instr_jsr(
-            self,
-            op_8_6,
-            pdp11_cpu_address_word(self, op_5_0)
-        );
-
-    case 0104:
-        return op_8 ? pdp11_cpu_instr_emt(self) : pdp11_cpu_instr_trap(self);
-    }
-    switch (opcode_15_6) {
-    case 00001:
-        return pdp11_cpu_instr_jmp(self, pdp11_cpu_address_word(self, op_5_0));
-    case 00003:
-        return pdp11_cpu_instr_swab(self, pdp11_cpu_address_word(self, op_5_0));
-    case 00050:
-        return pdp11_cpu_instr_clr(self, pdp11_cpu_address_word(self, op_5_0));
-    case 01050:
-        return pdp11_cpu_instr_clrb(self, pdp11_cpu_address_byte(self, op_5_0));
-    case 00051:
-        return pdp11_cpu_instr_com(self, pdp11_cpu_address_word(self, op_5_0));
-    case 01051:
-        return pdp11_cpu_instr_comb(self, pdp11_cpu_address_byte(self, op_5_0));
-    case 00052:
-        return pdp11_cpu_instr_inc(self, pdp11_cpu_address_word(self, op_5_0));
-    case 01052:
-        return pdp11_cpu_instr_incb(self, pdp11_cpu_address_byte(self, op_5_0));
-    case 00053:
-        return pdp11_cpu_instr_dec(self, pdp11_cpu_address_word(self, op_5_0));
-    case 01053:
-        return pdp11_cpu_instr_decb(self, pdp11_cpu_address_byte(self, op_5_0));
-    case 00054:
-        return pdp11_cpu_instr_neg(self, pdp11_cpu_address_word(self, op_5_0));
-    case 01054:
-        return pdp11_cpu_instr_negb(self, pdp11_cpu_address_byte(self, op_5_0));
-    case 00055:
-        return pdp11_cpu_instr_adc(self, pdp11_cpu_address_word(self, op_5_0));
-    case 01055:
-        return pdp11_cpu_instr_adcb(self, pdp11_cpu_address_byte(self, op_5_0));
-    case 00056:
-        return pdp11_cpu_instr_sbc(self, pdp11_cpu_address_word(self, op_5_0));
-    case 01056:
-        return pdp11_cpu_instr_sbcb(self, pdp11_cpu_address_byte(self, op_5_0));
-    case 00057:
-        return pdp11_cpu_instr_tst(self, pdp11_cpu_address_word(self, op_5_0));
-    case 01057:
-        return pdp11_cpu_instr_tstb(self, pdp11_cpu_address_byte(self, op_5_0));
-    case 00060:
-        return pdp11_cpu_instr_ror(self, pdp11_cpu_address_word(self, op_5_0));
-    case 01060:
-        return pdp11_cpu_instr_rorb(self, pdp11_cpu_address_byte(self, op_5_0));
-    case 00061:
-        return pdp11_cpu_instr_rol(self, pdp11_cpu_address_word(self, op_5_0));
-    case 01061:
-        return pdp11_cpu_instr_rolb(self, pdp11_cpu_address_byte(self, op_5_0));
-    case 00062:
-        return pdp11_cpu_instr_asr(self, pdp11_cpu_address_word(self, op_5_0));
-    case 01062:
-        return pdp11_cpu_instr_asrb(self, pdp11_cpu_address_byte(self, op_5_0));
-    case 00063:
-        return pdp11_cpu_instr_asl(self, pdp11_cpu_address_word(self, op_5_0));
-    case 01063:
-        return pdp11_cpu_instr_aslb(self, pdp11_cpu_address_byte(self, op_5_0));
-    case 00065:
-        return pdp11_cpu_instr_mfpi(self, pdp11_cpu_address_word(self, op_5_0));
-    case 01065:
-        return pdp11_cpu_instr_mfpd(self, pdp11_cpu_address_word(self, op_5_0));
-    case 00066:
-        return pdp11_cpu_instr_mtpi(self, pdp11_cpu_address_word(self, op_5_0));
-    case 01066:
-        return pdp11_cpu_instr_mtpd(self, pdp11_cpu_address_word(self, op_5_0));
-    case 00067:
-        return pdp11_cpu_instr_sxt(self, pdp11_cpu_address_word(self, op_5_0));
-
-    case 00064: return pdp11_cpu_instr_mark(self, op_5_0);
-
-    case 00002:
-        if (!BIT(instr, 5)) break;
-        return pdp11_cpu_instr_clnzvc_senzvc(
-            self,
-            BIT(instr, 4),
-            BIT(instr, 3),
-            BIT(instr, 2),
-            BIT(instr, 1),
-            BIT(instr, 0)
-        );
-    }
-    switch (opcode_15_3) {
-    case 000020: return pdp11_cpu_instr_rts(self, op_2_0);
-    case 000023: return pdp11_cpu_instr_spl(self, op_2_0);
-    }
-    switch (opcode_15_0) {
-    case 0000002: return pdp11_cpu_instr_rti(self);
-    case 0000003: return pdp11_cpu_instr_bpt(self);
-    case 0000004: return pdp11_cpu_instr_iot(self);
-    case 0000006: return pdp11_cpu_instr_rtt(self);
-
-    case 0000000: return pdp11_cpu_instr_halt(self);
-    case 0000001: return pdp11_cpu_instr_wait(self);
-    case 0000005: return pdp11_cpu_instr_reset(self);
-    }
-
-    pdp11_cpu_trap(self, PDP11_CPU_TRAP_ILLEGAL_INSTR);
-}
 static Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
-    // TODO!!! should chech for invalid instruction here and not decode it
-
     switch (BITS(encoded, 0, 15)) {
-    case 0000000 ... 0000007:
+    case 0000000 ... 0000006:
     case 0104000 ... 0104777:
+    case 0006400 ... 0006477:
+    case 0000240 ... 0000277:
         return (Pdp11CpuInstr){
             .type = PDP11_CPU_INSTR_TYPE_MISC,
             .u.misc = {.opcode = BITS(encoded, 0, 15)},
@@ -817,25 +582,26 @@ static Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
     }
     switch (BITS(encoded, 3, 15)) {
     case 000020:
-    case 000023:
+    case 000023:  // NOTE this is a valid instruction, just not in PDP-11/40
         return (Pdp11CpuInstr){
             .type = PDP11_CPU_INSTR_TYPE_R,
             .u.r = {.opcode = BITS(encoded, 3, 15), .r = BITS(encoded, 0, 2)},
         };
     }
-    // TODO account the MSB
-    switch (BITS(encoded, 6, 14)) {
-    case 0050 ... 0067:
-    case 0001 ... 0003:
+    switch (BITS(encoded, 6, 15)) {
+    case 00050 ... 00057:
+    case 01050 ... 01057:
+    case 00060 ... 00067:
+    case 01060 ... 01063:
+    case 00001 ... 00003:
         return (Pdp11CpuInstr){
             .type = PDP11_CPU_INSTR_TYPE_O,
             .u.o = {.opcode = BITS(encoded, 6, 15), .o = BITS(encoded, 0, 5)},
         };
     }
-    // TODO account the MSB
-    switch (BITS(encoded, 9, 14)) {
-    case 070 ... 077:
-    case 004:
+    switch (BITS(encoded, 9, 15)) {
+    case 0070 ... 0074:
+    case 0004:
         return (Pdp11CpuInstr){
             .type = PDP11_CPU_INSTR_TYPE_RO,
             .u.ro =
@@ -843,7 +609,8 @@ static Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
                  .r = BITS(encoded, 6, 8),
                  .o = BITS(encoded, 0, 5)},
         };
-    case 000 ... 003:
+    case 0000 ... 0003:
+    case 0100 ... 0103:
         return (Pdp11CpuInstr){
             .type = PDP11_CPU_INSTR_TYPE_BRANCH,
             .u.branch =
@@ -851,10 +618,18 @@ static Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
                  .cond = BIT(encoded, 8),
                  .off = BITS(encoded, 0, 7)},
         };
+    case 0077:
+        return (Pdp11CpuInstr){
+            .type = PDP11_CPU_INSTR_TYPE_SOB,
+            .u.sob =
+                {.opcode = BITS(encoded, 9, 15),
+                 .r = BITS(encoded, 6, 8),
+                 .off = BITS(encoded, 0, 5)},
+        };
     }
-    // TODO account the MSB
-    switch (BITS(encoded, 12, 14)) {
-    case 01 ... 06:
+    switch (BITS(encoded, 12, 15)) {
+    case 001 ... 006:
+    case 011 ... 016:
         return (Pdp11CpuInstr){
             .type = PDP11_CPU_INSTR_TYPE_OO,
             .u.oo =
@@ -865,6 +640,145 @@ static Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
     }
 
     return (Pdp11CpuInstr){.type = PDP11_CPU_INSTR_TYPE_ILLEGAL};
+}
+
+static void pdp11_cpu_exec_oo(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
+    if (instr.u.oo.opcode & 010 && instr.u.oo.opcode != 016) {
+        Pdp11Byte const o0 = pdp11_cpu_address_byte(self, instr.u.oo.o0);
+        Pdp11Byte const o1 = pdp11_cpu_address_byte(self, instr.u.oo.o1);
+        switch (instr.u.oo.opcode) {
+        case 011: return pdp11_cpu_instr_movb(self, o0, o1);
+        case 012: return pdp11_cpu_instr_cmpb(self, o0, o1);
+        case 013: return pdp11_cpu_instr_bitb(self, o0, o1);
+        case 014: return pdp11_cpu_instr_bicb(self, o0, o1);
+        case 015: return pdp11_cpu_instr_bisb(self, o0, o1);
+        }
+    } else {
+        Pdp11Word const o0 = pdp11_cpu_address_word(self, instr.u.oo.o0);
+        Pdp11Word const o1 = pdp11_cpu_address_word(self, instr.u.oo.o1);
+        switch (instr.u.oo.opcode) {
+        case 001: return pdp11_cpu_instr_mov(self, o0, o1);
+        case 002: return pdp11_cpu_instr_cmp(self, o0, o1);
+        case 003: return pdp11_cpu_instr_bit(self, o0, o1);
+        case 004: return pdp11_cpu_instr_bic(self, o0, o1);
+        case 005: return pdp11_cpu_instr_bis(self, o0, o1);
+        case 006: return pdp11_cpu_instr_add(self, o0, o1);
+        case 016: return pdp11_cpu_instr_sub(self, o0, o1);
+        }
+    }
+}
+static void pdp11_cpu_exec_ro(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
+    if (instr.u.ro.opcode == 0072) {
+        uint16_t const r = instr.u.ro.r;
+        Pdp11Byte const o = pdp11_cpu_address_byte(self, instr.u.ro.o);
+        return pdp11_cpu_instr_ash(self, r, o);
+    } else {
+        uint16_t const r = instr.u.ro.r;
+        Pdp11Word const o = pdp11_cpu_address_word(self, instr.u.ro.o);
+        switch (instr.u.ro.opcode) {
+        case 0070: return pdp11_cpu_instr_mul(self, r, o);
+        case 0071: return pdp11_cpu_instr_div(self, r, o);
+        case 0073: return pdp11_cpu_instr_ashc(self, r, o);
+        case 0074: return pdp11_cpu_instr_xor(self, r, o);
+        case 0004: return pdp11_cpu_instr_jsr(self, r, o);
+        }
+    }
+}
+static void
+pdp11_cpu_exec_branch(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
+    uint16_t const cond = instr.u.branch.cond;
+    uint16_t const off = instr.u.branch.off;
+    switch (instr.u.branch.opcode) {
+    case 0000: return assert(cond == 1), pdp11_cpu_instr_br(self, off);
+    case 0001: return pdp11_cpu_instr_bne_be(self, cond, off);
+    case 0002: return pdp11_cpu_instr_bge_bl(self, cond, off);
+    case 0003: return pdp11_cpu_instr_bg_ble(self, cond, off);
+    case 0100: return pdp11_cpu_instr_bpl_bmi(self, cond, off);
+    case 0101: return pdp11_cpu_instr_bhi_blos(self, cond, off);
+    case 0102: return pdp11_cpu_instr_bvc_bvs(self, cond, off);
+    case 0103: return pdp11_cpu_instr_bcc_bcs(self, cond, off);
+    }
+}
+static void pdp11_cpu_exec_o(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
+    if (instr.u.o.opcode & 010 && instr.u.o.opcode != 01065 &&
+        instr.u.o.opcode != 01066) {
+        Pdp11Byte const o = pdp11_cpu_address_byte(self, instr.u.o.o);
+        switch (instr.u.o.opcode) {
+        case 01050: return pdp11_cpu_instr_clrb(self, o);
+        case 01051: return pdp11_cpu_instr_comb(self, o);
+        case 01052: return pdp11_cpu_instr_incb(self, o);
+        case 01053: return pdp11_cpu_instr_decb(self, o);
+        case 01055: return pdp11_cpu_instr_adcb(self, o);
+        case 01056: return pdp11_cpu_instr_sbcb(self, o);
+        case 01054: return pdp11_cpu_instr_negb(self, o);
+        case 01057: return pdp11_cpu_instr_tstb(self, o);
+        case 01060: return pdp11_cpu_instr_rorb(self, o);
+        case 01061: return pdp11_cpu_instr_rolb(self, o);
+        case 01062: return pdp11_cpu_instr_asrb(self, o);
+        case 01063: return pdp11_cpu_instr_aslb(self, o);
+        }
+    } else {
+        Pdp11Word const o = pdp11_cpu_address_word(self, instr.u.o.o);
+        switch (instr.u.o.opcode) {
+        case 00001: return pdp11_cpu_instr_jmp(self, o);
+        case 00003: return pdp11_cpu_instr_swab(self, o);
+        case 00050: return pdp11_cpu_instr_clr(self, o);
+        case 00051: return pdp11_cpu_instr_com(self, o);
+        case 00052: return pdp11_cpu_instr_inc(self, o);
+        case 00053: return pdp11_cpu_instr_dec(self, o);
+        case 00054: return pdp11_cpu_instr_neg(self, o);
+        case 00055: return pdp11_cpu_instr_adc(self, o);
+        case 00056: return pdp11_cpu_instr_sbc(self, o);
+        case 00057: return pdp11_cpu_instr_tst(self, o);
+        case 00060: return pdp11_cpu_instr_ror(self, o);
+        case 00061: return pdp11_cpu_instr_rol(self, o);
+        case 00062: return pdp11_cpu_instr_asr(self, o);
+        case 00063: return pdp11_cpu_instr_asl(self, o);
+        case 00067: return pdp11_cpu_instr_sxt(self, o);
+        case 00065: return pdp11_cpu_instr_mfpi(self, o);
+        case 00066: return pdp11_cpu_instr_mtpi(self, o);
+        case 01065: return pdp11_cpu_instr_mfpd(self, o);
+        case 01066: return pdp11_cpu_instr_mtpd(self, o);
+        }
+    }
+}
+static void pdp11_cpu_exec_r(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
+    uint16_t const opcode = instr.u.r.opcode;
+    uint16_t const r = instr.u.r.r;
+    switch (opcode) {
+    case 000020: return pdp11_cpu_instr_rts(self, r);
+    case 000023: return pdp11_cpu_instr_spl(self, r);
+    }
+}
+static void
+pdp11_cpu_exec_misc(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
+    uint16_t const opcode = instr.u.misc.opcode;
+    switch (opcode) {
+    case 0104000 ... 0104377: return pdp11_cpu_instr_emt(self);
+    case 0104400 ... 0104777: return pdp11_cpu_instr_trap(self);
+
+    case 0000240 ... 0000277:
+        return pdp11_cpu_instr_clnzvc_senzvc(
+            self,
+            BIT(opcode, 4),
+            BIT(opcode, 3),
+            BIT(opcode, 2),
+            BIT(opcode, 1),
+            BIT(opcode, 0)
+        );
+
+    case 0006400 ... 0006477:
+        return pdp11_cpu_instr_mark(self, BITS(opcode, 0, 5));
+
+    case 0000002: return pdp11_cpu_instr_rti(self);
+    case 0000003: return pdp11_cpu_instr_bpt(self);
+    case 0000004: return pdp11_cpu_instr_iot(self);
+    case 0000006: return pdp11_cpu_instr_rtt(self);
+
+    case 0000000: return pdp11_cpu_instr_halt(self);
+    case 0000001: return pdp11_cpu_instr_wait(self);
+    case 0000005: return pdp11_cpu_instr_reset(self);
+    }
 }
 
 static void pdp11_cpu_service_intr(Pdp11Cpu *const self) {
@@ -903,6 +817,7 @@ void pdp11_cpu_reset(Pdp11Cpu *const self) {
     for (unsigned i = 0; i < PDP11_CPU_REG_COUNT; i++)
         pdp11_cpu_rx(self, i) = 0;
     self->_stat = (Pdp11CpuStat){0};
+    atomic_exchange(&self->__pending_intr, PDP11_CPU_NO_TRAP);
 }
 
 void pdp11_cpu_intr(Pdp11Cpu *const self, uint8_t const intr) {
@@ -920,17 +835,27 @@ uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self) {
         pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
         return pdp11_cpu_fetch(self);
     }
-
     pdp11_cpu_pc(self) += 2;
     return instr;
 }
-Pdp11CpuInstr pdp11_cpu_decode(Pdp11Cpu *const self, uint16_t const encoded) {
+Pdp11CpuInstr pdp11_cpu_decode(Pdp11Cpu *const, uint16_t const encoded) {
     Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
-    if (!instr.type) pdp11_cpu_trap(self, PDP11_CPU_TRAP_ILLEGAL_INSTR);
     return instr;
 }
 void pdp11_cpu_exec(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
-    // TODO!!! exec
+    switch (instr.type) {
+    case PDP11_CPU_INSTR_TYPE_OO: pdp11_cpu_exec_oo(self, instr); break;
+    case PDP11_CPU_INSTR_TYPE_RO: pdp11_cpu_exec_ro(self, instr); break;
+    case PDP11_CPU_INSTR_TYPE_O: pdp11_cpu_exec_o(self, instr); break;
+    case PDP11_CPU_INSTR_TYPE_BRANCH: pdp11_cpu_exec_branch(self, instr); break;
+    case PDP11_CPU_INSTR_TYPE_R: pdp11_cpu_exec_r(self, instr); break;
+    case PDP11_CPU_INSTR_TYPE_SOB:
+        pdp11_cpu_instr_sob(self, instr.u.sob.r, instr.u.sob.off);
+        break;
+    case PDP11_CPU_INSTR_TYPE_MISC: pdp11_cpu_exec_misc(self, instr); break;
+    case PDP11_CPU_INSTR_TYPE_ILLEGAL:
+        return pdp11_cpu_trap(self, PDP11_CPU_TRAP_ILLEGAL_INSTR);
+    }
 
     if (self->_stat.tf) pdp11_cpu_trap(self, PDP11_CPU_TRAP_BPT);
 

@@ -1,6 +1,7 @@
 #ifndef PDP11_CPU_INSTR_H
 #define PDP11_CPU_INSTR_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include <assert.h>
@@ -13,6 +14,7 @@ typedef struct Pdp11CpuInstr {
         PDP11_CPU_INSTR_TYPE_RO,      // format 123(3O)(6O)
         PDP11_CPU_INSTR_TYPE_R,       // format 12345(3O)
         PDP11_CPU_INSTR_TYPE_BRANCH,  // format 123(C)(8O)
+        PDP11_CPU_INSTR_TYPE_SOB,     // sob format 077(3R)(OFF)
         PDP11_CPU_INSTR_TYPE_MISC,    // format 123456
     } type;
     union {
@@ -40,6 +42,11 @@ typedef struct Pdp11CpuInstr {
         struct {
             uint16_t const opcode : 16;
         } misc;
+        struct {
+            uint16_t const opcode : 7;
+            uint16_t const r : 3;
+            uint16_t const off : 6;
+        } sob;
     } u;
 } Pdp11CpuInstr;
 static_assert(sizeof((Pdp11CpuInstr){0}.u) == sizeof(uint16_t));

@@ -69,7 +69,7 @@ void pdp11_cpu_intr(Pdp11Cpu *const self, uint8_t const intr);
 void pdp11_cpu_continue(Pdp11Cpu *const self);
 
 uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self);
-Pdp11CpuInstr pdp11_cpu_decode(Pdp11Cpu *const self, uint16_t const instr);
+Pdp11CpuInstr pdp11_cpu_decode(Pdp11Cpu *const self, uint16_t const encoded);
 void pdp11_cpu_exec(Pdp11Cpu *const self, Pdp11CpuInstr const instr);
 
 #endif

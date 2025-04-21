@@ -79,6 +79,45 @@ static MiunteResult pdp11_cpu_test_teardown() {
     MIUNTE_PASS();
 }
 
+static MiunteResult pdp11_cpu_test_decoding_and_execution() {
+    {
+        Pdp11CpuInstr const instr = pdp11_cpu_decode(&pdp.cpu, 0010100);
+        MIUNTE_EXPECT(
+            instr.type == PDP11_CPU_INSTR_TYPE_OO,
+            "type of MOV should be decoded OO"
+        );
+        MIUNTE_EXPECT(
+            instr.u.oo.o0 == 001,
+            "operand 0 should be decoded correctly"
+        );
+        MIUNTE_EXPECT(
+            instr.u.oo.o1 == 000,
+            "operand 1 should be decoded correctly"
+        );
+        pdp11_cpu_exec(&pdp.cpu, instr);
+    }
+    {
+        Pdp11CpuInstr const illegal = pdp11_cpu_decode(&pdp.cpu, 0177000);
+        MIUNTE_EXPECT(
+            illegal.type == PDP11_CPU_INSTR_TYPE_ILLEGAL,
+            "illegal instruction should result in an illegal type"
+        );
+        pdp11_cpu_exec(&pdp.cpu, illegal);
+
+        uint16_t illegal_instr_trap;
+        unibus_cpu_dati(
+            &pdp.unibus,
+            PDP11_CPU_TRAP_ILLEGAL_INSTR,
+            &illegal_instr_trap
+        );
+        MIUNTE_EXPECT(
+            pdp11_cpu_pc(&pdp.cpu) == illegal_instr_trap,
+            "after executing an illegal instruction should trap to illegal instr location"
+        );
+    }
+
+    MIUNTE_PASS();
+}
 static MiunteResult pdp11_cpu_test_addressing() {
     uint16_t const x = 0xDEAD, y = 0xBEEF;
     MIUNTE_EXPECT(x != y, "this just makes no sense");
@@ -361,6 +400,7 @@ int test_cpu_run(void) {
         pdp11_cpu_test_setup,
         pdp11_cpu_test_teardown,
         {
+            pdp11_cpu_test_decoding_and_execution,
             pdp11_cpu_test_addressing,
 
             // TODO test inc/dec
