@@ -48,7 +48,7 @@ static bool unibus_try_read(
         *out = pdp11_cpu_rx(self->_cpu, UNIBUS_CPU_REG_ADDRESS - addr);
         return true;
     case UNIBUS_CPU_STAT_ADDRESS:
-        *out = pdp11_cpu_stat_to_word(&pdp11_cpu_stat(self->_cpu));
+        *out = pdp11_cpu_stat_to_word(&pdp11_cpu_psw(self->_cpu));
         return true;
     }
 
@@ -66,7 +66,7 @@ static bool unibus_try_write_word(
         pdp11_cpu_rx(self->_cpu, UNIBUS_CPU_REG_ADDRESS - addr) = val;
         return true;
     case UNIBUS_CPU_STAT_ADDRESS:
-        pdp11_cpu_stat(self->_cpu) = pdp11_cpu_stat_from_word(val);
+        pdp11_cpu_psw(self->_cpu) = pdp11_cpu_stat_from_word(val);
         return true;
     }
 
@@ -84,8 +84,8 @@ static bool unibus_try_write_byte(
         pdp11_cpu_rl(self->_cpu, UNIBUS_CPU_REG_ADDRESS - addr) = val;
         return true;
     case UNIBUS_CPU_STAT_ADDRESS: {
-        pdp11_cpu_stat(self->_cpu) = pdp11_cpu_stat_from_word(
-            (pdp11_cpu_stat_to_word(&pdp11_cpu_stat(self->_cpu)) & 0xFF00) | val
+        pdp11_cpu_psw(self->_cpu) = pdp11_cpu_stat_from_word(
+            (pdp11_cpu_stat_to_word(&pdp11_cpu_psw(self->_cpu)) & 0xFF00) | val
         );
     }
         return true;
@@ -153,7 +153,7 @@ void unibus_br_intr(
     pthread_mutex_lock(&self->_sack);
     // TODO? maybe replace with cond var
     while (priority <=
-           ((Pdp11CpuStat volatile)pdp11_cpu_stat(self->_cpu)).priority) {
+           ((Pdp11CpuPsw volatile)pdp11_cpu_psw(self->_cpu)).priority) {
         pthread_mutex_unlock(&self->_sack);
         usleep(0);
         pthread_mutex_lock(&self->_sack);

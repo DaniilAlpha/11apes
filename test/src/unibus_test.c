@@ -57,7 +57,7 @@ static MiunteResult unibus_test_npr() {
 static void *lower_cpu_priority_thread(void *const vcpu) {
     Pdp11Cpu *const cpu = vcpu;
 
-    while (--pdp11_cpu_stat(cpu).priority > 0) usleep(10 * 1000);
+    while (--pdp11_cpu_psw(cpu).priority > 0) usleep(10 * 1000);
 
     return NULL;
 }
@@ -76,18 +76,18 @@ static MiunteResult unibus_test_br() {
         "PC should not be on trap before BR"
     );
 
-    pdp11_cpu_stat(&pdp.cpu).priority = 07;
+    pdp11_cpu_psw(&pdp.cpu).priority = 07;
     pthread_t thread;
     pthread_create(&thread, NULL, lower_cpu_priority_thread, &pdp.cpu);
     MIUNTE_EXPECT(
-        ((Pdp11CpuStat volatile)pdp11_cpu_stat(&pdp.cpu)).priority >= 03,
+        ((Pdp11CpuPsw volatile)pdp11_cpu_psw(&pdp.cpu)).priority >= 03,
         "test will be more useful if starting priority is greater than that of an interrupt"
     );
 
     unibus_br_intr(&pdp.unibus, 03, device, trap);
 
     MIUNTE_EXPECT(
-        ((Pdp11CpuStat volatile)pdp11_cpu_stat(&pdp.cpu)).priority < 03,
+        ((Pdp11CpuPsw volatile)pdp11_cpu_psw(&pdp.cpu)).priority < 03,
         "interrupt should wait til CPU priority becomes sufficient"
     );
     pthread_cancel(thread);

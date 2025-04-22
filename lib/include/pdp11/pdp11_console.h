@@ -38,27 +38,12 @@ static inline uint16_t pdp11_console_switch_register(
 ) {
     return self->_switch_register;
 }
-static inline uint16_t pdp11_console_address_indicator(
-    Pdp11Console const *const self
-) {
-    if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF)
-        return 0;
-
-    return self->_addr_register;
-}
-static inline uint16_t pdp11_console_data_indicator(
-    Pdp11Console const *const self
-) {
-    if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF)
-        return 0;
-
-    return self->_data_register;
-}
+uint16_t pdp11_console_address_indicator(Pdp11Console const *const self);
+uint16_t pdp11_console_data_indicator(Pdp11Console const *const self);
 
 void pdp11_console_next_power_control(Pdp11Console *const self);
 void pdp11_console_prev_power_control(Pdp11Console *const self);
 
-/* For toggling bits in the console's Switch Register */
 void pdp11_console_toggle_control_switch(
     Pdp11Console *const self,
     unsigned const i

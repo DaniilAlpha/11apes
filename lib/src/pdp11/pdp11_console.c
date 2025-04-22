@@ -34,6 +34,11 @@ static bool pdp11_console_try_write_byte(
     return addr == PDP11_CONSOLE_SWITCH_REGISTER_ADDR;
 }
 
+static bool pdp11_console_simulated_light(Pdp11Console const *const self) {
+    return pdp11_cpu_state(&self->_pdp11->cpu) == PDP11_CPU_STATE_RUN &&
+           rand() & 1;
+}
+
 void pdp11_console_init(Pdp11Console *const self, Pdp11 *const pdp11) {
     self->_pdp11 = pdp11;
 
@@ -45,6 +50,19 @@ void pdp11_console_init(Pdp11Console *const self, Pdp11 *const pdp11) {
 
     self->_is_deposit_pressed_consecutively = false;
     self->_is_examine_pressed_consecutively = false;
+}
+
+uint16_t pdp11_console_address_indicator(Pdp11Console const *const self) {
+    if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF)
+        return 0;
+
+    return self->_addr_register;
+}
+uint16_t pdp11_console_data_indicator(Pdp11Console const *const self) {
+    if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF)
+        return 0;
+
+    return self->_data_register;
 }
 
 void pdp11_console_next_power_control(Pdp11Console *const self) {
@@ -149,45 +167,47 @@ void pdp11_console_press_start(Pdp11Console *const self) {
         pdp11_cpu_pc(&self->_pdp11->cpu) = 0;  // TODO!!! defenetely not
         pdp11_cpu_continue(&self->_pdp11->cpu);
     } else {
-        // TODO single step programm
+        pdp11_cpu_single_step(&self->_pdp11->cpu);
     }
 }
 
 bool pdp11_console_run_light(Pdp11Console const *const self) {
-    if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF)
-        return false;
-    return self->_enable_switch || unibus_is_running(&self->_pdp11->unibus);
+    return self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF
+             ? false
+             : pdp11_cpu_state(&self->_pdp11->cpu) == PDP11_CPU_STATE_RUN &&
+                   unibus_is_running(&self->_pdp11->unibus);
 }
 bool pdp11_console_bus_light(Pdp11Console const *const self) {
-    if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF)
-        return false;
-    return !self->_enable_switch &&
-           unibus_is_periph_master(&self->_pdp11->unibus);
+    return self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF
+             ? false
+             : !self->_enable_switch &&
+                   unibus_is_periph_master(&self->_pdp11->unibus);
 }
 bool pdp11_console_fetch_light(Pdp11Console const *const self) {
-    if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF)
-        return false;
-    return self->_enable_switch && (rand() & 1);
+    return self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF
+             ? false
+             : pdp11_console_simulated_light(self);
 }
 bool pdp11_console_exec_light(Pdp11Console const *const self) {
-    if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF)
-        return false;
-    return self->_enable_switch && (rand() & 1);
+    return self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF
+             ? false
+             : pdp11_console_simulated_light(self);
 }
 bool pdp11_console_source_light(Pdp11Console const *const self) {
-    if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF)
-        return false;
-    return self->_enable_switch && (rand() & 1);
+    return self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF
+             ? false
+             : pdp11_console_simulated_light(self);
 }
 bool pdp11_console_destination_light(Pdp11Console const *const self) {
-    if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF)
-        return false;
-    return self->_enable_switch && (rand() & 1);
+    return self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF
+             ? false
+             : pdp11_console_simulated_light(self);
 }
 unsigned pdp11_console_address_light(Pdp11Console const *const self) {
-    if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF)
-        return false;
-    return self->_enable_switch ? (rand() & 1) : 0;
+    return self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF
+             ? false
+             : pdp11_console_simulated_light(self) << 1 |
+                   pdp11_console_simulated_light(self);
 }
 
 UnibusDevice pdp11_console_ww_unibus_device(Pdp11Console *const self) {

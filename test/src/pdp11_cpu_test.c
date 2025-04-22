@@ -189,8 +189,8 @@ static MiunteResult pdp11_cpu_test_addressing() {
 }
 
 static MiunteResult pdp11_cpu_test_mov_movb() {
-    Pdp11CpuStat *const stat = &pdp11_cpu_stat(&pdp.cpu);
-    stat->cf = 1;
+    Pdp11CpuPsw *const psw = &pdp11_cpu_psw(&pdp.cpu);
+    psw->cf = 1;
 
     {
         uint16_t const x = 1;
@@ -200,11 +200,11 @@ static MiunteResult pdp11_cpu_test_mov_movb() {
             "mov should move correctly"
         );
         MIUNTE_EXPECT(
-            !stat->nf && !stat->zf && !stat->vf,
+            !psw->nf && !psw->zf && !psw->vf,
             "mov of regular number should have {nzv} flags = {000}"
         );
     }
-    MIUNTE_EXPECT(stat->cf == 1, "mov should not affect c flag");
+    MIUNTE_EXPECT(psw->cf == 1, "mov should not affect c flag");
 
     {
         uint16_t const x = 0;
@@ -214,7 +214,7 @@ static MiunteResult pdp11_cpu_test_mov_movb() {
             "mov should move correctly"
         );
         MIUNTE_EXPECT(
-            !stat->nf && stat->zf && !stat->vf,
+            !psw->nf && psw->zf && !psw->vf,
             "mov of zero should have {nzv} flags = {010}"
         );
     }
@@ -227,7 +227,7 @@ static MiunteResult pdp11_cpu_test_mov_movb() {
             "mov should move correctly"
         );
         MIUNTE_EXPECT(
-            stat->nf && !stat->zf && !stat->vf,
+            psw->nf && !psw->zf && !psw->vf,
             "mov of negative number should have {nzv} flags = {100}"
         );
     }
@@ -240,7 +240,7 @@ static MiunteResult pdp11_cpu_test_mov_movb() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_add_sub() {
-    Pdp11CpuStat *const stat = &pdp11_cpu_stat(&pdp.cpu);
+    Pdp11CpuPsw *const psw = &pdp11_cpu_psw(&pdp.cpu);
     {
         uint16_t const x = 3, y = 2;
 
@@ -250,7 +250,7 @@ static MiunteResult pdp11_cpu_test_add_sub() {
             "add should add correctly"
         );
         MIUNTE_EXPECT(
-            !stat->nf && !stat->zf && !stat->vf && !stat->cf,
+            !psw->nf && !psw->zf && !psw->vf && !psw->cf,
             "add of regular result should result in {nzvc} flags = {0000}"
         );
     }
@@ -264,7 +264,7 @@ static MiunteResult pdp11_cpu_test_add_sub() {
             "add should add correctly"
         );
         MIUNTE_EXPECT(
-            !stat->nf && stat->zf && !stat->vf && stat->cf,
+            !psw->nf && psw->zf && !psw->vf && psw->cf,
             "add of zero result should result in {nzvc} flags = {0101}"
         );
     }
@@ -278,7 +278,7 @@ static MiunteResult pdp11_cpu_test_add_sub() {
             "add should add correctly"
         );
         MIUNTE_EXPECT(
-            stat->nf && !stat->zf && !stat->vf && !stat->cf,
+            psw->nf && !psw->zf && !psw->vf && !psw->cf,
             "add of negative result should result in {nzvc} flags = {1000}"
         );
     }
@@ -292,7 +292,7 @@ static MiunteResult pdp11_cpu_test_add_sub() {
             "add should add correctly"
         );
         MIUNTE_EXPECT(
-            stat->nf && !stat->zf && stat->vf && !stat->cf,
+            psw->nf && !psw->zf && psw->vf && !psw->cf,
             "add of overflow result should result in {nzvc} flags = {1010}"
         );
     }
@@ -306,7 +306,7 @@ static MiunteResult pdp11_cpu_test_add_sub() {
             "add should add correctly"
         );
         MIUNTE_EXPECT(
-            !stat->nf && !stat->zf && !stat->vf && stat->cf,
+            !psw->nf && !psw->zf && !psw->vf && psw->cf,
             "add of unsigned overflow result should result in {nzvc} flags = {0001}"
         );
     }
@@ -320,7 +320,7 @@ static MiunteResult pdp11_cpu_test_add_sub() {
             "sub should subtract correctly"
         );
         MIUNTE_EXPECT(
-            !stat->nf && stat->zf && !stat->vf && !stat->cf,
+            !psw->nf && psw->zf && !psw->vf && !psw->cf,
             "sub of zero result should result in {nzvc} flags = {0100} (carry is opposite from add)"
         );
     }
@@ -328,31 +328,31 @@ static MiunteResult pdp11_cpu_test_add_sub() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_cmp() {
-    Pdp11CpuStat *const stat = &pdp11_cpu_stat(&pdp.cpu);
+    Pdp11CpuPsw *const psw = &pdp11_cpu_psw(&pdp.cpu);
     uint16_t const x = 24;
 
     pdp11_cpu_dop_ra_instr(0020001 /* cmp R0, R1 */, x, x);
     MIUNTE_EXPECT(
-        !stat->nf && stat->zf && !stat->vf && !stat->cf,
+        !psw->nf && psw->zf && !psw->vf && !psw->cf,
         "cmp of equal values should result in {nzvc} flags = {0100}"
     );
 
     pdp11_cpu_dop_ra_instr(0020001 /* cmp R0, R1 */, x + 1, x);
     MIUNTE_EXPECT(
-        !stat->nf && !stat->zf && !stat->vf && !stat->cf,
+        !psw->nf && !psw->zf && !psw->vf && !psw->cf,
         "cmp of greater value should result in {nzvc} flags = {0000}"
     );
 
     pdp11_cpu_dop_ra_instr(0020001 /* cmp R0, R1 */, x, x + 1);
     MIUNTE_EXPECT(
-        stat->nf && !stat->zf && !stat->vf && stat->cf,
+        psw->nf && !psw->zf && !psw->vf && psw->cf,
         "cmp of lesser value should result in {nzvc} flags = {1001}"
     );
 
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_mul_div() {
-    Pdp11CpuStat *const stat = &pdp11_cpu_stat(&pdp.cpu);
+    Pdp11CpuPsw *const psw = &pdp11_cpu_psw(&pdp.cpu);
     {
         uint16_t const x = 3, y = 2;
 
@@ -362,7 +362,7 @@ static MiunteResult pdp11_cpu_test_mul_div() {
             "mul should multiply correctly"
         );
         MIUNTE_EXPECT(
-            !stat->nf && !stat->zf && !stat->vf && !stat->cf,
+            !psw->nf && !psw->zf && !psw->vf && !psw->cf,
             "mul of regular result should result in {nzvc} flags = {0000}"
         );
     }
@@ -376,7 +376,7 @@ static MiunteResult pdp11_cpu_test_mul_div() {
             "mul should multiply correctly"
         );
         MIUNTE_EXPECT(
-            !stat->nf && stat->zf && !stat->vf && !stat->cf,
+            !psw->nf && psw->zf && !psw->vf && !psw->cf,
             "mul of zero result should result in {nzvc} flags = {0100}"
         );
     }
@@ -390,7 +390,7 @@ static MiunteResult pdp11_cpu_test_mul_div() {
             "mul should multiply correctly"
         );
         MIUNTE_EXPECT(
-            stat->nf && !stat->zf && !stat->vf && !stat->cf,
+            psw->nf && !psw->zf && !psw->vf && !psw->cf,
             "mul of negative result should result in {nzvc} flags = {1000}"
         );
     }
@@ -404,7 +404,7 @@ static MiunteResult pdp11_cpu_test_mul_div() {
             "mul should multiply correctly"
         );
         MIUNTE_EXPECT(
-            stat->nf && !stat->zf && !stat->vf && stat->cf,
+            psw->nf && !psw->zf && !psw->vf && psw->cf,
             "mul of overflow result should result in {nzvc} flags = {1001}"
         );
     }
@@ -417,7 +417,7 @@ static MiunteResult pdp11_cpu_test_mul_div() {
             "div by zero should leave register untouched"
         );
         MIUNTE_EXPECT(
-            stat->vf && stat->cf,
+            psw->vf && psw->cf,
             "div by zero result should result in {vc} flags = {11}"
         );
     }
@@ -425,7 +425,7 @@ static MiunteResult pdp11_cpu_test_mul_div() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_bit() {
-    Pdp11CpuStat *const stat = &pdp11_cpu_stat(&pdp.cpu);
+    Pdp11CpuPsw *const psw = &pdp11_cpu_psw(&pdp.cpu);
 
     uint16_t const x = 0x42;
 
@@ -434,7 +434,7 @@ static MiunteResult pdp11_cpu_test_bit() {
         "bit should not modify registers"
     );
     MIUNTE_EXPECT(
-        !stat->nf && stat->zf && !stat->vf,
+        psw->nf && psw->zf && !psw->vf,
         "bit of zero result should result in {nzv} flags = {010}"
     );
 

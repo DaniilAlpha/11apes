@@ -7,7 +7,7 @@
 #include <semaphore.h>
 
 #include "pdp11/cpu/pdp11_cpu_instr.h"
-#include "pdp11/cpu/pdp11_cpu_stat.h"
+#include "pdp11/cpu/pdp11_cpu_psw.h"
 #include "pdp11/unibus/unibus.h"
 
 #define PDP11_CPU_REG_COUNT (8)
@@ -26,19 +26,22 @@ enum {
     PDP11_CPU_TRAP_TRAP = 0034,
 };
 
+typedef enum Pdp11CpuState {
+    PDP11_CPU_STATE_RUN,
+    PDP11_CPU_STATE_HALT,
+    PDP11_CPU_STATE_WAIT,
+    PDP11_CPU_STATE_STEP,
+} Pdp11CpuState;
+
 typedef struct Pdp11Cpu {
-    Pdp11CpuStat _stat;
+    Pdp11CpuPsw _psw;
     uint16_t _r[PDP11_CPU_REG_COUNT];
 
     _Atomic uint8_t __pending_intr;
     sem_t __pending_intr_sem;
 
     Unibus *_unibus;
-    enum {
-        PDP11_CPU_STATE_RUN,
-        PDP11_CPU_STATE_HALT,
-        PDP11_CPU_STATE_WAIT
-    } volatile _state;  // TODO? maybe redo with condition vars
+    Pdp11CpuState volatile _state;  // TODO? maybe redo with condition vars
 } Pdp11Cpu;
 
 void pdp11_cpu_init(Pdp11Cpu *const self, Unibus *const unibus);
@@ -56,14 +59,20 @@ static inline uint8_t *pdp11_cpu_rl(Pdp11Cpu *const self, unsigned const i) {
 #define pdp11_cpu_pc(SELF_)     pdp11_cpu_rx((SELF_), 7)
 #define pdp11_cpu_sp(SELF_)     pdp11_cpu_rx((SELF_), 6)
 
-static inline Pdp11CpuStat *pdp11_cpu_stat(Pdp11Cpu *const self) {
-    return &self->_stat;
+static inline Pdp11CpuPsw *pdp11_cpu_psw(Pdp11Cpu *const self) {
+    return &self->_psw;
 }
-#define pdp11_cpu_stat(SELF_) (*pdp11_cpu_stat(SELF_))
+#define pdp11_cpu_psw(SELF_) (*pdp11_cpu_psw(SELF_))
+
+static inline Pdp11CpuState pdp11_cpu_state(Pdp11Cpu const *const self) {
+    return self->_state;
+}
 
 void pdp11_cpu_intr(Pdp11Cpu *const self, uint8_t const intr);
+
 void pdp11_cpu_halt(Pdp11Cpu *const self);
 void pdp11_cpu_continue(Pdp11Cpu *const self);
+void pdp11_cpu_single_step(Pdp11Cpu *const self);
 
 uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self);
 Pdp11CpuInstr pdp11_cpu_decode(Pdp11Cpu *const self, uint16_t const encoded);
