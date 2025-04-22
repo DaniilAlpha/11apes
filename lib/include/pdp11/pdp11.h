@@ -18,6 +18,9 @@
 
 #define PDP11_RAM_SIZE (24 * 1024 * 2)
 
+#define PDP11_PAPERTAPE_READER_ADDR     (0177550)
+#define PDP11_PAPERTAPE_READER_INTR_VEC (070)
+
 #define PDP11_FIRST_USER_DEVICE (1)
 
 typedef struct Pdp11 {

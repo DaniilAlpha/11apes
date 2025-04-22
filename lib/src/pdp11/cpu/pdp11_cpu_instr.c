@@ -44,6 +44,8 @@ Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
         };
     case 0000 ... 0003:
     case 0100 ... 0103:
+        // TODO! no good
+        if (BITS(encoded, 9, 15) == 0000 && !BIT(encoded, 8)) break;
         return (Pdp11CpuInstr){
             .type = PDP11_CPU_INSTR_TYPE_BRANCH,
             .u.branch =

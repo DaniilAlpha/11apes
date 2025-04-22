@@ -4,6 +4,7 @@
 
 #include "pdp11/pdp11.h"
 #include "pdp11/pdp11_console.h"
+#include "pdp11/pdp11_papertape_reader.h"
 
 // WARN shit code below!!!
 
@@ -465,8 +466,22 @@ int main() {
     // pdp.unibus.devices[PDP11_FIRST_USER_DEVICE + 0] =
     //     pdp11_rom_ww_unibus_device(&rom);
 
+    Pdp11PapertapeReader pr = {0};
+    pdp11_papertape_reader_init(
+        &pr,
+        &pdp.unibus,
+        PDP11_PAPERTAPE_READER_ADDR,
+        PDP11_PAPERTAPE_READER_INTR_VEC
+    );
+    pdp11_papertape_reader_load(&pr, "res/paper_tapes/absolute_loader.ptap");
+    pdp.unibus.devices[PDP11_FIRST_USER_DEVICE + 0] =
+        pdp11_papertape_reader_ww_unibus_device(&pr);
+    pr.device = &pdp.unibus.devices[PDP11_FIRST_USER_DEVICE + 0];
+    pr.priority = 04;
+
     run_console_ui(&console);
 
+    pdp11_papertape_reader_uninit(&pr);
     // pdp11_rom_uninit(&rom);
     pdp11_uninit(&pdp);
 
