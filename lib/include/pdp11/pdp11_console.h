@@ -5,7 +5,9 @@
 
 #include "pdp11/pdp11.h"
 
+#define PDP11_CONSOLE_CPU_REG_ADDRESS      (0177700)
 #define PDP11_CONSOLE_SWITCH_REGISTER_ADDR (0177570)
+#define PDP11_BOOTSTRAP_ADDR               (0137744)
 
 typedef enum Pdp11ConsolePowerControl {
     PDP11_CONSOLE_POWER_CONTROL_OFF,
@@ -41,6 +43,14 @@ static inline uint16_t pdp11_console_switch_register(
 uint16_t pdp11_console_address_indicator(Pdp11Console const *const self);
 uint16_t pdp11_console_data_indicator(Pdp11Console const *const self);
 
+bool pdp11_console_run_light(Pdp11Console const *const self);
+bool pdp11_console_bus_light(Pdp11Console const *const self);
+bool pdp11_console_fetch_light(Pdp11Console const *const self);
+bool pdp11_console_exec_light(Pdp11Console const *const self);
+bool pdp11_console_source_light(Pdp11Console const *const self);
+bool pdp11_console_destination_light(Pdp11Console const *const self);
+unsigned pdp11_console_address_light(Pdp11Console const *const self);
+
 void pdp11_console_next_power_control(Pdp11Console *const self);
 void pdp11_console_prev_power_control(Pdp11Console *const self);
 
@@ -57,13 +67,7 @@ void pdp11_console_press_continue(Pdp11Console *const self);
 void pdp11_console_toggle_enable(Pdp11Console *const self);
 void pdp11_console_press_start(Pdp11Console *const self);
 
-bool pdp11_console_run_light(Pdp11Console const *const self);
-bool pdp11_console_bus_light(Pdp11Console const *const self);
-bool pdp11_console_fetch_light(Pdp11Console const *const);
-bool pdp11_console_exec_light(Pdp11Console const *const);
-bool pdp11_console_source_light(Pdp11Console const *const);
-bool pdp11_console_destination_light(Pdp11Console const *const);
-unsigned pdp11_console_address_light(Pdp11Console const *const);
+void pdp11_console_insert_bootstrap(Pdp11Console *const self);
 
 UnibusDevice pdp11_console_ww_unibus_device(Pdp11Console *const self);
 

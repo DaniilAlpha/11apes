@@ -2,8 +2,12 @@
 
 #include <assert.h>
 #include <miunte.h>
+#include <unistd.h>
 
+#include "pdp11/cpu/pdp11_cpu_instr.h"
 #include "pdp11/pdp11.h"
+
+#define pdp11_cpu_sp(SELF_) pdp11_cpu_rx((SELF_), 6)
 
 static Pdp11 pdp = {0};
 
@@ -20,10 +24,8 @@ static uint16_t pdp11_cpu_dop_ra_instr(
 
     pdp11_cpu_rx(&pdp.cpu, 0) = x;
     pdp11_cpu_rx(&pdp.cpu, 1) = y;
-    pdp11_cpu_exec(
-        &pdp.cpu,
-        pdp11_cpu_decode(&pdp.cpu, pdp11_cpu_fetch(&pdp.cpu))
-    );
+    pdp11_cpu_single_step(&pdp.cpu);
+    while (pdp11_cpu_state(&pdp.cpu) != PDP11_CPU_STATE_HALT) sleep(0);
     return pdp11_cpu_rx(&pdp.cpu, 0);
 }
 static uint16_t pdp11_cpu_dop_da_instr(
@@ -37,10 +39,8 @@ static uint16_t pdp11_cpu_dop_da_instr(
     pdp11_cpu_rx(&pdp.cpu, 0) = addr;
     unibus_cpu_dato(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0), x);
     pdp11_cpu_rx(&pdp.cpu, 1) = y;
-    pdp11_cpu_exec(
-        &pdp.cpu,
-        pdp11_cpu_decode(&pdp.cpu, pdp11_cpu_fetch(&pdp.cpu))
-    );
+    pdp11_cpu_single_step(&pdp.cpu);
+    while (pdp11_cpu_state(&pdp.cpu) != PDP11_CPU_STATE_HALT) sleep(0);
     uint16_t res;
     return unibus_cpu_dati(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0), &res), res;
 }
@@ -57,10 +57,8 @@ static uint16_t pdp11_cpu_dop_ia_instr(
     pdp11_cpu_rx(&pdp.cpu, 0) = addr;
     unibus_cpu_dato(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0) + off, x);
     pdp11_cpu_rx(&pdp.cpu, 1) = y;
-    pdp11_cpu_exec(
-        &pdp.cpu,
-        pdp11_cpu_decode(&pdp.cpu, pdp11_cpu_fetch(&pdp.cpu))
-    );
+    pdp11_cpu_single_step(&pdp.cpu);
+    while (pdp11_cpu_state(&pdp.cpu) != PDP11_CPU_STATE_HALT) sleep(0);
     uint16_t res;
     return unibus_cpu_dati(&pdp.unibus, pdp11_cpu_rx(&pdp.cpu, 0) + off, &res),
            res;
@@ -73,6 +71,7 @@ static uint16_t pdp11_cpu_dop_ia_instr(
 static MiunteResult pdp11_cpu_test_setup() {
     MIUNTE_EXPECT(pdp11_init(&pdp) == Ok, "`pdp11_init` should not fail");
     pdp11_cpu_pc(&pdp.cpu) = 0x100;
+    pdp11_cpu_sp(&pdp.cpu) = 0x1000;
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_teardown() {
@@ -82,7 +81,9 @@ static MiunteResult pdp11_cpu_test_teardown() {
 
 static MiunteResult pdp11_cpu_test_decoding_and_execution() {
     {
-        Pdp11CpuInstr const instr = pdp11_cpu_decode(&pdp.cpu, 0010100);
+        uint16_t const encoded = 0010100;
+
+        Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
         MIUNTE_EXPECT(
             instr.type == PDP11_CPU_INSTR_TYPE_OO,
             "type of MOV should be decoded OO"
@@ -95,19 +96,24 @@ static MiunteResult pdp11_cpu_test_decoding_and_execution() {
             instr.u.oo.o1 == 000,
             "operand 1 should be decoded correctly"
         );
-        pdp11_cpu_exec(&pdp.cpu, instr);
+
+        unibus_cpu_dato(&pdp.unibus, pdp11_cpu_pc(&pdp.cpu), encoded);
+        pdp11_cpu_single_step(&pdp.cpu);
+        while (pdp11_cpu_state(&pdp.cpu) != PDP11_CPU_STATE_HALT) sleep(0);
     }
     {
-        uint16_t illegal_instr_trap;
-        unibus_cpu_dati(
+        uint16_t const illegal_instr_trap = 0xFACE;
+        unibus_cpu_dato(
             &pdp.unibus,
             PDP11_CPU_TRAP_ILLEGAL_INSTR,
-            &illegal_instr_trap
+            illegal_instr_trap
         );
 
-        Pdp11CpuInstr const illegal = pdp11_cpu_decode(&pdp.cpu, 0177000);
+        uint16_t const encoded = 0177000;
+
+        Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
         MIUNTE_EXPECT(
-            illegal.type == PDP11_CPU_INSTR_TYPE_ILLEGAL,
+            instr.type == PDP11_CPU_INSTR_TYPE_ILLEGAL,
             "illegal instruction should result in an illegal type"
         );
 
@@ -115,7 +121,9 @@ static MiunteResult pdp11_cpu_test_decoding_and_execution() {
             pdp11_cpu_pc(&pdp.cpu) != illegal_instr_trap,
             "before executing an illegal instruction should not be on illegal instr location"
         );
-        pdp11_cpu_exec(&pdp.cpu, illegal);
+        unibus_cpu_dato(&pdp.unibus, pdp11_cpu_pc(&pdp.cpu), encoded);
+        pdp11_cpu_single_step(&pdp.cpu);
+        while (pdp11_cpu_state(&pdp.cpu) != PDP11_CPU_STATE_HALT) sleep(0);
         MIUNTE_EXPECT(
             pdp11_cpu_pc(&pdp.cpu) == illegal_instr_trap,
             "after executing an illegal instruction should trap to illegal instr location"
@@ -151,19 +159,23 @@ static MiunteResult pdp11_cpu_test_addressing() {
         );
     }
     {
-        uint16_t cpu_err_trap;
-        unibus_cpu_dati(&pdp.unibus, PDP11_CPU_TRAP_CPU_ERR, &cpu_err_trap);
+        uint16_t const cpu_err_trap = 0xFACE;
+        unibus_cpu_dato(&pdp.unibus, PDP11_CPU_TRAP_CPU_ERR, cpu_err_trap);
 
         pdp11_cpu_rx(&pdp.cpu, 0) = PDP11_RAM_SIZE;
+        // pdp11_cpu_pc(&pdp.cpu) = 0x100;
 
         MIUNTE_EXPECT(
             pdp11_cpu_pc(&pdp.cpu) != cpu_err_trap,
             "before timeout error (accessing illegal address) should not trap to cpu err location"
         );
-        pdp11_cpu_exec(
-            &pdp.cpu,
-            pdp11_cpu_decode(&pdp.cpu, 0010110 /* mov (R0), R1 */)
+        unibus_cpu_dato(
+            &pdp.unibus,
+            pdp11_cpu_pc(&pdp.cpu),
+            0010110 /* mov (R0), R1 */
         );
+        pdp11_cpu_single_step(&pdp.cpu);
+        while (pdp11_cpu_state(&pdp.cpu) != PDP11_CPU_STATE_HALT) sleep(0);
         MIUNTE_EXPECT(
             pdp11_cpu_pc(&pdp.cpu) == cpu_err_trap,
             "after timeout error (accessing illegal address) should trap to cpu err location"
@@ -175,10 +187,13 @@ static MiunteResult pdp11_cpu_test_addressing() {
             pdp11_cpu_pc(&pdp.cpu) != cpu_err_trap,
             "before timeout error (accessing illegal address) should not trap to cpu err location"
         );
-        pdp11_cpu_exec(
-            &pdp.cpu,
-            pdp11_cpu_decode(&pdp.cpu, 0010130 /* mov @(R0)+, R1 */)
+        unibus_cpu_dato(
+            &pdp.unibus,
+            pdp11_cpu_pc(&pdp.cpu),
+            0010130 /* mov @(R0)+, R1 */
         );
+        pdp11_cpu_single_step(&pdp.cpu);
+        while (pdp11_cpu_state(&pdp.cpu) != PDP11_CPU_STATE_HALT) sleep(0);
         MIUNTE_EXPECT(
             pdp11_cpu_pc(&pdp.cpu) == cpu_err_trap,
             "after timeout error (accessing illegal address) should trap to cpu err location"
@@ -189,7 +204,7 @@ static MiunteResult pdp11_cpu_test_addressing() {
 }
 
 static MiunteResult pdp11_cpu_test_mov_movb() {
-    Pdp11CpuPsw *const psw = &pdp11_cpu_psw(&pdp.cpu);
+    Pdp11Psw volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
     psw->cf = 1;
 
     {
@@ -240,7 +255,7 @@ static MiunteResult pdp11_cpu_test_mov_movb() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_add_sub() {
-    Pdp11CpuPsw *const psw = &pdp11_cpu_psw(&pdp.cpu);
+    Pdp11Psw volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
     {
         uint16_t const x = 3, y = 2;
 
@@ -328,7 +343,7 @@ static MiunteResult pdp11_cpu_test_add_sub() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_cmp() {
-    Pdp11CpuPsw *const psw = &pdp11_cpu_psw(&pdp.cpu);
+    Pdp11Psw volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
     uint16_t const x = 24;
 
     pdp11_cpu_dop_ra_instr(0020001 /* cmp R0, R1 */, x, x);
@@ -352,7 +367,7 @@ static MiunteResult pdp11_cpu_test_cmp() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_mul_div() {
-    Pdp11CpuPsw *const psw = &pdp11_cpu_psw(&pdp.cpu);
+    Pdp11Psw volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
     {
         uint16_t const x = 3, y = 2;
 
@@ -425,7 +440,7 @@ static MiunteResult pdp11_cpu_test_mul_div() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_bit() {
-    Pdp11CpuPsw *const psw = &pdp11_cpu_psw(&pdp.cpu);
+    Pdp11Psw volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
 
     uint16_t const x = 0x42;
 
@@ -434,7 +449,7 @@ static MiunteResult pdp11_cpu_test_bit() {
         "bit should not modify registers"
     );
     MIUNTE_EXPECT(
-        psw->nf && psw->zf && !psw->vf,
+        !psw->nf && psw->zf && !psw->vf,
         "bit of zero result should result in {nzv} flags = {010}"
     );
 

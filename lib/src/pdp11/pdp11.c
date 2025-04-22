@@ -1,82 +1,21 @@
 #include "pdp11/pdp11.h"
 
 #include <pthread.h>
-#include <stdio.h>
 
 #include <unistd.h>
 
-/*************
- ** private **
- *************/
-
-static void pdp11_cpu_thread_helper(Pdp11 *const self) {
-    while (self->_should_run) {
-        usleep(100 * 1000);
-        uint16_t const instr = pdp11_cpu_fetch(&self->cpu);
-
-        printf(
-            "pc = 0%06o \t ps = %1o%s%s%s%s%s \t exec: 0%06o \t ",
-            pdp11_cpu_pc(&self->cpu),
-            self->cpu._psw.priority,
-            self->cpu._psw.tf ? "T" : "t",
-            self->cpu._psw.nf ? "N" : "n",
-            self->cpu._psw.zf ? "Z" : "z",
-            self->cpu._psw.vf ? "V" : "v",
-            self->cpu._psw.cf ? "C" : "c",
-            instr
-        );
-        pdp11_cpu_exec(&self->cpu, pdp11_cpu_decode(&self->cpu, instr));
-        printf(
-            "ps = %1o%s%s%s%s%s\n",
-            self->cpu._psw.priority,
-            self->cpu._psw.tf ? "T" : "t",
-            self->cpu._psw.nf ? "N" : "n",
-            self->cpu._psw.zf ? "Z" : "z",
-            self->cpu._psw.vf ? "V" : "v",
-            self->cpu._psw.cf ? "C" : "c"
-        );
-    }
-}
-static void *pdp11_cpu_thread(void *const vself) {
-    return pdp11_cpu_thread_helper(vself), NULL;
-};
-
-/************
- ** public **
- ************/
-
 Result pdp11_init(Pdp11 *const self) {
-    UNROLL(pdp11_ram_init(&self->ram, 0, PDP11_RAM_SIZE, ".ram"));
-
-    if (pthread_mutex_init(&self->_sack_lock, NULL) != 0 ||
-        pthread_mutex_init(&self->_sack_lock, NULL) != 0)
-        return pdp11_ram_uninit(&self->ram), RangeErr;
-
-    pdp11_cpu_init(&self->cpu, &self->unibus);
+    UNROLL(pdp11_ram_init(&self->ram, 0, PDP11_RAM_SIZE, "core.ram"));
 
     unibus_init(&self->unibus, &self->cpu);
     self->unibus.devices[0] = pdp11_ram_ww_unibus_device(&self->ram);
 
-    self->_should_run = false;
+    pdp11_cpu_init(&self->cpu, &self->unibus);
 
     return Ok;
 }
 void pdp11_uninit(Pdp11 *const self) {
-    if (self->_should_run) pdp11_power_down(self);
-
-    pthread_mutex_destroy(&self->_bbsy_lock);
-    pthread_mutex_destroy(&self->_sack_lock);
-
     pdp11_cpu_uninit(&self->cpu);
+    unibus_uninit(&self->unibus);
     pdp11_ram_uninit(&self->ram);
-}
-
-void pdp11_power_up(Pdp11 *const self) {
-    self->_should_run = true;
-    pthread_create(&self->_cpu_thread, NULL, pdp11_cpu_thread, self);
-}
-void pdp11_power_down(Pdp11 *const self) {
-    self->_should_run = false;
-    pdp11_cpu_continue(&self->cpu);
-    pthread_join(self->_cpu_thread, NULL);
 }

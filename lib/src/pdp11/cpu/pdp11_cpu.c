@@ -10,13 +10,21 @@
 #include <unistd.h>
 
 #include "conviniences.h"
+#include "pdp11/cpu/pdp11_cpu_instr.h"
 
 // TODO! Both JMP and JSR, used in address mode 2 (autoincrement), increment
 // the register before using it as an address. This is a special case. and is
 // not true of any other instruction
 
-// TODO!!! integrate console operations directly into the CPU (for more accurate
-// emulation)
+#undef pdp11_cpu_rx
+#define pdp11_cpu_rx(SELF_, I_) (*(uint16_t *)pdp11_cpu_rx((SELF_), (I_)))
+static inline uint8_t *pdp11_cpu_rl(Pdp11Cpu *const self, unsigned const i) {
+    return (uint8_t *)(self->_r + i);
+}
+#define pdp11_cpu_rl(SELF_, I_) (*(uint8_t *)pdp11_cpu_rl((SELF_), (I_)))
+#undef pdp11_cpu_pc
+#define pdp11_cpu_pc(SELF_) pdp11_cpu_rx((SELF_), 7)
+#define pdp11_cpu_sp(SELF_) pdp11_cpu_rx((SELF_), 6)
 
 /***********************
  ** a word and a byte **
@@ -385,69 +393,6 @@ forceinline void pdp11_cpu_instr_clnzvc_senzvc(
  ** private **
  *************/
 
-static inline uint32_t xword(uint16_t const word) {
-    return (word & 0x8000 ? 0x10000 : 0x00000) | word;
-}
-static inline uint16_t xbyte(uint8_t const byte) {
-    return (byte & 0x80 ? 0x100 : 0x000) | byte;
-}
-
-static inline void pdp11_cpu_stat_set_flags_from_word(
-    Pdp11CpuPsw *const self,
-    uint16_t const value
-) {
-    *self = (Pdp11CpuPsw){
-        .priority = self->priority,
-        .tf = self->tf,
-        .nf = BIT(value, 15),
-        .zf = value == 0,
-        .vf = 0,
-        .cf = self->cf,
-    };
-}
-static inline void pdp11_cpu_stat_set_flags_from_byte(
-    Pdp11CpuPsw *const self,
-    uint8_t const value
-) {
-    *self = (Pdp11CpuPsw){
-        .priority = self->priority,
-        .tf = self->tf,
-        .nf = BIT(value, 7),
-        .zf = value == 0,
-        .vf = 0,
-        .cf = self->cf,
-    };
-}
-
-static inline void pdp11_cpu_stat_set_flags_from_xword(
-    Pdp11CpuPsw *const self,
-    uint32_t const value,
-    bool const do_invert_cf
-) {
-    *self = (Pdp11CpuPsw){
-        .priority = self->priority,
-        .tf = self->tf,
-        .nf = BIT(value, 15),
-        .zf = (uint16_t)value == 0,
-        .vf = BIT(value, 16) != BIT(value, 15),
-        .cf = BIT(value, 17) != do_invert_cf,
-    };
-}
-static inline void pdp11_cpu_stat_set_flags_from_xbyte(
-    Pdp11CpuPsw *const self,
-    uint16_t const value,
-    bool const do_invert_cf
-) {
-    *self = (Pdp11CpuPsw){
-        .priority = self->priority,
-        .tf = self->tf,
-        .nf = BIT(value, 7),
-        .zf = (uint8_t)value == 0,
-        .vf = BIT(value, 8) != BIT(value, 7),
-        .cf = BIT(value, 9) != do_invert_cf,
-    };
-}
-
 static Result pdp11_stack_push(Pdp11Cpu *const self, uint16_t const value) {
     UNROLL(unibus_cpu_dato(self->_unibus, pdp11_cpu_sp(self), value));
     pdp11_cpu_sp(self) -= 2;
@@ -460,12 +405,12 @@ static Result pdp11_stack_pop(Pdp11Cpu *const self, uint16_t *const out) {
 }
 static void pdp11_cpu_trap(Pdp11Cpu *const self, uint8_t const trap) {
     uint16_t cpu_stat_word;
-    if (pdp11_stack_push(self, pdp11_cpu_stat_to_word(&self->_psw)) != Ok ||
+    if (pdp11_stack_push(self, pdp11_psw_to_word(self->_psw)) != Ok ||
         pdp11_stack_push(self, pdp11_cpu_pc(self)) != Ok ||
         unibus_cpu_dati(self->_unibus, trap, &pdp11_cpu_pc(self)) != Ok ||
         unibus_cpu_dati(self->_unibus, trap + 2, &cpu_stat_word) != Ok)
         return pdp11_cpu_halt(self);
-    self->_psw = pdp11_cpu_stat_from_word(cpu_stat_word);
+    self->_psw = pdp11_psw(cpu_stat_word);
 }
 
 static void pdp11_cpu_service_intr(Pdp11Cpu *const self) {
@@ -476,6 +421,16 @@ static void pdp11_cpu_service_intr(Pdp11Cpu *const self) {
     pdp11_cpu_trap(self, pending_intr);
 
     sem_post(&self->__pending_intr_sem);
+}
+
+static uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self) {
+    uint16_t instr;
+    if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self), &instr) != Ok) {
+        pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
+        return pdp11_cpu_fetch(self);
+    }
+    pdp11_cpu_pc(self) += 2;
+    return instr;
 }
 
 static Pdp11Word
@@ -496,9 +451,8 @@ pdp11_cpu_address_word(Pdp11Cpu *const self, unsigned const mode) {
         uint16_t addr;
         if (unibus_cpu_dati(self->_unibus, pdp11_cpu_rx(self, r_i), &addr) ==
             Ok) {
-            Pdp11Word const word = pdp11_word_from_unibus(self->_unibus, addr);
             pdp11_cpu_rx(self, r_i) += 2;
-            return word;
+            return pdp11_word_from_unibus(self->_unibus, addr);
         }
     } break;
     case 04:
@@ -517,21 +471,25 @@ pdp11_cpu_address_word(Pdp11Cpu *const self, unsigned const mode) {
     } break;
     case 06: {
         uint16_t off;
-        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self)++, &off) == Ok)
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self), &off) == Ok) {
+            pdp11_cpu_pc(self) += 2;
             return pdp11_word_from_unibus(
                 self->_unibus,
                 off + pdp11_cpu_rx(self, r_i)
             );
+        }
     } break;
     case 07: {
         uint16_t off, addr;
-        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self)++, &off) == Ok &&
-            unibus_cpu_dati(
-                self->_unibus,
-                off + pdp11_cpu_rx(self, r_i),
-                &addr
-            ) == Ok)
-            return pdp11_word_from_unibus(self->_unibus, addr);
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self), &off) == Ok) {
+            pdp11_cpu_pc(self) += 2;
+            if (unibus_cpu_dati(
+                    self->_unibus,
+                    off + pdp11_cpu_rx(self, r_i),
+                    &addr
+                ) == Ok)
+                return pdp11_word_from_unibus(self->_unibus, addr);
+        }
     } break;
     default: assert(false);
     }
@@ -556,9 +514,8 @@ pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
         uint16_t addr;
         if (unibus_cpu_dati(self->_unibus, pdp11_cpu_rx(self, r_i), &addr) ==
             Ok) {
-            Pdp11Byte const byte = pdp11_byte_from_unibus(self->_unibus, addr);
             pdp11_cpu_rx(self, r_i) += 2;
-            return byte;
+            return pdp11_byte_from_unibus(self->_unibus, addr);
         }
     } break;
     case 04:
@@ -577,101 +534,31 @@ pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
     } break;
     case 06: {
         uint16_t off;
-        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self)++, &off) == Ok)
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self), &off) == Ok) {
+            pdp11_cpu_pc(self) += 2;
             return pdp11_byte_from_unibus(
                 self->_unibus,
                 off + pdp11_cpu_rx(self, r_i)
             );
+        }
     } break;
     case 07: {
         uint16_t off, addr;
-        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self)++, &off) == Ok &&
-            unibus_cpu_dati(
-                self->_unibus,
-                off + pdp11_cpu_rx(self, r_i),
-                &addr
-            ) == Ok)
-            return pdp11_byte_from_unibus(self->_unibus, addr);
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self), &off) == Ok) {
+            pdp11_cpu_pc(self) += 2;
+            if (unibus_cpu_dati(
+                    self->_unibus,
+                    off + pdp11_cpu_rx(self, r_i),
+                    &addr
+                ) == Ok)
+                return pdp11_byte_from_unibus(self->_unibus, addr);
+        }
     } break;
     default: assert(false);
     }
 
     return (Pdp11Byte){0};
 }
-
-static Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
-    switch (BITS(encoded, 0, 15)) {
-    case 0000000 ... 0000006:
-    case 0104000 ... 0104777:
-    case 0006400 ... 0006477:
-    case 0000240 ... 0000277:
-        return (Pdp11CpuInstr){
-            .type = PDP11_CPU_INSTR_TYPE_MISC,
-            .u.misc = {.opcode = BITS(encoded, 0, 15)},
-        };
-    }
-    switch (BITS(encoded, 3, 15)) {
-    case 000020:
-    case 000023:  // NOTE this is a valid instruction, just not in PDP-11/40
-        return (Pdp11CpuInstr){
-            .type = PDP11_CPU_INSTR_TYPE_R,
-            .u.r = {.opcode = BITS(encoded, 3, 15), .r = BITS(encoded, 0, 2)},
-        };
-    }
-    switch (BITS(encoded, 6, 15)) {
-    case 00050 ... 00057:
-    case 01050 ... 01057:
-    case 00060 ... 00067:
-    case 01060 ... 01063:
-    case 00001 ... 00003:
-        return (Pdp11CpuInstr){
-            .type = PDP11_CPU_INSTR_TYPE_O,
-            .u.o = {.opcode = BITS(encoded, 6, 15), .o = BITS(encoded, 0, 5)},
-        };
-    }
-    switch (BITS(encoded, 9, 15)) {
-    case 0070 ... 0074:
-    case 0004:
-        return (Pdp11CpuInstr){
-            .type = PDP11_CPU_INSTR_TYPE_RO,
-            .u.ro =
-                {.opcode = BITS(encoded, 9, 15),
-                 .r = BITS(encoded, 6, 8),
-                 .o = BITS(encoded, 0, 5)},
-        };
-    case 0000 ... 0003:
-    case 0100 ... 0103:
-        return (Pdp11CpuInstr){
-            .type = PDP11_CPU_INSTR_TYPE_BRANCH,
-            .u.branch =
-                {.opcode = BITS(encoded, 9, 15),
-                 .cond = BIT(encoded, 8),
-                 .off = BITS(encoded, 0, 7)},
-        };
-    case 0077:
-        return (Pdp11CpuInstr){
-            .type = PDP11_CPU_INSTR_TYPE_SOB,
-            .u.sob =
-                {.opcode = BITS(encoded, 9, 15),
-                 .r = BITS(encoded, 6, 8),
-                 .off = BITS(encoded, 0, 5)},
-        };
-    }
-    switch (BITS(encoded, 12, 15)) {
-    case 001 ... 006:
-    case 011 ... 016:
-        return (Pdp11CpuInstr){
-            .type = PDP11_CPU_INSTR_TYPE_OO,
-            .u.oo =
-                {.opcode = BITS(encoded, 12, 15),
-                 .o0 = BITS(encoded, 6, 11),
-                 .o1 = BITS(encoded, 0, 5)},
-        };
-    }
-
-    return (Pdp11CpuInstr){.type = PDP11_CPU_INSTR_TYPE_ILLEGAL};
-}
-
 static void pdp11_cpu_exec_oo(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
     if (instr.u.oo.opcode & 010 && instr.u.oo.opcode != 016) {
         Pdp11Byte const o0 = pdp11_cpu_address_byte(self, instr.u.oo.o0);
@@ -736,7 +623,7 @@ pdp11_cpu_exec_branch(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
     }
 }
 static void pdp11_cpu_exec_o(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
-    if (instr.u.o.opcode & 010 && instr.u.o.opcode != 01065 &&
+    if (instr.u.o.opcode & 01000 && instr.u.o.opcode != 01065 &&
         instr.u.o.opcode != 01066) {
         Pdp11Byte const o = pdp11_cpu_address_byte(self, instr.u.o.o);
         if (!o.vtbl) return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
@@ -819,32 +706,78 @@ pdp11_cpu_exec_misc(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
     }
 }
 
+static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
+    bool should_trap = false;
+    while (true) {
+        while (self->_state == PDP11_CPU_STATE_HALT ||
+               self->_state == PDP11_CPU_STATE_WAIT)
+            sleep(0);
+
+        if (should_trap) pdp11_cpu_trap(self, PDP11_CPU_TRAP_BPT);
+        should_trap = self->_psw.tf;
+
+        fprintf(stderr, "exec at 0%06o\n", pdp11_cpu_pc(self));  // TODO! temp
+        uint16_t const encoded = pdp11_cpu_fetch(self);
+        Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
+        switch (instr.type) {
+        case PDP11_CPU_INSTR_TYPE_OO: pdp11_cpu_exec_oo(self, instr); break;
+        case PDP11_CPU_INSTR_TYPE_RO: pdp11_cpu_exec_ro(self, instr); break;
+        case PDP11_CPU_INSTR_TYPE_O: pdp11_cpu_exec_o(self, instr); break;
+        case PDP11_CPU_INSTR_TYPE_BRANCH:
+            pdp11_cpu_exec_branch(self, instr);
+            break;
+        case PDP11_CPU_INSTR_TYPE_R: pdp11_cpu_exec_r(self, instr); break;
+        case PDP11_CPU_INSTR_TYPE_SOB:
+            pdp11_cpu_instr_sob(self, instr.u.sob.r, instr.u.sob.off);
+            break;
+        case PDP11_CPU_INSTR_TYPE_MISC: pdp11_cpu_exec_misc(self, instr); break;
+        case PDP11_CPU_INSTR_TYPE_ILLEGAL:
+            pdp11_cpu_trap(self, PDP11_CPU_TRAP_ILLEGAL_INSTR);
+        }
+
+        if (self->_state != PDP11_CPU_STATE_HALT &&
+            self->_state != PDP11_CPU_STATE_WAIT)
+            pdp11_cpu_service_intr(self);
+
+        if (self->_state == PDP11_CPU_STATE_STEP)
+            self->_state = PDP11_CPU_STATE_HALT;
+
+        usleep(10 * 1000);
+    }
+}
+static void *pdp11_cpu_thread(void *const vself) {
+    return pdp11_cpu_thread_helper(vself), NULL;
+};
+
 /************
  ** public **
  ************/
 
 void pdp11_cpu_init(Pdp11Cpu *const self, Unibus *const unibus) {
-    sem_init(&self->__pending_intr_sem, false, 1);
-    self->__pending_intr = PDP11_CPU_NO_TRAP;
-
     for (unsigned i = 0; i < PDP11_CPU_REG_COUNT; i++)
         pdp11_cpu_rx(self, i) = 0;
-    self->_psw = (Pdp11CpuPsw){0};
+    self->_psw = (Pdp11Psw){0};
 
     self->_unibus = unibus;
 
-    self->_state = PDP11_CPU_STATE_RUN;
+    sem_init(&self->__pending_intr_sem, false, 1);
+    self->__pending_intr = PDP11_CPU_NO_TRAP;
+
+    self->_state = PDP11_CPU_STATE_HALT;
+    pthread_create(&self->_thread, NULL, pdp11_cpu_thread, self);
 }
 void pdp11_cpu_uninit(Pdp11Cpu *const self) {
+    pthread_cancel(self->_thread);
+
     sem_destroy(&self->__pending_intr_sem);
 
     pdp11_cpu_pc(self) = 0;
-    self->_psw = (Pdp11CpuPsw){0};
+    self->_psw = (Pdp11Psw){0};
 }
 void pdp11_cpu_reset(Pdp11Cpu *const self) {
     for (unsigned i = 0; i < PDP11_CPU_REG_COUNT; i++)
         pdp11_cpu_rx(self, i) = 0;
-    self->_psw = (Pdp11CpuPsw){0};
+    self->_psw = (Pdp11Psw){0};
     atomic_exchange(&self->__pending_intr, PDP11_CPU_NO_TRAP);
 }
 
@@ -867,57 +800,75 @@ void pdp11_cpu_single_step(Pdp11Cpu *const self) {
     self->_state = PDP11_CPU_STATE_STEP;
 }
 
-uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self) {
-    uint16_t instr;
-    if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self), &instr) != Ok) {
-        pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
-        return pdp11_cpu_fetch(self);
-    }
-    pdp11_cpu_pc(self) += 2;
-    return instr;
-}
-Pdp11CpuInstr pdp11_cpu_decode(Pdp11Cpu *const, uint16_t const encoded) {
-    Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
-    return instr;
-}
-void pdp11_cpu_exec(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
-    bool const should_trap = self->_psw.tf;
-    switch (instr.type) {
-    case PDP11_CPU_INSTR_TYPE_OO: pdp11_cpu_exec_oo(self, instr); break;
-    case PDP11_CPU_INSTR_TYPE_RO: pdp11_cpu_exec_ro(self, instr); break;
-    case PDP11_CPU_INSTR_TYPE_O: pdp11_cpu_exec_o(self, instr); break;
-    case PDP11_CPU_INSTR_TYPE_BRANCH: pdp11_cpu_exec_branch(self, instr); break;
-    case PDP11_CPU_INSTR_TYPE_R: pdp11_cpu_exec_r(self, instr); break;
-    case PDP11_CPU_INSTR_TYPE_SOB:
-        pdp11_cpu_instr_sob(self, instr.u.sob.r, instr.u.sob.off);
-        break;
-    case PDP11_CPU_INSTR_TYPE_MISC: pdp11_cpu_exec_misc(self, instr); break;
-    case PDP11_CPU_INSTR_TYPE_ILLEGAL:
-        return pdp11_cpu_trap(self, PDP11_CPU_TRAP_ILLEGAL_INSTR);
-    }
-
-    if (self->_state == PDP11_CPU_STATE_STEP)
-        self->_state = PDP11_CPU_STATE_HALT;
-
-    while (self->_state == PDP11_CPU_STATE_HALT ||
-           self->_state == PDP11_CPU_STATE_WAIT)
-        sleep(0);
-
-    if (should_trap) pdp11_cpu_trap(self, PDP11_CPU_TRAP_BPT);
-
-    pdp11_cpu_service_intr(self);
-}
-
 /****************
  ** instr impl **
  ****************/
+
+static inline uint32_t xword(uint16_t const word) {
+    return (word & 0x8000 ? 0x10000 : 0x00000) | word;
+}
+static inline uint16_t xbyte(uint8_t const byte) {
+    return (byte & 0x80 ? 0x100 : 0x000) | byte;
+}
+
+static inline void
+pdp11_psw_set_flags_from_word(Pdp11Psw *const self, uint16_t const value) {
+    *self = (Pdp11Psw){
+        .priority = self->priority,
+        .tf = self->tf,
+        .nf = BIT(value, 15),
+        .zf = value == 0,
+        .vf = 0,
+        .cf = self->cf,
+    };
+}
+static inline void
+pdp11_psw_set_flags_from_byte(Pdp11Psw *const self, uint8_t const value) {
+    *self = (Pdp11Psw){
+        .priority = self->priority,
+        .tf = self->tf,
+        .nf = BIT(value, 7),
+        .zf = value == 0,
+        .vf = 0,
+        .cf = self->cf,
+    };
+}
+
+static inline void pdp11_psw_set_flags_from_xword(
+    Pdp11Psw *const self,
+    uint32_t const value,
+    bool const do_invert_cf
+) {
+    *self = (Pdp11Psw){
+        .priority = self->priority,
+        .tf = self->tf,
+        .nf = BIT(value, 15),
+        .zf = (uint16_t)value == 0,
+        .vf = BIT(value, 16) != BIT(value, 15),
+        .cf = BIT(value, 17) != do_invert_cf,
+    };
+}
+static inline void pdp11_psw_set_flags_from_xbyte(
+    Pdp11Psw *const self,
+    uint16_t const value,
+    bool const do_invert_cf
+) {
+    *self = (Pdp11Psw){
+        .priority = self->priority,
+        .tf = self->tf,
+        .nf = BIT(value, 7),
+        .zf = (uint8_t)value == 0,
+        .vf = BIT(value, 8) != BIT(value, 7),
+        .cf = BIT(value, 9) != do_invert_cf,
+    };
+}
 
 // SINGLE-OP
 
 // general
 
 void pdp11_cpu_instr_clr(Pdp11Cpu *const self, Pdp11Word const dst) {
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = 0,
@@ -928,7 +879,7 @@ void pdp11_cpu_instr_clr(Pdp11Cpu *const self, Pdp11Word const dst) {
     dst.vtbl->write(&dst, 0);
 }
 void pdp11_cpu_instr_clrb(Pdp11Cpu *const self, Pdp11Byte const dst) {
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = 0,
@@ -940,7 +891,7 @@ void pdp11_cpu_instr_clrb(Pdp11Cpu *const self, Pdp11Byte const dst) {
 }
 void pdp11_cpu_instr_inc(Pdp11Cpu *const self, Pdp11Word const dst) {
     uint16_t const res = dst.vtbl->read(&dst) + 1;
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 15),
@@ -952,7 +903,7 @@ void pdp11_cpu_instr_inc(Pdp11Cpu *const self, Pdp11Word const dst) {
 }
 void pdp11_cpu_instr_incb(Pdp11Cpu *const self, Pdp11Byte const dst) {
     uint8_t const res = dst.vtbl->read(&dst) + 1;
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 7),
@@ -964,7 +915,7 @@ void pdp11_cpu_instr_incb(Pdp11Cpu *const self, Pdp11Byte const dst) {
 }
 void pdp11_cpu_instr_dec(Pdp11Cpu *const self, Pdp11Word const dst) {
     uint16_t const res = dst.vtbl->read(&dst) - 1;
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 15),
@@ -976,7 +927,7 @@ void pdp11_cpu_instr_dec(Pdp11Cpu *const self, Pdp11Word const dst) {
 }
 void pdp11_cpu_instr_decb(Pdp11Cpu *const self, Pdp11Byte const dst) {
     uint8_t const res = dst.vtbl->read(&dst) - 1;
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 7),
@@ -989,7 +940,7 @@ void pdp11_cpu_instr_decb(Pdp11Cpu *const self, Pdp11Byte const dst) {
 
 void pdp11_cpu_instr_neg(Pdp11Cpu *const self, Pdp11Word const dst) {
     uint16_t const res = -dst.vtbl->read(&dst);
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 15),
@@ -1001,7 +952,7 @@ void pdp11_cpu_instr_neg(Pdp11Cpu *const self, Pdp11Word const dst) {
 }
 void pdp11_cpu_instr_negb(Pdp11Cpu *const self, Pdp11Byte const dst) {
     uint8_t const res = -dst.vtbl->read(&dst);
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 7),
@@ -1014,7 +965,7 @@ void pdp11_cpu_instr_negb(Pdp11Cpu *const self, Pdp11Byte const dst) {
 
 void pdp11_cpu_instr_tst(Pdp11Cpu *const self, Pdp11Word const src) {
     uint16_t const src_val = src.vtbl->read(&src);
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(src_val, 15),
@@ -1025,7 +976,7 @@ void pdp11_cpu_instr_tst(Pdp11Cpu *const self, Pdp11Word const src) {
 }
 void pdp11_cpu_instr_tstb(Pdp11Cpu *const self, Pdp11Byte const src) {
     uint8_t const src_val = src.vtbl->read(&src);
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(src_val, 7),
@@ -1037,7 +988,7 @@ void pdp11_cpu_instr_tstb(Pdp11Cpu *const self, Pdp11Byte const src) {
 
 void pdp11_cpu_instr_com(Pdp11Cpu *const self, Pdp11Word const dst) {
     uint16_t const res = ~dst.vtbl->read(&dst);
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 15),
@@ -1049,7 +1000,7 @@ void pdp11_cpu_instr_com(Pdp11Cpu *const self, Pdp11Word const dst) {
 }
 void pdp11_cpu_instr_comb(Pdp11Cpu *const self, Pdp11Byte const dst) {
     uint8_t const res = ~dst.vtbl->read(&dst);
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 7),
@@ -1065,7 +1016,7 @@ void pdp11_cpu_instr_comb(Pdp11Cpu *const self, Pdp11Byte const dst) {
 void pdp11_cpu_instr_asr(Pdp11Cpu *const self, Pdp11Word const dst) {
     uint16_t const dst_val = dst.vtbl->read(&dst);
     uint16_t const res = dst_val >> 1;
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 15),
@@ -1078,7 +1029,7 @@ void pdp11_cpu_instr_asr(Pdp11Cpu *const self, Pdp11Word const dst) {
 void pdp11_cpu_instr_asrb(Pdp11Cpu *const self, Pdp11Byte const dst) {
     uint8_t const dst_val = dst.vtbl->read(&dst);
     uint8_t const res = dst_val >> 1;
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 7),
@@ -1091,7 +1042,7 @@ void pdp11_cpu_instr_asrb(Pdp11Cpu *const self, Pdp11Byte const dst) {
 void pdp11_cpu_instr_asl(Pdp11Cpu *const self, Pdp11Word const dst) {
     uint16_t const dst_val = dst.vtbl->read(&dst);
     uint16_t const res = dst_val << 1;
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 15),
@@ -1104,7 +1055,7 @@ void pdp11_cpu_instr_asl(Pdp11Cpu *const self, Pdp11Word const dst) {
 void pdp11_cpu_instr_aslb(Pdp11Cpu *const self, Pdp11Byte const dst) {
     uint8_t const dst_val = dst.vtbl->read(&dst);
     uint8_t const res = dst_val << 1;
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 7),
@@ -1131,7 +1082,7 @@ void pdp11_cpu_instr_ash(
     uint16_t const res =
         do_shift_right ? dst_val >> shift_amount : dst_val << shift_amount;
 
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(dst_val, 15),
@@ -1159,7 +1110,7 @@ void pdp11_cpu_instr_ashc(
     uint32_t const res =
         do_shift_right ? dst_val >> shift_amount : dst_val << shift_amount;
 
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 31),
@@ -1175,7 +1126,7 @@ void pdp11_cpu_instr_ashc(
 
 void pdp11_cpu_instr_adc(Pdp11Cpu *const self, Pdp11Word const dst) {
     uint16_t const res = dst.vtbl->read(&dst) + self->_psw.cf;
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 15),
@@ -1187,7 +1138,7 @@ void pdp11_cpu_instr_adc(Pdp11Cpu *const self, Pdp11Word const dst) {
 }
 void pdp11_cpu_instr_adcb(Pdp11Cpu *const self, Pdp11Byte const dst) {
     uint8_t const res = dst.vtbl->read(&dst) + self->_psw.cf;
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 7),
@@ -1199,7 +1150,7 @@ void pdp11_cpu_instr_adcb(Pdp11Cpu *const self, Pdp11Byte const dst) {
 }
 void pdp11_cpu_instr_sbc(Pdp11Cpu *const self, Pdp11Word const dst) {
     uint16_t const res = dst.vtbl->read(&dst) - self->_psw.cf;
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 15),
@@ -1211,7 +1162,7 @@ void pdp11_cpu_instr_sbc(Pdp11Cpu *const self, Pdp11Word const dst) {
 }
 void pdp11_cpu_instr_sbcb(Pdp11Cpu *const self, Pdp11Byte const dst) {
     uint8_t const res = dst.vtbl->read(&dst) + self->_psw.cf;
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 7),
@@ -1223,7 +1174,7 @@ void pdp11_cpu_instr_sbcb(Pdp11Cpu *const self, Pdp11Byte const dst) {
 }
 
 void pdp11_cpu_instr_sxt(Pdp11Cpu *const self, Pdp11Word const dst) {
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = self->_psw.nf,
@@ -1239,7 +1190,7 @@ void pdp11_cpu_instr_sxt(Pdp11Cpu *const self, Pdp11Word const dst) {
 void pdp11_cpu_instr_ror(Pdp11Cpu *const self, Pdp11Word const dst) {
     uint16_t const dst_val = dst.vtbl->read(&dst);
     uint16_t const res = (dst_val >> 1) | (BIT(dst_val, 0) << 15);
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = self->_psw.cf,
@@ -1252,7 +1203,7 @@ void pdp11_cpu_instr_ror(Pdp11Cpu *const self, Pdp11Word const dst) {
 void pdp11_cpu_instr_rorb(Pdp11Cpu *const self, Pdp11Byte const dst) {
     uint8_t const dst_val = dst.vtbl->read(&dst);
     uint8_t const res = (dst_val >> 1) | (BIT(dst_val, 0) << 7);
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = self->_psw.cf,
@@ -1265,7 +1216,7 @@ void pdp11_cpu_instr_rorb(Pdp11Cpu *const self, Pdp11Byte const dst) {
 void pdp11_cpu_instr_rol(Pdp11Cpu *const self, Pdp11Word const dst) {
     uint16_t const dst_val = dst.vtbl->read(&dst);
     uint16_t const res = (dst_val << 1) | self->_psw.cf;
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 15),
@@ -1278,7 +1229,7 @@ void pdp11_cpu_instr_rol(Pdp11Cpu *const self, Pdp11Word const dst) {
 void pdp11_cpu_instr_rolb(Pdp11Cpu *const self, Pdp11Byte const dst) {
     uint8_t const dst_val = dst.vtbl->read(&dst);
     uint8_t const res = (dst_val << 1) | self->_psw.cf;
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 7),
@@ -1292,7 +1243,7 @@ void pdp11_cpu_instr_rolb(Pdp11Cpu *const self, Pdp11Byte const dst) {
 void pdp11_cpu_instr_swab(Pdp11Cpu *const self, Pdp11Word const dst) {
     uint16_t const dst_val = dst.vtbl->read(&dst);
     uint8_t const res = (uint16_t)(dst_val << 8) | (uint8_t)(dst_val >> 8);
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 7),
@@ -1313,7 +1264,7 @@ void pdp11_cpu_instr_mov(
     Pdp11Word const dst
 ) {
     uint16_t const src_val = src.vtbl->read(&src);
-    pdp11_cpu_stat_set_flags_from_word(&self->_psw, src_val);
+    pdp11_psw_set_flags_from_word(&self->_psw, src_val);
     dst.vtbl->write(&dst, src_val);
 }
 void pdp11_cpu_instr_movb(
@@ -1322,7 +1273,7 @@ void pdp11_cpu_instr_movb(
     Pdp11Byte const dst
 ) {
     uint8_t const src_val = src.vtbl->read(&src);
-    pdp11_cpu_stat_set_flags_from_byte(&self->_psw, src_val);
+    pdp11_psw_set_flags_from_byte(&self->_psw, src_val);
     if (dst.vtbl == &pdp11_cpu_reg_byte_vtbl) {
         Pdp11Word const dstw = pdp11_word_from_cpu_reg(self, dst.addr);
         pdp11_cpu_reg_word_write(&dstw, (int16_t)(int8_t)src_val);
@@ -1337,7 +1288,7 @@ void pdp11_cpu_instr_add(
 ) {
     uint32_t const res =
         xword(src.vtbl->read(&src)) + xword(dst.vtbl->read(&dst));
-    pdp11_cpu_stat_set_flags_from_xword(&self->_psw, res, false);
+    pdp11_psw_set_flags_from_xword(&self->_psw, res, false);
     dst.vtbl->write(&dst, res);
 }
 void pdp11_cpu_instr_sub(
@@ -1347,7 +1298,7 @@ void pdp11_cpu_instr_sub(
 ) {
     uint32_t const res =
         xword(src.vtbl->read(&src)) + xword(-dst.vtbl->read(&dst));
-    pdp11_cpu_stat_set_flags_from_xword(&self->_psw, res, true);
+    pdp11_psw_set_flags_from_xword(&self->_psw, res, true);
     dst.vtbl->write(&dst, res);
 }
 void pdp11_cpu_instr_cmp(
@@ -1355,7 +1306,7 @@ void pdp11_cpu_instr_cmp(
     Pdp11Word const src,
     Pdp11Word const dst
 ) {
-    pdp11_cpu_stat_set_flags_from_xword(
+    pdp11_psw_set_flags_from_xword(
         &self->_psw,
         xword(src.vtbl->read(&src)) + xword(-dst.vtbl->read(&dst)),
         true
@@ -1366,7 +1317,7 @@ void pdp11_cpu_instr_cmpb(
     Pdp11Byte const src,
     Pdp11Byte const dst
 ) {
-    pdp11_cpu_stat_set_flags_from_xbyte(
+    pdp11_psw_set_flags_from_xbyte(
         &self->_psw,
         xbyte(src.vtbl->read(&src)) + xbyte(-dst.vtbl->read(&dst)),
         true
@@ -1385,7 +1336,7 @@ void pdp11_cpu_instr_mul(
 
     uint32_t const res =
         (int16_t)dst0.vtbl->read(&dst0) * (int16_t)src.vtbl->read(&src);
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(res, 15),
@@ -1419,7 +1370,7 @@ void pdp11_cpu_instr_div(
         self->_psw.vf = 1;
         return;
     }
-    self->_psw = (Pdp11CpuPsw){
+    self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
         .nf = BIT(quotient, 15),
@@ -1438,7 +1389,7 @@ void pdp11_cpu_instr_xor(
 ) {
     Pdp11Word const src = pdp11_word_from_cpu_reg(self, r_i);
     uint16_t const res = dst.vtbl->read(&dst) ^ src.vtbl->read(&src);
-    pdp11_cpu_stat_set_flags_from_word(&self->_psw, res);
+    pdp11_psw_set_flags_from_word(&self->_psw, res);
     dst.vtbl->write(&dst, res);
 }
 
@@ -1449,7 +1400,7 @@ void pdp11_cpu_instr_bit(
     Pdp11Word const src,
     Pdp11Word const dst
 ) {
-    pdp11_cpu_stat_set_flags_from_word(
+    pdp11_psw_set_flags_from_word(
         &self->_psw,
         dst.vtbl->read(&dst) & src.vtbl->read(&src)
     );
@@ -1459,7 +1410,7 @@ void pdp11_cpu_instr_bitb(
     Pdp11Byte const src,
     Pdp11Byte const dst
 ) {
-    pdp11_cpu_stat_set_flags_from_byte(
+    pdp11_psw_set_flags_from_byte(
         &self->_psw,
         dst.vtbl->read(&dst) & src.vtbl->read(&src)
     );
@@ -1625,7 +1576,7 @@ void pdp11_cpu_instr_rti_rtt(Pdp11Cpu *const self) {
     if (pdp11_stack_pop(self, &pdp11_cpu_pc(self)) != Ok ||
         pdp11_stack_pop(self, &old_stat_word) != Ok)
         return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
-    self->_psw = pdp11_cpu_stat_from_word(old_stat_word);
+    self->_psw = pdp11_psw(old_stat_word);
 }
 
 // MISC.

@@ -2,6 +2,8 @@
 
 #include <stdlib.h>
 
+#include "conviniences.h"
+
 static void pdp11_console_reset(Pdp11Console *const self) {
     self->_addr_register = self->_data_register = 0;
 
@@ -67,30 +69,24 @@ uint16_t pdp11_console_data_indicator(Pdp11Console const *const self) {
 
 void pdp11_console_next_power_control(Pdp11Console *const self) {
     switch (self->_power_control_switch) {
-    case PDP11_CONSOLE_POWER_CONTROL_OFF: {
-        pdp11_power_up(self->_pdp11);
+    case PDP11_CONSOLE_POWER_CONTROL_OFF:
         self->_power_control_switch = PDP11_CONSOLE_POWER_CONTROL_POWER;
-    } break;
-
-    case PDP11_CONSOLE_POWER_CONTROL_POWER: {
+        break;
+    case PDP11_CONSOLE_POWER_CONTROL_POWER:
         self->_power_control_switch = PDP11_CONSOLE_POWER_CONTROL_LOCK;
-    } break;
-
+        break;
     case PDP11_CONSOLE_POWER_CONTROL_LOCK: break;
     }
 }
 void pdp11_console_prev_power_control(Pdp11Console *const self) {
     switch (self->_power_control_switch) {
     case PDP11_CONSOLE_POWER_CONTROL_OFF: break;
-
-    case PDP11_CONSOLE_POWER_CONTROL_POWER: {
-        pdp11_power_down(self->_pdp11);
+    case PDP11_CONSOLE_POWER_CONTROL_POWER:
         self->_power_control_switch = PDP11_CONSOLE_POWER_CONTROL_OFF;
-    } break;
-
-    case PDP11_CONSOLE_POWER_CONTROL_LOCK: {
+        break;
+    case PDP11_CONSOLE_POWER_CONTROL_LOCK:
         self->_power_control_switch = PDP11_CONSOLE_POWER_CONTROL_POWER;
-    } break;
+        break;
     }
 }
 
@@ -122,11 +118,22 @@ void pdp11_console_press_deposit(Pdp11Console *const self) {
     self->_is_examine_pressed_consecutively = false;
 
     self->_data_register = self->_switch_register;
-    unibus_cpu_dato(
-        &self->_pdp11->unibus,
-        self->_addr_register,
-        self->_data_register
-    );
+    switch (self->_addr_register) {
+    case PDP11_CONSOLE_CPU_REG_ADDRESS ... PDP11_CONSOLE_CPU_REG_ADDRESS +
+        7 * 2: {
+        pdp11_cpu_rx(
+            &self->_pdp11->cpu,
+            self->_addr_register - PDP11_CONSOLE_CPU_REG_ADDRESS
+        ) = self->_data_register;
+    } break;
+    default: {
+        unibus_cpu_dato(
+            &self->_pdp11->unibus,
+            self->_addr_register,
+            self->_data_register
+        );
+    } break;
+    }
 }
 void pdp11_console_press_examine(Pdp11Console *const self) {
     if (self->_enable_switch ||
@@ -137,20 +144,32 @@ void pdp11_console_press_examine(Pdp11Console *const self) {
     self->_is_examine_pressed_consecutively = true;
     self->_is_deposit_pressed_consecutively = false;
 
-    unibus_cpu_dati(
-        &self->_pdp11->unibus,
-        self->_addr_register,
-        &self->_data_register
-    );
+    switch (self->_addr_register) {
+    case PDP11_CONSOLE_CPU_REG_ADDRESS ... PDP11_CONSOLE_CPU_REG_ADDRESS +
+        7 * 2: {
+        self->_data_register = pdp11_cpu_rx(
+            &self->_pdp11->cpu,
+            self->_addr_register - PDP11_CONSOLE_CPU_REG_ADDRESS
+        );
+    } break;
+    default: {
+        unibus_cpu_dati(
+            &self->_pdp11->unibus,
+            self->_addr_register,
+            &self->_data_register
+        );
+    } break;
+    }
 }
 
 void pdp11_console_press_continue(Pdp11Console *const self) {
     if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_LOCK) return;
 
-    uint16_t const addr = self->_addr_register;
-
-    unibus_reset(&self->_pdp11->unibus);
-    if (self->_enable_switch) pdp11_cpu_pc(&self->_pdp11->cpu) = addr;
+    if (self->_enable_switch) {
+        pdp11_cpu_continue(&self->_pdp11->cpu);
+    } else {
+        pdp11_cpu_single_step(&self->_pdp11->cpu);
+    }
 }
 void pdp11_console_toggle_enable(Pdp11Console *const self) {
     if (self->_enable_switch) {
@@ -163,11 +182,13 @@ void pdp11_console_toggle_enable(Pdp11Console *const self) {
 void pdp11_console_press_start(Pdp11Console *const self) {
     if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_LOCK) return;
 
+    // NOTE after reset, `_addr_register` will become zero, so we cache it
+    uint16_t const addr = self->_addr_register;
+
+    unibus_reset(&self->_pdp11->unibus);
     if (self->_enable_switch) {
-        pdp11_cpu_pc(&self->_pdp11->cpu) = 0;  // TODO!!! defenetely not
+        pdp11_cpu_pc(&self->_pdp11->cpu) = addr;
         pdp11_cpu_continue(&self->_pdp11->cpu);
-    } else {
-        pdp11_cpu_single_step(&self->_pdp11->cpu);
     }
 }
 
@@ -208,6 +229,43 @@ unsigned pdp11_console_address_light(Pdp11Console const *const self) {
              ? false
              : pdp11_console_simulated_light(self) << 1 |
                    pdp11_console_simulated_light(self);
+}
+
+void pdp11_console_insert_bootstrap(Pdp11Console *const self) {
+    static uint16_t const bootstrap[] = {
+        0016701,
+        0000026,
+        0012702,
+        0000352,
+        0005211,
+        0105711,
+        0100376,
+        0116162,
+        0000002,
+        0037400,
+        0005267,
+        0177756,
+        0000765,
+        0177550,
+    };
+
+    if (self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF ||
+        self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_LOCK ||
+        self->_enable_switch)
+        return;
+
+    pdp11_console_press_start(self);
+    self->_switch_register = PDP11_BOOTSTRAP_ADDR;
+    pdp11_console_press_load_addr(self);
+    foreach (instr_ptr, bootstrap, bootstrap + lenof(bootstrap)) {
+        self->_switch_register = *instr_ptr;
+        pdp11_console_press_deposit(self);
+    }
+
+    self->_switch_register = PDP11_BOOTSTRAP_ADDR;
+    pdp11_console_press_load_addr(self);
+    pdp11_console_press_examine(self);
+    pdp11_console_press_load_addr(self);
 }
 
 UnibusDevice pdp11_console_ww_unibus_device(Pdp11Console *const self) {

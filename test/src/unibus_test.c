@@ -80,14 +80,14 @@ static MiunteResult unibus_test_br() {
     pthread_t thread;
     pthread_create(&thread, NULL, lower_cpu_priority_thread, &pdp.cpu);
     MIUNTE_EXPECT(
-        ((Pdp11CpuPsw volatile)pdp11_cpu_psw(&pdp.cpu)).priority >= 03,
+        ((Pdp11Psw volatile)pdp11_cpu_psw(&pdp.cpu)).priority >= 03,
         "test will be more useful if starting priority is greater than that of an interrupt"
     );
 
     unibus_br_intr(&pdp.unibus, 03, device, trap);
 
     MIUNTE_EXPECT(
-        ((Pdp11CpuPsw volatile)pdp11_cpu_psw(&pdp.cpu)).priority < 03,
+        ((Pdp11Psw volatile)pdp11_cpu_psw(&pdp.cpu)).priority < 03,
         "interrupt should wait til CPU priority becomes sufficient"
     );
     pthread_cancel(thread);
@@ -98,7 +98,14 @@ static MiunteResult unibus_test_br() {
         pdp11_cpu_pc(&pdp.cpu) != trap_pc,
         "PC should not be on trap even after the BR, before instruction is finished executing"
     );
-    pdp11_cpu_exec(&pdp.cpu, pdp11_cpu_decode(&pdp.cpu, 0010000));
+    unibus_npr_dato(
+        &pdp.unibus,
+        UNIBUS_DEVICE_CPU,
+        pdp11_cpu_pc(&pdp.cpu),
+        0010000 /* mov R0, R0 */
+    );
+    pdp11_cpu_single_step(&pdp.cpu);
+    while (pdp11_cpu_state(&pdp.cpu) != PDP11_CPU_STATE_HALT) sleep(0);
     MIUNTE_EXPECT(
         pdp11_cpu_pc(&pdp.cpu) == trap_pc,
         "PC should be on trap after BR, after the next instruction is executed"

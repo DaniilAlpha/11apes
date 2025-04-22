@@ -4,7 +4,6 @@
 
 #include "pdp11/pdp11.h"
 #include "pdp11/pdp11_console.h"
-#include "pdp11/pdp11_rom.h"
 
 // WARN shit code below!!!
 
@@ -93,7 +92,6 @@ void draw_switch_register(
     for (unsigned i = 0; i < 16; ++i) {
         bool is_on = (value >> (15 - i)) & 1;
         bool is_selected = current_selection - SELECT_SWITCH_REG_BIT_0 == i;
-        // Use different symbols for switches if desired, e.g., [v] /^]
         attr_t attr =
             is_on ? COLOR_PAIR(COLOR_PAIR_ON) : COLOR_PAIR(COLOR_PAIR_OFF);
         if (is_selected) { attr = COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE; }
@@ -102,7 +100,7 @@ void draw_switch_register(
         mvprintw(
             y,
             x_start + i * 3 + (i + 2) / 3,
-            is_on ? "/\"\\" : "\\_/"
+            is_on ? "'-'" : "|_|"
         );  // Down=1, Up=0
         attroff(attr);
     }
@@ -177,9 +175,9 @@ void draw_power_switch(
     attr_t const attr = COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE;
     if (is_selected) attron(attr);
     switch (power_state) {
-    case PDP11_CONSOLE_POWER_CONTROL_OFF: mvprintw(y, x + 3, "<- "); break;
-    case PDP11_CONSOLE_POWER_CONTROL_POWER: mvprintw(y, x + 3, " ^ "); break;
-    case PDP11_CONSOLE_POWER_CONTROL_LOCK: mvprintw(y, x + 3, " ->"); break;
+    case PDP11_CONSOLE_POWER_CONTROL_OFF: mvprintw(y, x + 3 + 1, "<"); break;
+    case PDP11_CONSOLE_POWER_CONTROL_POWER: mvprintw(y, x + 3 + 1, "^"); break;
+    case PDP11_CONSOLE_POWER_CONTROL_LOCK: mvprintw(y, x + 3 + 1, ">"); break;
     }
     if (is_selected) attroff(attr);
 }
@@ -200,7 +198,7 @@ void draw_control_buttons(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
     );
-    mvprintw(y, x, "\\#/");
+    mvprintw(y, x, "|-|");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
@@ -214,7 +212,7 @@ void draw_control_buttons(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
     );
-    mvprintw(y, x, "\\#/");
+    mvprintw(y, x, "|-|");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
@@ -228,7 +226,7 @@ void draw_control_buttons(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
     );
-    mvprintw(y, x, "\\#/");
+    mvprintw(y, x, "|-|");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
@@ -243,7 +241,7 @@ void draw_control_buttons(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(enable_state ? COLOR_PAIR_ON : COLOR_PAIR_OFF)
     );
-    mvprintw(y, x, enable_state ? "/\"\\" : "\\_/");
+    mvprintw(y, x, enable_state ? "'-'" : "|_|");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(enable_state ? COLOR_PAIR_ON : COLOR_PAIR_OFF)
@@ -257,7 +255,7 @@ void draw_control_buttons(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
     );
-    mvprintw(y, x, "\\#/");
+    mvprintw(y, x, "|-|");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
@@ -273,7 +271,7 @@ void draw_control_buttons(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
     );
-    mvprintw(y, x, "\\#/");
+    mvprintw(y, x, "|-|");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(COLOR_PAIR_LABEL)
@@ -441,16 +439,11 @@ void run_console_ui(Pdp11Console *console) {
         case 'H': pdp11_console_toggle_enable(console); break;
         case 's':
         case 'S': pdp11_console_press_start(console); break;
+        case 'b':
+        case 'B': pdp11_console_insert_bootstrap(console); break;
 
-        case ERR:  // Timeout, no input
-            // This is where you might let the emulator run a cycle
-            // if the UI is integrated into the main loop.
-            break;
-
-        default:
-            // Optional: Beep on invalid key
-            // beep();
-            break;
+        case ERR:
+        default: continue;
         }
     }
 
@@ -461,22 +454,20 @@ int main() {
     Pdp11 pdp = {0};
     UNROLL(pdp11_init(&pdp));
 
-    Pdp11Rom rom = {0};
-    FILE *const file = fopen("res/m9342-248f1.bin", "r");
-    if (!file) return 1;
-    UNROLL(pdp11_rom_init_file(&rom, 0077744, file));
-    fclose(file);
-    pdp.unibus.devices[PDP11_FIRST_USER_DEVICE + 0] =
-        pdp11_rom_ww_unibus_device(&rom);
-
     Pdp11Console console = {0};
     pdp11_console_init(&console, &pdp);
 
+    // Pdp11Rom rom = {0};
+    // FILE *const file = fopen("res/m9342-248f1.bin", "r");
+    // if (!file) return 1;
+    // UNROLL(pdp11_rom_init_file(&rom, 0077744, file));
+    // fclose(file);
+    // pdp.unibus.devices[PDP11_FIRST_USER_DEVICE + 0] =
+    //     pdp11_rom_ww_unibus_device(&rom);
+
     run_console_ui(&console);
 
-    pdp11_rom_uninit(&rom);
-
-    pdp11_power_down(&pdp);
+    // pdp11_rom_uninit(&rom);
     pdp11_uninit(&pdp);
 
     return 0;

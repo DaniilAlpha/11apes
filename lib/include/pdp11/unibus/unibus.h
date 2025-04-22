@@ -12,10 +12,9 @@
 
 #define UNIBUS_DEVICE_COUNT (8)
 
-#define UNIBUS_CPU_REG_ADDRESS  (0177700)
-#define UNIBUS_CPU_STAT_ADDRESS (0177776)
-
 #define UNIBUS_DEVICE_CPU (NULL)
+
+#define UNIBUS_CPU_PSW_ADDRESS (0177776)
 
 typedef struct Pdp11Cpu Pdp11Cpu;
 typedef struct Unibus {

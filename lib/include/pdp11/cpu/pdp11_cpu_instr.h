@@ -51,4 +51,6 @@ typedef struct Pdp11CpuInstr {
 } Pdp11CpuInstr;
 static_assert(sizeof((Pdp11CpuInstr){0}.u) == sizeof(uint16_t));
 
+Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded);
+
 #endif
