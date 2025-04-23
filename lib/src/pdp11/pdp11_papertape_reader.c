@@ -1,5 +1,8 @@
 #include "pdp11/pdp11_papertape_reader.h"
 
+#include <string.h>
+
+#include <errno.h>
 #include <unistd.h>
 
 #include "bits.h"
@@ -35,6 +38,7 @@ static bool pdp11_papertape_reader_try_read(
     } else if (addr == self->_starting_addr + 2) {
         self->_status.done = false;
         *out = self->_buffer;
+        self->_buffer = 0;
         return true;
     }
     return false;
@@ -79,8 +83,7 @@ static void pdp11_papertape_reader_thread_helper(
             self->_status.done = false;
             self->_buffer = 0;
 
-            if (self->_tape ? fread(&self->_buffer, 1, 1, self->_tape) != 1
-                            : (self->_buffer = 0xFF, 1)) {
+            if (!self->_tape || fread(&self->_buffer, 1, 1, self->_tape) != 1) {
                 self->_status.error = true;
             } else {
                 self->_status.done = true;

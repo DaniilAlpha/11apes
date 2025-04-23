@@ -1,5 +1,6 @@
 #include "pdp11/pdp11_console.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "conviniences.h"
@@ -120,11 +121,9 @@ void pdp11_console_press_deposit(Pdp11Console *const self) {
     self->_data_register = self->_switch_register;
     switch (self->_addr_register) {
     case PDP11_CONSOLE_CPU_REG_ADDRESS ... PDP11_CONSOLE_CPU_REG_ADDRESS +
-        7 * 2: {
-        pdp11_cpu_rx(
-            &self->_pdp11->cpu,
-            self->_addr_register - PDP11_CONSOLE_CPU_REG_ADDRESS
-        ) = self->_data_register;
+        7 * 2 - 1: {
+        unsigned const r_i = (self->_addr_register >> 1) & 07;
+        pdp11_cpu_rx(&self->_pdp11->cpu, r_i) = self->_data_register;
     } break;
     default: {
         unibus_cpu_dato(
@@ -146,11 +145,9 @@ void pdp11_console_press_examine(Pdp11Console *const self) {
 
     switch (self->_addr_register) {
     case PDP11_CONSOLE_CPU_REG_ADDRESS ... PDP11_CONSOLE_CPU_REG_ADDRESS +
-        7 * 2: {
-        self->_data_register = pdp11_cpu_rx(
-            &self->_pdp11->cpu,
-            self->_addr_register - PDP11_CONSOLE_CPU_REG_ADDRESS
-        );
+        7 * 2 - 1: {
+        unsigned const r_i = (self->_addr_register >> 1) & 07;
+        self->_data_register = pdp11_cpu_rx(&self->_pdp11->cpu, r_i);
     } break;
     default: {
         unibus_cpu_dati(
@@ -186,10 +183,8 @@ void pdp11_console_press_start(Pdp11Console *const self) {
     uint16_t const addr = self->_addr_register;
 
     unibus_reset(&self->_pdp11->unibus);
-    if (self->_enable_switch) {
-        pdp11_cpu_pc(&self->_pdp11->cpu) = addr;
-        pdp11_cpu_continue(&self->_pdp11->cpu);
-    }
+    pdp11_cpu_pc(&self->_pdp11->cpu) = addr;
+    if (self->_enable_switch) pdp11_cpu_continue(&self->_pdp11->cpu);
 }
 
 bool pdp11_console_run_light(Pdp11Console const *const self) {
@@ -242,9 +237,9 @@ void pdp11_console_insert_bootstrap(Pdp11Console *const self) {
         0100376,
         0116162,
         0000002,
-        0037400,
+        (PDP11_BOOTSTRAP_ADDR & ~07777) | 0007400,
         0005267,
-        0177756,
+        0137756,
         0000765,
         0177550,
     };
