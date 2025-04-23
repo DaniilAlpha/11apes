@@ -34,12 +34,15 @@ static inline Pdp11ConsolePowerControl pdp11_console_power_control(
 ) {
     return self->_power_control_switch;
 }
-
 static inline uint16_t pdp11_console_switch_register(
     Pdp11Console const *const self
 ) {
     return self->_switch_register;
 }
+static inline bool pdp11_console_enable_switch(Pdp11Console const *const self) {
+    return self->_enable_switch;
+}
+
 uint16_t pdp11_console_address_indicator(Pdp11Console const *const self);
 uint16_t pdp11_console_data_indicator(Pdp11Console const *const self);
 

@@ -237,7 +237,7 @@ void draw_control_buttons(
     // ENABLE/HALT Toggle Switch
     selected = (current_selection == SELECT_ENABLE);
     mvprintw(y - 1, x, "E/H");
-    bool const enable_state = console->_enable_switch;
+    bool const enable_state = pdp11_console_enable_switch(console);
     attron(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
                  : COLOR_PAIR(enable_state ? COLOR_PAIR_ON : COLOR_PAIR_OFF)
