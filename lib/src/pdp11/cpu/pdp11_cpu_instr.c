@@ -24,7 +24,8 @@ Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
     switch (BITS(encoded, 6, 15)) {
     case 00050 ... 00057:
     case 01050 ... 01057:
-    case 00060 ... 00067:
+    case 00060 ... 00064:
+    case 00067:
     case 01060 ... 01063:
     case 00001 ... 00003:
         return (Pdp11CpuInstr){

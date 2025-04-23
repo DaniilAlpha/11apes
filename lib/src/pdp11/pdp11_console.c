@@ -4,38 +4,6 @@
 
 #include "conviniences.h"
 
-static void pdp11_console_reset(Pdp11Console *const self) {
-    self->_addr_register = self->_data_register = 0;
-
-    self->_is_deposit_pressed_consecutively = false;
-    self->_is_examine_pressed_consecutively = false;
-}
-static bool pdp11_console_try_read(
-    Pdp11Console *const self,
-    uint16_t const addr,
-    uint16_t *const out
-) {
-    if (addr != PDP11_CONSOLE_SWITCH_REGISTER_ADDR) return false;
-
-    *out = self->_switch_register;
-
-    return true;
-}
-static bool pdp11_console_try_write_word(
-    Pdp11Console *const,
-    uint16_t const addr,
-    uint16_t const
-) {
-    return addr == PDP11_CONSOLE_SWITCH_REGISTER_ADDR;
-}
-static bool pdp11_console_try_write_byte(
-    Pdp11Console *const,
-    uint16_t const addr,
-    uint8_t const
-) {
-    return addr == PDP11_CONSOLE_SWITCH_REGISTER_ADDR;
-}
-
 static bool pdp11_console_simulated_light(Pdp11Console const *const self) {
     return pdp11_cpu_state(&self->_pdp11->cpu) == PDP11_CPU_STATE_RUN &&
            rand() & 1;
@@ -263,6 +231,41 @@ void pdp11_console_insert_bootstrap(Pdp11Console *const self) {
     pdp11_console_press_load_addr(self);
 }
 
+/***************
+ ** interface **
+ ***************/
+
+static void pdp11_console_reset(Pdp11Console *const self) {
+    self->_addr_register = self->_data_register = 0;
+
+    self->_is_deposit_pressed_consecutively = false;
+    self->_is_examine_pressed_consecutively = false;
+}
+static bool pdp11_console_try_read(
+    Pdp11Console *const self,
+    uint16_t const addr,
+    uint16_t *const out
+) {
+    if (addr != PDP11_CONSOLE_SWITCH_REGISTER_ADDR) return false;
+
+    *out = self->_switch_register;
+
+    return true;
+}
+static bool pdp11_console_try_write_word(
+    Pdp11Console *const,
+    uint16_t const addr,
+    uint16_t const
+) {
+    return addr == PDP11_CONSOLE_SWITCH_REGISTER_ADDR;
+}
+static bool pdp11_console_try_write_byte(
+    Pdp11Console *const,
+    uint16_t const addr,
+    uint8_t const
+) {
+    return addr == PDP11_CONSOLE_SWITCH_REGISTER_ADDR;
+}
 UnibusDevice pdp11_console_ww_unibus_device(Pdp11Console *const self) {
     WRAP_BODY(
         UnibusDevice,

@@ -7,44 +7,6 @@
 #include <assert.h>
 #include <woodi.h>
 
-static void pdp11_ram_reset(Pdp11Ram *const) {}
-static bool pdp11_ram_try_read(
-    Pdp11Ram *const self,
-    uint16_t addr,
-    uint16_t *const out_val
-) {
-    addr -= self->_starting_addr;
-    if (!(addr < self->_size)) return false;
-
-    *out_val = *(uint16_t *)(self->_data + addr);
-
-    return true;
-}
-static bool pdp11_ram_try_write_word(
-    Pdp11Ram *const self,
-    uint16_t addr,
-    uint16_t const val
-) {
-    addr -= self->_starting_addr;
-    if (!(addr < self->_size)) return false;
-
-    *(uint16_t *)(self->_data + addr) = val;
-
-    return true;
-}
-static bool pdp11_ram_try_write_byte(
-    Pdp11Ram *const self,
-    uint16_t addr,
-    uint8_t const val
-) {
-    addr -= self->_starting_addr;
-    if (!(addr < self->_size)) return false;
-
-    *(uint8_t *)(self->_data + addr) = val;
-
-    return true;
-}
-
 static Result pdp11_ram_read_from_file(Pdp11Ram *const self) {
     if (!self->_filepath) return StateErr;
 
@@ -99,6 +61,47 @@ void pdp11_ram_uninit(Pdp11Ram *const self) {
     self->_starting_addr = self->_size = 0;
 }
 
+/***************
+ ** interface **
+ ***************/
+
+static void pdp11_ram_reset(Pdp11Ram *const) {}
+static bool pdp11_ram_try_read(
+    Pdp11Ram *const self,
+    uint16_t addr,
+    uint16_t *const out_val
+) {
+    addr -= self->_starting_addr;
+    if (!(addr < self->_size)) return false;
+
+    *out_val = *(uint16_t *)(self->_data + addr);
+
+    return true;
+}
+static bool pdp11_ram_try_write_word(
+    Pdp11Ram *const self,
+    uint16_t addr,
+    uint16_t const val
+) {
+    addr -= self->_starting_addr;
+    if (!(addr < self->_size)) return false;
+
+    *(uint16_t *)(self->_data + addr) = val;
+
+    return true;
+}
+static bool pdp11_ram_try_write_byte(
+    Pdp11Ram *const self,
+    uint16_t addr,
+    uint8_t const val
+) {
+    addr -= self->_starting_addr;
+    if (!(addr < self->_size)) return false;
+
+    *(uint8_t *)(self->_data + addr) = val;
+
+    return true;
+}
 UnibusDevice pdp11_ram_ww_unibus_device(Pdp11Ram *const self) {
     WRAP_BODY(
         UnibusDevice,

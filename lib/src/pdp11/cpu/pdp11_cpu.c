@@ -108,7 +108,8 @@ pdp11_byte_from_cpu_reg(Pdp11Cpu *const cpu, uint16_t const r_i) {
 
 static uint8_t pdp11_unibus_byte_read(Pdp11Byte const *const self) {
     uint16_t data;
-    return unibus_cpu_dati(self->owner, self->addr, &data), data;
+    unibus_cpu_dati(self->owner, self->addr & ~1, &data);
+    return self->addr & 1 ? (uint8_t)(data >> 8) : (uint8_t)data;
 }
 static void
 pdp11_unibus_byte_write(Pdp11Byte const *const self, uint8_t const value) {
@@ -121,7 +122,7 @@ pdp11_byte_from_unibus(Unibus *const unibus, uint16_t const addr) {
         .write = pdp11_unibus_byte_write,
     };
     uint16_t _;
-    if (unibus_cpu_dati(unibus, addr, &_) != Ok) return (Pdp11Byte){0};
+    if (unibus_cpu_dati(unibus, addr & ~1, &_) != Ok) return (Pdp11Byte){0};
     return (Pdp11Byte){.addr = addr, .owner = unibus, .vtbl = &vtbl};
 }
 
@@ -369,15 +370,6 @@ forceinline void pdp11_cpu_instr_wait(Pdp11Cpu *const self);
 forceinline void pdp11_cpu_instr_reset(Pdp11Cpu *const self);
 // NOTE `nop` is already implemented with `clnzvc`/`senzvc`
 
-forceinline void
-pdp11_cpu_instr_mtpd(Pdp11Cpu *const self, Pdp11Word const dst);
-forceinline void
-pdp11_cpu_instr_mtpi(Pdp11Cpu *const self, Pdp11Word const dst);
-forceinline void
-pdp11_cpu_instr_mfpd(Pdp11Cpu *const self, Pdp11Word const src);
-forceinline void
-pdp11_cpu_instr_mfpi(Pdp11Cpu *const self, Pdp11Word const src);
-
 // CONDITION CODES
 
 forceinline void pdp11_cpu_instr_clnzvc_senzvc(
@@ -623,8 +615,7 @@ pdp11_cpu_exec_branch(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
     }
 }
 static void pdp11_cpu_exec_o(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
-    if (instr.u.o.opcode & 01000 && instr.u.o.opcode != 01065 &&
-        instr.u.o.opcode != 01066) {
+    if (instr.u.o.opcode & 01000) {
         Pdp11Byte const o = pdp11_cpu_address_byte(self, instr.u.o.o);
         if (!o.vtbl) return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
         switch (instr.u.o.opcode) {
@@ -660,10 +651,6 @@ static void pdp11_cpu_exec_o(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
         case 00062: return pdp11_cpu_instr_asr(self, o);
         case 00063: return pdp11_cpu_instr_asl(self, o);
         case 00067: return pdp11_cpu_instr_sxt(self, o);
-        case 00065: return pdp11_cpu_instr_mfpi(self, o);
-        case 00066: return pdp11_cpu_instr_mtpi(self, o);
-        case 01065: return pdp11_cpu_instr_mfpd(self, o);
-        case 01066: return pdp11_cpu_instr_mtpd(self, o);
         }
     }
 }
@@ -716,9 +703,15 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
         if (should_trap) pdp11_cpu_trap(self, PDP11_CPU_TRAP_BPT);
         should_trap = self->_psw.tf;
 
-        fprintf(stderr, "exec at 0%06o\n", pdp11_cpu_pc(self));  // TODO! temp
         uint16_t const encoded = pdp11_cpu_fetch(self);
         Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
+        // TODO! temp
+        fprintf(
+            stderr,
+            "pc = %06o, instr = %06o\n",
+            pdp11_cpu_pc(self),
+            encoded
+        );
         switch (instr.type) {
         case PDP11_CPU_INSTR_TYPE_OO: pdp11_cpu_exec_oo(self, instr); break;
         case PDP11_CPU_INSTR_TYPE_RO: pdp11_cpu_exec_ro(self, instr); break;
@@ -1589,19 +1582,6 @@ void pdp11_cpu_instr_wait(Pdp11Cpu *const self) {
 }
 void pdp11_cpu_instr_reset(Pdp11Cpu *const self) {
     unibus_reset(self->_unibus);
-}
-
-void pdp11_cpu_instr_mtpd(Pdp11Cpu *const, Pdp11Word const) {
-    printf("\tsorry, %s was not implemented\n", __func__);
-}
-void pdp11_cpu_instr_mtpi(Pdp11Cpu *const, Pdp11Word const) {
-    printf("\tsorry, %s was not implemented\n", __func__);
-}
-void pdp11_cpu_instr_mfpd(Pdp11Cpu *const, Pdp11Word const) {
-    printf("\tsorry, %s was not implemented\n", __func__);
-}
-void pdp11_cpu_instr_mfpi(Pdp11Cpu *const, Pdp11Word const) {
-    printf("\tsorry, %s was not implemented\n", __func__);
 }
 
 // CONDITION CODES

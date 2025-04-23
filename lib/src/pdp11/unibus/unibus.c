@@ -1,6 +1,7 @@
 #include "pdp11/unibus/unibus.h"
 
 #include <stddef.h>
+#include <stdio.h>
 
 #include <unistd.h>
 
