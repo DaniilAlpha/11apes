@@ -137,7 +137,7 @@ void unibus_br_intr(
     while (priority <= ((Pdp11Psw volatile)pdp11_cpu_psw(self->_cpu)).priority
     ) {
         pthread_mutex_unlock(&self->_sack);
-        usleep(0);
+        sleep(0);
         pthread_mutex_lock(&self->_sack);
     }
     self->_next_master = device;

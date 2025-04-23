@@ -357,7 +357,7 @@ void run_console_ui(Pdp11Console *console) {
         mvprintw(
             LINES - 2,
             1,
-            "shortcuts: L - load, E - exam, D - dep, C - cont, H - enbl/halt, S - start, P - next power, Q - quit"
+            "shortcuts: L - load, E - exam, D - dep, C - cont, H - enbl/halt, S - start\n\tP - next power, Q - quit, B - autoinsert bootstrap loader"
         );
         attroff(COLOR_PAIR(COLOR_PAIR_LABEL));
 

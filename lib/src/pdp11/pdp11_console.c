@@ -239,7 +239,7 @@ void pdp11_console_insert_bootstrap(Pdp11Console *const self) {
         0000002,
         (PDP11_BOOTSTRAP_ADDR & ~07777) | 0007400,
         0005267,
-        0137756,
+        0177756,
         0000765,
         0177550,
     };
