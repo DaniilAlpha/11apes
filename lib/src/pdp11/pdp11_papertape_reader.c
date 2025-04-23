@@ -1,6 +1,5 @@
 #include "pdp11/pdp11_papertape_reader.h"
 
-#include <errno.h>
 #include <string.h>
 
 #include <unistd.h>
@@ -18,68 +17,20 @@ static uint16_t pdp11_papertape_reader_status_to_word(
            self.intr_enable << 6;
 }
 
-static void pdp11_papertape_reader_reset(Pdp11PapertapeReader *const self) {
-    self->_status = (Pdp11PapertapeReaderStatus){
-        .error = false,
-        .busy = false,
-        .done = true,
-        .intr_enable = false,
-        .reader_enable = false,
-    };
-}
-static bool pdp11_papertape_reader_try_read(
-    Pdp11PapertapeReader *const self,
-    uint16_t const addr,
-    uint16_t *const out
+static void pdp11_papertape_reader_start_read_cycle(
+    Pdp11PapertapeReader *const self
 ) {
-    if (addr == self->_starting_addr) {
-        *out = pdp11_papertape_reader_status_to_word(self->_status);
-        return true;
-    } else if (addr == self->_starting_addr + 2) {
-        self->_status.done = false;
-        *out = self->_buffer;
-        return true;
-    }
-    return false;
-}
-static bool pdp11_papertape_reader_try_write_word(
-    Pdp11PapertapeReader *const self,
-    uint16_t const addr,
-    uint16_t const val
-) {
-    if (addr == self->_starting_addr) {
-        self->_status.intr_enable = BIT(val, 6);
-        self->_status.reader_enable = BIT(val, 0);
-        return true;
-    } else if (addr == self->_starting_addr + 2) {
-        return true;
-    }
-    return false;
-}
-static bool pdp11_papertape_reader_try_write_byte(
-    Pdp11PapertapeReader *const self,
-    uint16_t const addr,
-    uint8_t const val
-) {
-    if (addr == self->_starting_addr) {
-        self->_status.intr_enable = BIT(val, 6);
-        self->_status.reader_enable = BIT(val, 0);
-        if (self->_status.reader_enable) self->_status.done = false;
-        return true;
-    } else if (addr == self->_starting_addr + 2) {
-        return true;
-    }
-    return false;
+    self->_status.busy = true;
+    self->_status.done = false;
+    self->_buffer = 0;
 }
 
 static void pdp11_papertape_reader_thread_helper(
     Pdp11PapertapeReader *const self
 ) {
     while (true) {
-        while (!self->_status.reader_enable) sleep(0);
-        self->_status.reader_enable = false;
+        while (!self->_status.busy) sleep(0);
 
-        self->_buffer = 0;
         if (!self->_status.error) {
             if (!self->_tape || fread(&self->_buffer, 1, 1, self->_tape) != 1) {
                 self->_status.error = true;
@@ -92,10 +43,12 @@ static void pdp11_papertape_reader_thread_helper(
         if (self->_status.intr_enable)
             unibus_br_intr(
                 self->_unibus,
-                self->priority,
+                self->_intr_priority,
                 self->device,
                 self->_intr_vec
             );
+
+        usleep(1000000 / 300 * 10);  // TODO later speed up ten times
     }
 }
 static void *pdp11_papertape_reader_thread(void *const vself) {
@@ -110,7 +63,9 @@ void pdp11_papertape_reader_init(
     Pdp11PapertapeReader *const self,
     Unibus *const unibus,
     uint16_t const starting_addr,
-    uint8_t const intr_vec
+    uint8_t const intr_vec,
+    unsigned const intr_priority
+
 ) {
     self->_tape = NULL;
 
@@ -119,6 +74,7 @@ void pdp11_papertape_reader_init(
 
     self->_starting_addr = starting_addr;
     self->_intr_vec = intr_vec;
+    self->_intr_priority = intr_priority;
 
     self->_unibus = unibus;
 
@@ -139,6 +95,71 @@ void pdp11_papertape_reader_load(
     self->_tape = fopen(filepath, "r");
 }
 
+/***************
+ ** interface **
+ ***************/
+
+static void pdp11_papertape_reader_reset(Pdp11PapertapeReader *const self) {
+    self->_status = (Pdp11PapertapeReaderStatus){
+        .error = false,
+        .busy = false,
+        .done = false,
+        .intr_enable = false,
+    };
+}
+static bool pdp11_papertape_reader_try_read(
+    Pdp11PapertapeReader *const self,
+    uint16_t addr,
+    uint16_t *const out
+) {
+    addr -= self->_starting_addr;
+    if (!(addr < 4)) return false;
+
+    // NOTE odd addresses cannot pass here
+    switch (addr) {
+    case 0: *out = pdp11_papertape_reader_status_to_word(self->_status); break;
+    case 2: {
+        self->_status.done = false;
+        *out = self->_buffer;
+    } break;
+    }
+    return true;
+}
+static bool pdp11_papertape_reader_try_write_word(
+    Pdp11PapertapeReader *const self,
+    uint16_t addr,
+    uint16_t const val
+) {
+    addr -= self->_starting_addr;
+    if (!(addr < 4)) return false;
+
+    // NOTE odd addresses cannot pass here
+    switch (addr) {
+    case 0: {
+        self->_status.intr_enable = BIT(val, 6);
+        if (BIT(val, 0)) pdp11_papertape_reader_start_read_cycle(self);
+    } break;
+    case 2: break;
+    }
+    return true;
+}
+static bool pdp11_papertape_reader_try_write_byte(
+    Pdp11PapertapeReader *const self,
+    uint16_t addr,
+    uint8_t const val
+) {
+    addr -= self->_starting_addr;
+    if (!(addr < 4)) return false;
+
+    switch (addr) {
+    case 0: {
+        self->_status.intr_enable = BIT(val, 6);
+        if (BIT(val, 0)) pdp11_papertape_reader_start_read_cycle(self);
+    } break;
+    case 1 ... 3: break;
+    }
+    return true;
+}
 UnibusDevice pdp11_papertape_reader_ww_unibus_device(
     Pdp11PapertapeReader *const self
 ) {

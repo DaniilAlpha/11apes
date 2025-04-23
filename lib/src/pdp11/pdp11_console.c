@@ -1,6 +1,5 @@
 #include "pdp11/pdp11_console.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 
 #include "conviniences.h"
@@ -71,6 +70,7 @@ uint16_t pdp11_console_data_indicator(Pdp11Console const *const self) {
 void pdp11_console_next_power_control(Pdp11Console *const self) {
     switch (self->_power_control_switch) {
     case PDP11_CONSOLE_POWER_CONTROL_OFF:
+        unibus_reset(&self->_pdp11->unibus);
         self->_power_control_switch = PDP11_CONSOLE_POWER_CONTROL_POWER;
         break;
     case PDP11_CONSOLE_POWER_CONTROL_POWER:

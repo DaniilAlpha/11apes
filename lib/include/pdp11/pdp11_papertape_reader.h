@@ -15,21 +15,21 @@ typedef struct Pdp11PapertapeReaderStatus {
     bool done : 1;
     bool intr_enable : 1;
     uint16_t : 5;
-    bool reader_enable : 1;
+    bool : 1;
 } Pdp11PapertapeReaderStatus;
 
 // TODO! refine interface
 typedef struct Pdp11PapertapeReader {
     UnibusDevice const *device;
-    unsigned priority;
+
+    FILE *_tape;
 
     uint8_t _buffer;
     Pdp11PapertapeReaderStatus _status;
 
     uint16_t _starting_addr;
     uint8_t _intr_vec;
-
-    FILE *_tape;
+    unsigned _intr_priority;
 
     Unibus *_unibus;
 
@@ -40,7 +40,8 @@ void pdp11_papertape_reader_init(
     Pdp11PapertapeReader *const self,
     Unibus *const unibus,
     uint16_t const starting_addr,
-    uint8_t const intr_vec
+    uint8_t const intr_vec,
+    unsigned const intr_priority
 );
 void pdp11_papertape_reader_uninit(Pdp11PapertapeReader *const self);
 

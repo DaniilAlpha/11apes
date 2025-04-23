@@ -742,7 +742,7 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
         if (self->_state == PDP11_CPU_STATE_STEP)
             self->_state = PDP11_CPU_STATE_HALT;
 
-        usleep(10 * 1000);
+        usleep(1000 * 10);
     }
 }
 static void *pdp11_cpu_thread(void *const vself) {
