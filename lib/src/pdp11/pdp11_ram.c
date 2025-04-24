@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include <assert.h>
+#include <unistd.h>
 #include <woodi.h>
 
 static Result pdp11_ram_read_from_file(Pdp11Ram *const self) {

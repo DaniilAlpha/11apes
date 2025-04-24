@@ -108,7 +108,7 @@ pdp11_byte_from_cpu_reg(Pdp11Cpu *const cpu, uint16_t const r_i) {
 
 static uint8_t pdp11_unibus_byte_read(Pdp11Byte const *const self) {
     uint16_t data;
-    unibus_cpu_dati(self->owner, self->addr & ~1, &data);
+    unibus_cpu_dati(self->owner, self->addr & ~(uint16_t)1, &data);
     return self->addr & 1 ? (uint8_t)(data >> 8) : (uint8_t)data;
 }
 static void
@@ -122,7 +122,8 @@ pdp11_byte_from_unibus(Unibus *const unibus, uint16_t const addr) {
         .write = pdp11_unibus_byte_write,
     };
     uint16_t _;
-    if (unibus_cpu_dati(unibus, addr & ~1, &_) != Ok) return (Pdp11Byte){0};
+    if (unibus_cpu_dati(unibus, addr & ~(uint16_t)1, &_) != Ok)
+        return (Pdp11Byte){0};
     return (Pdp11Byte){.addr = addr, .owner = unibus, .vtbl = &vtbl};
 }
 
@@ -465,6 +466,13 @@ pdp11_cpu_address_word(Pdp11Cpu *const self, unsigned const mode) {
         uint16_t off;
         if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self), &off) == Ok) {
             pdp11_cpu_pc(self) += 2;
+            if (r_i == 07)
+                fprintf(
+                    stderr,
+                    "addressing 67 : %06o\n",
+                    (uint16_t)(off + pdp11_cpu_rx(self, r_i))
+                ),
+                    fflush(stderr);
             return pdp11_word_from_unibus(
                 self->_unibus,
                 off + pdp11_cpu_rx(self, r_i)
@@ -704,14 +712,13 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
         should_trap = self->_psw.tf;
 
         uint16_t const encoded = pdp11_cpu_fetch(self);
-        Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
         // TODO! temp
-        fprintf(
-            stderr,
-            "pc = %06o, instr = %06o\n",
-            pdp11_cpu_pc(self),
-            encoded
-        );
+        fprintf(stderr, "pc = %06o, ", pdp11_cpu_pc(self) - 2);
+        Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
+        fprintf(stderr, "instr(%i) = %06o\n", instr.type, encoded),
+            fflush(stderr);
+        if (encoded == 0000000)
+            fprintf(stderr, "SHOULD HALT!!!\n"), fflush(stderr);
         switch (instr.type) {
         case PDP11_CPU_INSTR_TYPE_OO: pdp11_cpu_exec_oo(self, instr); break;
         case PDP11_CPU_INSTR_TYPE_RO: pdp11_cpu_exec_ro(self, instr); break;
@@ -1538,6 +1545,7 @@ void pdp11_cpu_instr_spl(Pdp11Cpu *const self, unsigned const value) {
 
 void pdp11_cpu_instr_jmp(Pdp11Cpu *const self, Pdp11Word const src) {
     pdp11_cpu_pc(self) = src.vtbl->read(&src);
+    fprintf(stderr, "jmp to %06o\n", src.vtbl->read(&src));
 }
 void pdp11_cpu_instr_sob(
     Pdp11Cpu *const self,
