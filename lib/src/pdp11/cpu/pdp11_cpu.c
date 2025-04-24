@@ -1543,6 +1543,8 @@ void pdp11_cpu_instr_spl(Pdp11Cpu *const self, unsigned const value) {
     self->_psw.priority = value;
 }
 
+// TODO!!!!!!! actually should jump to address and not value?? 11/70 handbook
+// just casually metions it
 void pdp11_cpu_instr_jmp(Pdp11Cpu *const self, Pdp11Word const src) {
     pdp11_cpu_pc(self) = src.vtbl->read(&src);
     fprintf(stderr, "jmp to %06o\n", src.vtbl->read(&src));
