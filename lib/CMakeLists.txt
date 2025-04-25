@@ -4,7 +4,7 @@ project(pdp11emu VERSION 0.1.0 LANGUAGES C)
 
 
 set(SRCS_PATH "src/*.c" "external/vec/src/*.c")
-set(INCLUDE_DIR "include/"
+set(INCLUDE_DIRS "include/"
     "external/result/" "external/woodi/" "external/vec/include/")
 
 file(GLOB_RECURSE SRCS ${SRCS_PATH})
@@ -13,7 +13,7 @@ file(GLOB_RECURSE SRCS ${SRCS_PATH})
 set(LIB "lib")
 
 add_library(${LIB} STATIC ${SRCS})
-target_include_directories(${LIB} PUBLIC ${INCLUDE_DIR})
+target_include_directories(${LIB} PUBLIC ${INCLUDE_DIRS})
 
 
 set(COMPILE_AND_BUILD_FlAGS
