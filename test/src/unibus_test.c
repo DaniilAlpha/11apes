@@ -57,6 +57,8 @@ static MiunteResult unibus_test_npr() {
 static void *lower_cpu_priority_thread(void *const vcpu) {
     Pdp11Cpu *const cpu = vcpu;
 
+    while (cpu->_state != PDP11_CPU_STATE_HALT) sleep(0);
+
     while (--pdp11_cpu_psw(cpu).priority > 0) usleep(10 * 1000);
 
     return NULL;
@@ -65,7 +67,6 @@ static MiunteResult unibus_test_br() {
     UnibusDevice const *const device =
         &pdp.unibus.devices[PDP11_FIRST_USER_DEVICE];
 
-    // TODO!!!!!! cpu thread created here fails with stack buffer overflow
     uint16_t const trap = 0x42, trap_pc = 0xACE;
     MIUNTE_EXPECT(
         unibus_npr_dato(&pdp.unibus, device, trap, trap_pc) == Ok,

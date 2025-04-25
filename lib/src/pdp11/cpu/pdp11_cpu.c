@@ -748,13 +748,7 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
         should_trap = self->_psw.tf;
 
         uint16_t const encoded = pdp11_cpu_fetch(self);
-        // TODO! temp
-        fprintf(stderr, "pc = %06o, ", pdp11_cpu_pc(self) - 2);
         Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
-        fprintf(stderr, "instr(%i) = %06o\n", instr.type, encoded),
-            fflush(stderr);
-        if (encoded == 0000000)
-            fprintf(stderr, "SHOULD HALT!!!\n"), fflush(stderr);
         switch (instr.type) {
         case PDP11_CPU_INSTR_TYPE_OO: pdp11_cpu_exec_oo(self, instr); break;
         case PDP11_CPU_INSTR_TYPE_RO: pdp11_cpu_exec_ro(self, instr); break;
