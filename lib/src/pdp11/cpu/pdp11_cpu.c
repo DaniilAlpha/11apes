@@ -331,10 +331,10 @@ forceinline void pdp11_cpu_instr_bhi_blos(
 
 // subroutine
 
-forceinline void pdp11_cpu_instr_jsr(
+forceinline void pdp11_cpu_instr_jsr_jmp(
     Pdp11Cpu *const self,
     unsigned const r_i,
-    Pdp11Word const src
+    unsigned const mode
 );
 forceinline void
 pdp11_cpu_instr_mark(Pdp11Cpu *const self, unsigned const param_count);
@@ -345,7 +345,6 @@ forceinline void pdp11_cpu_instr_rts(Pdp11Cpu *const self, unsigned const r_i);
 forceinline void
 pdp11_cpu_instr_spl(Pdp11Cpu *const self, unsigned const value);
 
-forceinline void pdp11_cpu_instr_jmp(Pdp11Cpu *const self, Pdp11Word const src);
 forceinline void pdp11_cpu_instr_sob(
     Pdp11Cpu *const self,
     unsigned const r_i,
@@ -462,13 +461,6 @@ pdp11_cpu_address_word(Pdp11Cpu *const self, unsigned const mode) {
         uint16_t off;
         if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self), &off) == Ok) {
             pdp11_cpu_pc(self) += 2;
-            if (r_i == 07)
-                fprintf(
-                    stderr,
-                    "addressing 67 : %06o\n",
-                    (uint16_t)(off + pdp11_cpu_rx(self, r_i))
-                ),
-                    fflush(stderr);
             return pdp11_word_from_unibus(
                 self->_unibus,
                 off + pdp11_cpu_rx(self, r_i)
@@ -555,6 +547,56 @@ pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
 
     return (Pdp11Byte){0};
 }
+static inline uint16_t
+pdp11_cpu_jmp_jsr_effective_addr(Pdp11Cpu *const self, unsigned const mode) {
+    unsigned const r_i = BITS(mode, 0, 2);
+
+    switch (BITS(mode, 3, 5)) {
+    case 00: break;
+    case 01: return pdp11_cpu_rx(self, r_i);
+    case 02: return pdp11_cpu_rx(self, r_i) += 2;
+    case 03: {
+        uint16_t addr;
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_rx(self, r_i), &addr) ==
+            Ok) {
+            pdp11_cpu_rx(self, r_i) += 2;
+            return addr;
+        }
+    } break;
+    case 04: return pdp11_cpu_rx(self, r_i) -= 2;
+    case 05: {
+        uint16_t addr;
+        if (unibus_cpu_dati(
+                self->_unibus,
+                pdp11_cpu_rx(self, r_i) -= 2,
+                &addr
+            ) == Ok)
+            return addr;
+    } break;
+    case 06: {
+        uint16_t off;
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self), &off) == Ok) {
+            pdp11_cpu_pc(self) += 2;
+            return off + pdp11_cpu_rx(self, r_i);
+        }
+    } break;
+    case 07: {
+        uint16_t off, addr;
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self), &off) == Ok) {
+            pdp11_cpu_pc(self) += 2;
+            if (unibus_cpu_dati(
+                    self->_unibus,
+                    off + pdp11_cpu_rx(self, r_i),
+                    &addr
+                ) == Ok)
+                return addr;
+        }
+    } break;
+    default: assert(false);
+    }
+
+    return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR), 0;
+}
 static void pdp11_cpu_exec_oo(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
     if (instr.u.oo.opcode & 010 && instr.u.oo.opcode != 016) {
         Pdp11Byte const o0 = pdp11_cpu_address_byte(self, instr.u.oo.o0);
@@ -599,7 +641,6 @@ static void pdp11_cpu_exec_ro(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
         case 0071: return pdp11_cpu_instr_div(self, r, o);
         case 0073: return pdp11_cpu_instr_ashc(self, r, o);
         case 0074: return pdp11_cpu_instr_xor(self, r, o);
-        case 0004: return pdp11_cpu_instr_jsr(self, r, o);
         }
     }
 }
@@ -640,7 +681,6 @@ static void pdp11_cpu_exec_o(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
         Pdp11Word const o = pdp11_cpu_address_word(self, instr.u.o.o);
         if (!o.vtbl) return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
         switch (instr.u.o.opcode) {
-        case 00001: return pdp11_cpu_instr_jmp(self, o);
         case 00003: return pdp11_cpu_instr_swab(self, o);
         case 00050: return pdp11_cpu_instr_clr(self, o);
         case 00051: return pdp11_cpu_instr_com(self, o);
@@ -726,9 +766,16 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
         case PDP11_CPU_INSTR_TYPE_SOB:
             pdp11_cpu_instr_sob(self, instr.u.sob.r, instr.u.sob.off);
             break;
+        case PDP11_CPU_INSTR_TYPE_JSR:
+            pdp11_cpu_instr_jsr_jmp(self, instr.u.jsr.r, instr.u.jsr.o);
+            break;
+        case PDP11_CPU_INSTR_TYPE_JMP:
+            pdp11_cpu_instr_jsr_jmp(self, -1, instr.u.jmp.o);
+            break;
         case PDP11_CPU_INSTR_TYPE_MISC: pdp11_cpu_exec_misc(self, instr); break;
-        case PDP11_CPU_INSTR_TYPE_ILLEGAL:
-            pdp11_cpu_trap(self, PDP11_CPU_TRAP_ILLEGAL_INSTR);
+        case PDP11_CPU_INSTR_TYPE_RESERVED:
+            pdp11_cpu_trap(self, PDP11_CPU_TRAP_RESERVED_INSTR);
+            break;
         }
 
         if (self->_state != PDP11_CPU_STATE_HALT &&
@@ -1507,16 +1554,20 @@ void pdp11_cpu_instr_bhi_blos(
 
 // subroutine
 
-void pdp11_cpu_instr_jsr(
+void pdp11_cpu_instr_jsr_jmp(
     Pdp11Cpu *const self,
     unsigned const r_i,
-    Pdp11Word const src
+    unsigned const mode
 ) {
-    Pdp11Word const dst = pdp11_word_from_cpu_reg(self, r_i);
-    if (pdp11_stack_push(self, dst.vtbl->read(&dst)) != Ok)
-        return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
-    dst.vtbl->write(&dst, pdp11_cpu_pc(self));
-    pdp11_cpu_pc(self) = src.vtbl->read(&src);
+    uint16_t const effective_addr =
+        pdp11_cpu_jmp_jsr_effective_addr(self, mode);
+    if (r_i < PDP11_CPU_REG_COUNT) {
+        Pdp11Word const dst = pdp11_word_from_cpu_reg(self, r_i);
+        if (pdp11_stack_push(self, dst.vtbl->read(&dst)) != Ok)
+            return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
+        dst.vtbl->write(&dst, pdp11_cpu_pc(self));
+    }
+    pdp11_cpu_pc(self) = effective_addr;
 }
 void pdp11_cpu_instr_mark(Pdp11Cpu *const self, unsigned const param_count) {
     pdp11_cpu_sp(self) = pdp11_cpu_pc(self) + 2 * param_count;
@@ -1539,17 +1590,6 @@ void pdp11_cpu_instr_spl(Pdp11Cpu *const self, unsigned const value) {
     self->_psw.priority = value;
 }
 
-// TODO!!! fix implementation
-// Dst should not contain the address of a subroutine, but the subroutine
-// itself, e.g. all destinations provided to JSR and JMP instructions are one
-// level less. JMP to register cause the illegal instruction trap.
-// Because of that both JMP and JSR, used in Address mode 2 (autoincrement),
-// increment the register before using it as an address. This is a special case,
-// and is not true of any other instruction
-void pdp11_cpu_instr_jmp(Pdp11Cpu *const self, Pdp11Word const src) {
-    pdp11_cpu_pc(self) = src.vtbl->read(&src);
-    fprintf(stderr, "jmp to %06o\n", src.vtbl->read(&src));
-}
 void pdp11_cpu_instr_sob(
     Pdp11Cpu *const self,
     unsigned const r_i,

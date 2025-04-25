@@ -20,8 +20,12 @@
   }
 #define pdp11_cpu_instr_sob(...)                                               \
   (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_SOB, .u.sob = {__VA_ARGS__}, }
-#define pdp11_cpu_instr_illegal()                                              \
-  (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_ILLEGAL }
+#define pdp11_cpu_instr_jmp(...)                                               \
+  (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_JMP, .u.jmp = {__VA_ARGS__}, }
+#define pdp11_cpu_instr_jsr(...)                                               \
+  (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_JSR, .u.jsr = {__VA_ARGS__}, }
+#define pdp11_cpu_instr_reserved()                                             \
+  (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_RESERVED }
 
 Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
     switch (BITS(encoded, 0, 15)) {
@@ -45,15 +49,19 @@ Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
     case 00060 ... 00064:
     case 00067:
     case 01060 ... 01063:
-    case 00001 ... 00003:
+    case 00002 ... 00003:
         return pdp11_cpu_instr_o(
+                .opcode = BITS(encoded, 6, 15),
+                .o = BITS(encoded, 0, 5)
+        );
+    case 00001:
+        return pdp11_cpu_instr_jmp(
                 .opcode = BITS(encoded, 6, 15),
                 .o = BITS(encoded, 0, 5)
         );
     }
     switch (BITS(encoded, 9, 15)) {
     case 0070 ... 0074:
-    case 0004:
         return pdp11_cpu_instr_ro(
                 .opcode = BITS(encoded, 9, 15),
                 .r = BITS(encoded, 6, 8),
@@ -61,7 +69,6 @@ Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
         );
     case 0000 ... 0003:
     case 0100 ... 0103:
-        // TODO! no good
         if (BITS(encoded, 9, 15) == 0000 && !BIT(encoded, 8)) break;
         return pdp11_cpu_instr_branch(
                 .opcode = BITS(encoded, 9, 15),
@@ -74,6 +81,12 @@ Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
                 .r = BITS(encoded, 6, 8),
                 .off = BITS(encoded, 0, 5)
         );
+    case 0004:
+        return pdp11_cpu_instr_jsr(
+                .opcode = BITS(encoded, 9, 15),
+                .r = BITS(encoded, 6, 8),
+                .o = BITS(encoded, 0, 5)
+        );
     }
     switch (BITS(encoded, 12, 15)) {
     case 001 ... 006:
@@ -85,5 +98,5 @@ Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
         );
     }
 
-    return pdp11_cpu_instr_illegal();
+    return pdp11_cpu_instr_reserved();
 }

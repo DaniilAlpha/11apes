@@ -65,6 +65,7 @@ static MiunteResult unibus_test_br() {
     UnibusDevice const *const device =
         &pdp.unibus.devices[PDP11_FIRST_USER_DEVICE];
 
+    // TODO!!!!!! cpu thread created here fails with stack buffer overflow
     uint16_t const trap = 0x42, trap_pc = 0xACE;
     MIUNTE_EXPECT(
         unibus_npr_dato(&pdp.unibus, device, trap, trap_pc) == Ok,
@@ -90,7 +91,7 @@ static MiunteResult unibus_test_br() {
         ((Pdp11Psw volatile)pdp11_cpu_psw(&pdp.cpu)).priority < 03,
         "interrupt should wait til CPU priority becomes sufficient"
     );
-    pthread_cancel(thread);
+    pthread_join(thread, NULL);
 
     usleep(10 * 1000);
 

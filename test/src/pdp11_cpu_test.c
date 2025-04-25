@@ -102,30 +102,30 @@ static MiunteResult pdp11_cpu_test_decoding_and_execution() {
         while (pdp11_cpu_state(&pdp.cpu) != PDP11_CPU_STATE_HALT) sleep(0);
     }
     {
-        uint16_t const illegal_instr_trap = 0xFACE;
+        uint16_t const reserved_instr_trap = 0xFACE;
         unibus_cpu_dato(
             &pdp.unibus,
-            PDP11_CPU_TRAP_ILLEGAL_INSTR,
-            illegal_instr_trap
+            PDP11_CPU_TRAP_RESERVED_INSTR,
+            reserved_instr_trap
         );
 
         uint16_t const encoded = 0177000;
 
         Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
         MIUNTE_EXPECT(
-            instr.type == PDP11_CPU_INSTR_TYPE_ILLEGAL,
+            instr.type == PDP11_CPU_INSTR_TYPE_RESERVED,
             "illegal instruction should result in an illegal type"
         );
 
         MIUNTE_EXPECT(
-            pdp11_cpu_pc(&pdp.cpu) != illegal_instr_trap,
+            pdp11_cpu_pc(&pdp.cpu) != reserved_instr_trap,
             "before executing an illegal instruction should not be on illegal instr location"
         );
         unibus_cpu_dato(&pdp.unibus, pdp11_cpu_pc(&pdp.cpu), encoded);
         pdp11_cpu_single_step(&pdp.cpu);
         while (pdp11_cpu_state(&pdp.cpu) != PDP11_CPU_STATE_HALT) sleep(0);
         MIUNTE_EXPECT(
-            pdp11_cpu_pc(&pdp.cpu) == illegal_instr_trap,
+            pdp11_cpu_pc(&pdp.cpu) == reserved_instr_trap,
             "after executing an illegal instruction should trap to illegal instr location"
         );
     }
