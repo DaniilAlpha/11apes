@@ -474,10 +474,10 @@ int main() {
         PDP11_PAPERTAPE_READER_INTR_VEC,
         PDP11_PAPERTAPE_READER_INTR_PRIORITY
     );
-    pdp11_papertape_reader_load(&pr, "res/papertapes/absolute_loader.ptap");
     pdp.unibus.devices[PDP11_FIRST_USER_DEVICE + 0] =
         pdp11_papertape_reader_ww_unibus_device(&pr);
-    pr.device = &pdp.unibus.devices[PDP11_FIRST_USER_DEVICE + 0];
+
+    pdp11_papertape_reader_load(&pr, "res/papertapes/absolute_loader.ptap");
 
     run_console_ui(&console);
 

@@ -1,7 +1,6 @@
 #include "pdp11/unibus/unibus.h"
 
 #include <stddef.h>
-#include <stdio.h>
 
 #include <unistd.h>
 
@@ -99,6 +98,7 @@ static void unibus_switch_to_cpu_master(Unibus *const self) {
 }
 /* Assumes BBSY is locked. Unlocks BSSY. */
 static void unibus_drop_cpu_master(Unibus *const self) {
+    assert(self->_master == UNIBUS_DEVICE_CPU);
     pthread_mutex_unlock(&self->_bbsy);
 }
 
@@ -129,7 +129,7 @@ void unibus_reset(Unibus *const self) {
 void unibus_br_intr(
     Unibus *const self,
     unsigned const priority,
-    UnibusDevice const *const device,
+    void const *const device,
     uint8_t const intr
 ) {
     // br
@@ -151,7 +151,7 @@ void unibus_br_intr(
 
 Result unibus_npr_dati(
     Unibus *const self,
-    UnibusDevice const *const device,
+    void const *const device,
     uint16_t const addr,
     uint16_t *const out
 ) {
@@ -167,7 +167,7 @@ Result unibus_npr_dati(
 }
 Result unibus_npr_dato(
     Unibus *const self,
-    UnibusDevice const *const device,
+    void const *const device,
     uint16_t const addr,
     uint16_t const data
 ) {
@@ -183,7 +183,7 @@ Result unibus_npr_dato(
 }
 Result unibus_npr_datob(
     Unibus *const self,
-    UnibusDevice const *const device,
+    void const *const device,
     uint16_t const addr,
     uint8_t const data
 ) {

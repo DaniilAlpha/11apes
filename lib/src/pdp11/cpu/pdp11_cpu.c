@@ -4,7 +4,6 @@
 #include <stdalign.h>
 #include <stdatomic.h>
 #include <stddef.h>
-#include <stdio.h>
 
 #include <assert.h>
 #include <unistd.h>
@@ -779,7 +778,7 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
         if (self->_state == PDP11_CPU_STATE_STEP)
             self->_state = PDP11_CPU_STATE_HALT;
 
-        usleep(1000 * 10);
+        usleep(1 * 10);  // TODO later speed up ten times
     }
 }
 static void *pdp11_cpu_thread(void *const vself) {

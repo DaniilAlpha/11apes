@@ -102,7 +102,7 @@ static MiunteResult unibus_test_br() {
     );
     unibus_npr_dato(
         &pdp.unibus,
-        UNIBUS_DEVICE_CPU,
+        device,
         pdp11_cpu_pc(&pdp.cpu),
         0010000 /* mov R0, R0 */
     );

@@ -18,14 +18,11 @@ typedef struct Pdp11PapertapeReaderStatus {
     bool : 1;
 } Pdp11PapertapeReaderStatus;
 
-// TODO! refine interface
 typedef struct Pdp11PapertapeReader {
-    UnibusDevice const *device;
+    Pdp11PapertapeReaderStatus _status;
+    uint8_t _buffer;
 
     FILE *_tape;
-
-    uint8_t _buffer;
-    Pdp11PapertapeReaderStatus _status;
 
     uint16_t _starting_addr;
     uint8_t _intr_vec;

@@ -15,7 +15,7 @@
             "cmd": [
                 "export BUILD=./build/",
                 "cmake -B $BUILD -S ./ --log-level=$CMAKE_LOG_LEVEL -DCMAKE_BUILD_TYPE=$RUN_BUILD_TYPE; cmake --build $BUILD",
-                "echo; $BUILD/main $ARGS 2> stderr"
+                "echo; $BUILD/main/main $ARGS 2> stderr"
             ]
         },
         "debug": {
@@ -23,7 +23,7 @@
             "desc": "debug via gdb",
             "cmd": [
                 "export BUILD=./build/",
-                "gdb $BUILD/main $ARGS"
+                "gdb $BUILD/main/main $ARGS"
             ]
         },
         "test": {

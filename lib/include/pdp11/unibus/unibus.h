@@ -31,34 +31,31 @@ void unibus_uninit(Unibus *const self);
 void unibus_reset(Unibus *const self);
 
 static inline bool unibus_is_running(Unibus const *const self) {
-    return self->_master == NULL;
-}
-static inline bool unibus_is_periph_master(Unibus const *const self) {
-    return self->_master != NULL;
+    return self->_master == UNIBUS_DEVICE_CPU;
 }
 
 void unibus_br_intr(
     Unibus *const self,
     unsigned const priority,
-    UnibusDevice const *const device,
+    void const *const device,
     uint8_t const intr
 );
 
 Result unibus_npr_dati(
     Unibus *const self,
-    UnibusDevice const *const device,
+    void const *const device,
     uint16_t const addr,
     uint16_t *const out
 );
 Result unibus_npr_dato(
     Unibus *const self,
-    UnibusDevice const *const device,
+    void const *const device,
     uint16_t const addr,
     uint16_t const data
 );
 Result unibus_npr_datob(
     Unibus *const self,
-    UnibusDevice const *const device,
+    void const *const device,
     uint16_t const addr,
     uint8_t const data
 );

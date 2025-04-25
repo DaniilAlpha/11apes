@@ -165,7 +165,7 @@ bool pdp11_console_bus_light(Pdp11Console const *const self) {
     return self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF
              ? false
              : !self->_enable_switch &&
-                   unibus_is_periph_master(&self->_pdp11->unibus);
+                   !unibus_is_running(&self->_pdp11->unibus);
 }
 bool pdp11_console_fetch_light(Pdp11Console const *const self) {
     return self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF

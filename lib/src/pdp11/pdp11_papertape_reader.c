@@ -1,7 +1,5 @@
 #include "pdp11/pdp11_papertape_reader.h"
 
-#include <string.h>
-
 #include <unistd.h>
 
 #include "bits.h"
@@ -44,11 +42,11 @@ static void pdp11_papertape_reader_thread_helper(
             unibus_br_intr(
                 self->_unibus,
                 self->_intr_priority,
-                self->device,
+                self,
                 self->_intr_vec
             );
 
-        usleep(1000000 / 300 * 10);  // TODO later speed up ten times
+        usleep(1000000 / 300);
     }
 }
 static void *pdp11_papertape_reader_thread(void *const vself) {
