@@ -12,10 +12,6 @@
 #include "conviniences.h"
 #include "pdp11/cpu/pdp11_cpu_instr.h"
 
-// TODO! Both JMP and JSR, used in address mode 2 (autoincrement), increment
-// the register before using it as an address. This is a special case. and is
-// not true of any other instruction
-
 #undef pdp11_cpu_rx
 #define pdp11_cpu_rx(SELF_, I_) (*(uint16_t *)pdp11_cpu_rx((SELF_), (I_)))
 static inline uint8_t *pdp11_cpu_rl(Pdp11Cpu *const self, unsigned const i) {
@@ -1543,8 +1539,13 @@ void pdp11_cpu_instr_spl(Pdp11Cpu *const self, unsigned const value) {
     self->_psw.priority = value;
 }
 
-// TODO!!!!!!! actually should jump to address and not value?? 11/70 handbook
-// just casually metions it
+// TODO!!! fix implementation
+// Dst should not contain the address of a subroutine, but the subroutine
+// itself, e.g. all destinations provided to JSR and JMP instructions are one
+// level less. JMP to register cause the illegal instruction trap.
+// Because of that both JMP and JSR, used in Address mode 2 (autoincrement),
+// increment the register before using it as an address. This is a special case,
+// and is not true of any other instruction
 void pdp11_cpu_instr_jmp(Pdp11Cpu *const self, Pdp11Word const src) {
     pdp11_cpu_pc(self) = src.vtbl->read(&src);
     fprintf(stderr, "jmp to %06o\n", src.vtbl->read(&src));
