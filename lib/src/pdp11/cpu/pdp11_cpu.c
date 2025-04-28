@@ -4,6 +4,7 @@
 #include <stdalign.h>
 #include <stdatomic.h>
 #include <stddef.h>
+#include <stdio.h>
 
 #include <assert.h>
 #include <unistd.h>
@@ -746,6 +747,7 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
         if (should_trap) pdp11_cpu_trap(self, PDP11_CPU_TRAP_BPT);
         should_trap = self->_psw.tf;
 
+        fprintf(stderr, "exec at %hu\n", pdp11_cpu_pc(self)), fflush(stderr);
         uint16_t const encoded = pdp11_cpu_fetch(self);
         Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
         switch (instr.type) {

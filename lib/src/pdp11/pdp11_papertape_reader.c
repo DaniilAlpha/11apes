@@ -84,13 +84,14 @@ void pdp11_papertape_reader_uninit(Pdp11PapertapeReader *const self) {
     if (self->_tape) fclose(self->_tape), self->_tape = NULL;
 }
 
-void pdp11_papertape_reader_load(
+Result pdp11_papertape_reader_load(
     Pdp11PapertapeReader *const self,
     char const *const filepath
 ) {
     if (self->_tape) fclose(self->_tape), self->_tape = NULL;
 
     self->_tape = fopen(filepath, "r");
+    return self->_tape ? Ok : FileUnavailableErr;
 }
 
 /***************
@@ -104,6 +105,7 @@ static void pdp11_papertape_reader_reset(Pdp11PapertapeReader *const self) {
         .done = false,
         .intr_enable = false,
     };
+    self->_buffer = 0;
 }
 static bool pdp11_papertape_reader_try_read(
     Pdp11PapertapeReader *const self,

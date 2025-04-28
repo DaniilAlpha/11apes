@@ -42,7 +42,7 @@ void pdp11_papertape_reader_init(
 );
 void pdp11_papertape_reader_uninit(Pdp11PapertapeReader *const self);
 
-void pdp11_papertape_reader_load(
+Result pdp11_papertape_reader_load(
     Pdp11PapertapeReader *const self,
     char const *const filepath
 );

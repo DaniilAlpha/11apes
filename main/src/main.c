@@ -1,6 +1,7 @@
 #include <stdlib.h>
 
 #include <ncurses.h>
+#include <unistd.h>
 
 #include "pdp11/pdp11.h"
 #include "pdp11/pdp11_console.h"
@@ -282,7 +283,7 @@ void draw_control_buttons(
 
 // --- Main UI Function ---
 
-void run_console_ui(Pdp11Console *console) {
+void run_console_ui(Pdp11Console *console, Pdp11PapertapeReader *const pr) {
     initscr();  // Start curses mode
     clear();
     noecho();              // Don't echo() while we should be in control
@@ -443,6 +444,28 @@ void run_console_ui(Pdp11Console *console) {
         case 'b':
         case 'B': pdp11_console_insert_bootstrap(console); break;
 
+        case 't':
+        case 'T': {
+            def_prog_mode();
+            endwin();
+
+            printf("Enter new papertape name to load: ");
+            char papertape[256] = {0};
+            while (scanf(" %[^\n]256s", papertape) != 1)
+                printf("invalid!\n"), fflush(stdin);
+
+            if (pdp11_papertape_reader_load(pr, papertape) != Ok) {
+                printf(
+                    "cannot open papertape: '%s'. continuing in several seconds...\n",
+                    papertape
+                );
+                sleep(2);
+            }
+
+            reset_prog_mode();
+            refresh();
+        } break;
+
         case ERR:
         default: continue;
         }
@@ -458,14 +481,6 @@ int main() {
     Pdp11Console console = {0};
     pdp11_console_init(&console, &pdp);
 
-    // Pdp11Rom rom = {0};
-    // FILE *const file = fopen("res/m9342-248f1.bin", "r");
-    // if (!file) return 1;
-    // UNROLL(pdp11_rom_init_file(&rom, 0077744, file));
-    // fclose(file);
-    // pdp.unibus.devices[PDP11_FIRST_USER_DEVICE + 0] =
-    //     pdp11_rom_ww_unibus_device(&rom);
-
     Pdp11PapertapeReader pr = {0};
     pdp11_papertape_reader_init(
         &pr,
@@ -479,10 +494,9 @@ int main() {
 
     pdp11_papertape_reader_load(&pr, "res/papertapes/absolute_loader.ptap");
 
-    run_console_ui(&console);
+    run_console_ui(&console, &pr);
 
     pdp11_papertape_reader_uninit(&pr);
-    // pdp11_rom_uninit(&rom);
     pdp11_uninit(&pdp);
 
     return 0;
