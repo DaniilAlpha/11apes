@@ -139,7 +139,7 @@ static bool pdp11_papertape_reader_try_write_word(
         self->_status.intr_enable = BIT(val, 6);
         if (BIT(val, 0)) pdp11_papertape_reader_start_read_cycle(self);
     } break;
-    case 2: break;
+    case 2: self->_status.done = false; break;
     }
     return true;
 }
@@ -156,7 +156,8 @@ static bool pdp11_papertape_reader_try_write_byte(
         self->_status.intr_enable = BIT(val, 6);
         if (BIT(val, 0)) pdp11_papertape_reader_start_read_cycle(self);
     } break;
-    case 1 ... 3: break;
+    case 1: break;
+    case 2 ... 3: self->_status.done = false; break;
     }
     return true;
 }

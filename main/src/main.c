@@ -6,6 +6,7 @@
 #include "pdp11/pdp11.h"
 #include "pdp11/pdp11_console.h"
 #include "pdp11/pdp11_papertape_reader.h"
+#include "pdp11/pdp11_teletype.h"
 
 // WARN shit code below!!!
 
@@ -198,12 +199,12 @@ void draw_control_buttons(
     mvprintw(y - 1, x + 1, "L");
     attron(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
-                 : COLOR_PAIR(COLOR_PAIR_LABEL)
+                 : COLOR_PAIR(COLOR_PAIR_OFF)
     );
     mvprintw(y, x, "|-|");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
-                 : COLOR_PAIR(COLOR_PAIR_LABEL)
+                 : COLOR_PAIR(COLOR_PAIR_OFF)
     );
     x += 3;
 
@@ -212,12 +213,12 @@ void draw_control_buttons(
     mvprintw(y - 1, x + 1, "E");
     attron(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
-                 : COLOR_PAIR(COLOR_PAIR_LABEL)
+                 : COLOR_PAIR(COLOR_PAIR_OFF)
     );
     mvprintw(y, x, "|-|");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
-                 : COLOR_PAIR(COLOR_PAIR_LABEL)
+                 : COLOR_PAIR(COLOR_PAIR_OFF)
     );
     x += 3;
 
@@ -226,12 +227,12 @@ void draw_control_buttons(
     mvprintw(y - 1, x + 1, "C");
     attron(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
-                 : COLOR_PAIR(COLOR_PAIR_LABEL)
+                 : COLOR_PAIR(COLOR_PAIR_OFF)
     );
     mvprintw(y, x, "|-|");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
-                 : COLOR_PAIR(COLOR_PAIR_LABEL)
+                 : COLOR_PAIR(COLOR_PAIR_OFF)
     );
     x += 3;
 
@@ -255,12 +256,12 @@ void draw_control_buttons(
     mvprintw(y - 1, x + 1, "S");
     attron(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
-                 : COLOR_PAIR(COLOR_PAIR_LABEL)
+                 : COLOR_PAIR(COLOR_PAIR_OFF)
     );
     mvprintw(y, x, "|-|");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
-                 : COLOR_PAIR(COLOR_PAIR_LABEL)
+                 : COLOR_PAIR(COLOR_PAIR_OFF)
     );
     x += 3;
 
@@ -271,19 +272,23 @@ void draw_control_buttons(
     mvprintw(y - 1, x + 1, "D");
     attron(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
-                 : COLOR_PAIR(COLOR_PAIR_LABEL)
+                 : COLOR_PAIR(COLOR_PAIR_OFF)
     );
     mvprintw(y, x, "|-|");
     attroff(
         selected ? (COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE)
-                 : COLOR_PAIR(COLOR_PAIR_LABEL)
+                 : COLOR_PAIR(COLOR_PAIR_OFF)
     );
     x += 3;
 }
 
 // --- Main UI Function ---
 
-void run_console_ui(Pdp11Console *console, Pdp11PapertapeReader *const pr) {
+void run_console_ui(
+    Pdp11Console *const console,
+    Pdp11PapertapeReader *const pr,
+    Pdp11Teletype *const tty
+) {
     initscr();  // Start curses mode
     clear();
     noecho();              // Don't echo() while we should be in control
@@ -300,9 +305,9 @@ void run_console_ui(Pdp11Console *console, Pdp11PapertapeReader *const pr) {
 
     start_color();
     // Define color pairs (foreground, background)
-    init_pair(COLOR_PAIR_OFF, COLOR_WHITE, COLOR_BLACK);    // Off light/switch
-    init_pair(COLOR_PAIR_ON, COLOR_RED, COLOR_BLACK);       // On light/switch
-    init_pair(COLOR_PAIR_LABEL, COLOR_WHITE, COLOR_BLACK);  // Labels
+    init_pair(COLOR_PAIR_OFF, COLOR_WHITE, COLOR_BLACK);     // Off light/switch
+    init_pair(COLOR_PAIR_ON, COLOR_RED, COLOR_BLACK);        // On light/switch
+    init_pair(COLOR_PAIR_LABEL, COLOR_YELLOW, COLOR_BLACK);  // Labels
     init_pair(COLOR_PAIR_SELECTED, COLOR_YELLOW, COLOR_BLACK);  // Selected item
     init_pair(5, COLOR_WHITE, COLOR_WHITE);
     init_pair(6, COLOR_WHITE, COLOR_WHITE);
@@ -313,6 +318,7 @@ void run_console_ui(Pdp11Console *console, Pdp11PapertapeReader *const pr) {
         SELECT_SWITCH_REG_BIT_15;  // Start selection at SR bit 15
     bool quit = false;
 
+    bool is_in_input_mode = false;
     while (!quit) {
         // --- Get State ---
         Pdp11ConsolePowerControl power_state =
@@ -351,123 +357,131 @@ void run_console_ui(Pdp11Console *console, Pdp11PapertapeReader *const pr) {
         // Help Text
         attron(COLOR_PAIR(COLOR_PAIR_LABEL));
         mvprintw(
-            LINES - 3,
-            1,
-            "LARROW/RARROW - navigation, SPACE/ENTER/UARROW/DARROW - toggle/press"
-        );
-        mvprintw(
-            LINES - 2,
-            1,
-            "shortcuts: L - load, E - exam, D - dep, C - cont, H - enbl/halt, S - start\n\tP - next power, Q - quit, B - autoinsert bootstrap loader"
+            LINES - 4,
+            0,
+            is_in_input_mode
+                ? "\n\n\n"
+                  " * ^N - back into normal mode\t"
+                  " * Anykey - teletype input\n"
+                : " * Left/Right - move around\t"
+                  " * Up/Down/Enter/Space - toggle switch\n"
+                  " * O/P - dec/inc power lvl\t"
+                  " * L, E, C, H, S, D - load, exam, cont, enbl/halt, start, deposit\n"
+                  " * B - autoinsert bootloader\t"
+                  " * T - change paper tape;\n"
+                  " * ^I - into insert mode\t"
+                  " * Q - quit\n"
         );
         attroff(COLOR_PAIR(COLOR_PAIR_LABEL));
 
-        refresh();  // Update the physical screen
+        refresh();
 
-        // --- Input Handling ---
-        int ch = getch();  // Get user input (or ERR if timeout)
+        int const ch = getch();
+        if (is_in_input_mode) {
+            switch (ch) {
+            case 'N' & 0x1F: is_in_input_mode = false; break;
 
-        switch (ch) {
-        case KEY_LEFT:
-            if (current_selection > 0) {
-                current_selection--;
-            } else {
-                current_selection = SELECT_COUNT - 1;  // Wrap around
+            case '\n':
+            case KEY_ENTER: pdp11_teletype_putc(tty, '\n'); break;
+            case ' ' ... '~': pdp11_teletype_putc(tty, ch); break;
             }
-            break;
+        } else {
+            switch (ch) {
+            case 'I' & 0x1F: is_in_input_mode = true; break;
 
-        case KEY_RIGHT:
-            if (current_selection < SELECT_COUNT - 1) {
-                current_selection++;
-            } else {
-                current_selection = 0;  // Wrap around
+            case KEY_LEFT:
+                current_selection = current_selection > 0
+                                      ? current_selection - 1
+                                      : SELECT_COUNT - 1;
+                break;
+
+            case KEY_RIGHT:
+                current_selection = current_selection < SELECT_COUNT - 1
+                                      ? current_selection + 1
+                                      : 0;
+                break;
+
+            case KEY_UP:
+            case KEY_DOWN:
+            case ' ':
+            case '\n':
+            case KEY_ENTER: {
+                if (current_selection == SELECT_POWER) {
+                    ch == KEY_UP ? pdp11_console_next_power_control(console)
+                                 : pdp11_console_prev_power_control(console);
+                } else {
+                    if (current_selection >= SELECT_SWITCH_REG_BIT_0 &&
+                        current_selection <= SELECT_SWITCH_REG_BIT_15) {
+                        int bit_index =
+                            15 - (current_selection - SELECT_SWITCH_REG_BIT_0);
+                        pdp11_console_toggle_control_switch(console, bit_index);
+                    } else if (current_selection == SELECT_LOAD_ADDR) {
+                        pdp11_console_press_load_addr(console);
+                    } else if (current_selection == SELECT_EXAMINE) {
+                        pdp11_console_press_examine(console);
+                    } else if (current_selection == SELECT_DEPOSIT) {
+                        pdp11_console_press_deposit(console);
+                    } else if (current_selection == SELECT_CONTINUE) {
+                        pdp11_console_press_continue(console);
+                    } else if (current_selection == SELECT_ENABLE) {
+                        pdp11_console_toggle_enable(console);
+                    } else if (current_selection == SELECT_START) {
+                        pdp11_console_press_start(console);
+                    } else if (current_selection == SELECT_POWER) {
+                        // Cycle power with space/enter as well
+                        pdp11_console_next_power_control(console);
+                    }
+                }
+            } break;
+
+            case 'Q':
+            case 'q': quit = true; break;
+            case 'P':
+            case 'p': pdp11_console_next_power_control(console); break;
+            case 'O':
+            case 'o': pdp11_console_prev_power_control(console); break;
+
+            case 'L':
+            case 'l': pdp11_console_press_load_addr(console); break;
+            case 'E':
+            case 'e': pdp11_console_press_examine(console); break;
+            case 'C':
+            case 'c': pdp11_console_press_continue(console); break;
+            case 'H':
+            case 'h': pdp11_console_toggle_enable(console); break;
+            case 'S':
+            case 's': pdp11_console_press_start(console); break;
+            case 'D':
+            case 'd': pdp11_console_press_deposit(console); break;
+
+            case 'B':
+            case 'b': pdp11_console_insert_bootstrap(console); break;
+
+            case 'T':
+            case 't': {
+                def_prog_mode();
+                endwin();
+
+                printf("Enter new papertape name to load: ");
+                char papertape[256] = {0};
+                while (scanf(" %[^\n]256s", papertape) != 1)
+                    printf("invalid!\n"), fflush(stdin);
+
+                if (pdp11_papertape_reader_load(pr, papertape) != Ok) {
+                    printf(
+                        "cannot open papertape: '%s'. continuing in several seconds...\n",
+                        papertape
+                    );
+                    sleep(2);
+                }
+
+                reset_prog_mode();
+                refresh();
+            } break;
+
+            case ERR:
+            default: break;
             }
-            break;
-
-        case KEY_UP:  // Treat Up/Down as Power cycle or action trigger
-        case KEY_DOWN:
-            if (current_selection == SELECT_POWER) {
-                ch == KEY_UP ? pdp11_console_next_power_control(console)
-                             : pdp11_console_prev_power_control(console);
-            } else {
-                // Potentially map to Enter/Space for other elements
-                goto handle_action;
-            }
-            break;
-
-        case ' ':
-        case '\n':  // Enter key
-        case KEY_ENTER:
-        handle_action:
-            if (current_selection >= SELECT_SWITCH_REG_BIT_0 &&
-                current_selection <= SELECT_SWITCH_REG_BIT_15) {
-                int bit_index =
-                    15 - (current_selection - SELECT_SWITCH_REG_BIT_0);
-                pdp11_console_toggle_control_switch(console, bit_index);
-            } else if (current_selection == SELECT_LOAD_ADDR) {
-                pdp11_console_press_load_addr(console);
-            } else if (current_selection == SELECT_EXAMINE) {
-                pdp11_console_press_examine(console);
-            } else if (current_selection == SELECT_DEPOSIT) {
-                pdp11_console_press_deposit(console);
-            } else if (current_selection == SELECT_CONTINUE) {
-                pdp11_console_press_continue(console);
-            } else if (current_selection == SELECT_ENABLE) {
-                pdp11_console_toggle_enable(console);
-            } else if (current_selection == SELECT_START) {
-                pdp11_console_press_start(console);
-            } else if (current_selection == SELECT_POWER) {
-                // Cycle power with space/enter as well
-                pdp11_console_next_power_control(console);
-            }
-            break;
-
-        // --- Shortcut Keys ---
-        case 'q':
-        case 'Q': quit = true; break;
-        case 'p':
-        case 'P': pdp11_console_next_power_control(console); break;
-        case 'o':
-        case 'O': pdp11_console_prev_power_control(console); break;
-        case 'l':
-        case 'L': pdp11_console_press_load_addr(console); break;
-        case 'e':
-        case 'E': pdp11_console_press_examine(console); break;
-        case 'd':
-        case 'D': pdp11_console_press_deposit(console); break;
-        case 'c':
-        case 'C': pdp11_console_press_continue(console); break;
-        case 'h':
-        case 'H': pdp11_console_toggle_enable(console); break;
-        case 's':
-        case 'S': pdp11_console_press_start(console); break;
-        case 'b':
-        case 'B': pdp11_console_insert_bootstrap(console); break;
-
-        case 't':
-        case 'T': {
-            def_prog_mode();
-            endwin();
-
-            printf("Enter new papertape name to load: ");
-            char papertape[256] = {0};
-            while (scanf(" %[^\n]256s", papertape) != 1)
-                printf("invalid!\n"), fflush(stdin);
-
-            if (pdp11_papertape_reader_load(pr, papertape) != Ok) {
-                printf(
-                    "cannot open papertape: '%s'. continuing in several seconds...\n",
-                    papertape
-                );
-                sleep(2);
-            }
-
-            reset_prog_mode();
-            refresh();
-        } break;
-
-        case ERR:
-        default: continue;
         }
     }
 
@@ -478,9 +492,6 @@ int main() {
     Pdp11 pdp = {0};
     UNROLL(pdp11_init(&pdp));
 
-    Pdp11Console console = {0};
-    pdp11_console_init(&console, &pdp);
-
     Pdp11PapertapeReader pr = {0};
     pdp11_papertape_reader_init(
         &pr,
@@ -489,13 +500,31 @@ int main() {
         PDP11_PAPERTAPE_READER_INTR_VEC,
         PDP11_PAPERTAPE_READER_INTR_PRIORITY
     );
+
+    Pdp11Teletype tty = {0};
+    pdp11_teletype_init(
+        &tty,
+        &pdp.unibus,
+        PDP11_TELETYPE_ADDR,
+        PDP11_TELETYPE_KEYBOARD_INTR_VEC,
+        PDP11_TELETYPE_PRINTER_INTR_VEC,
+        PDP11_TELETYPE_INTR_PRIORITY,
+        -1  // TODO
+    );
+
     pdp.unibus.devices[PDP11_FIRST_USER_DEVICE + 0] =
         pdp11_papertape_reader_ww_unibus_device(&pr);
+    pdp.unibus.devices[PDP11_FIRST_USER_DEVICE + 1] =
+        pdp11_teletype_ww_unibus_device(&tty);
+
+    Pdp11Console console = {0};
+    pdp11_console_init(&console, &pdp);
 
     pdp11_papertape_reader_load(&pr, "res/papertapes/absolute_loader.ptap");
 
-    run_console_ui(&console, &pr);
+    run_console_ui(&console, &pr, &tty);
 
+    pdp11_teletype_uninit(&tty);
     pdp11_papertape_reader_uninit(&pr);
     pdp11_uninit(&pdp);
 

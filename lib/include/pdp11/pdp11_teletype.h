@@ -24,18 +24,18 @@ typedef struct Pdp11TeletypePunchStatus {
     uint16_t : 3;
     bool maintenance : 1;
     uint16_t : 2;
-} Pdp11TeletypePunchStatus;
+} Pdp11TeletypePrinterStatus;
 
 typedef struct Pdp11Teletype {
     Pdp11TeletypeKeyboardStatus _keyboard_status;
     uint8_t _keyboar_buffer;
-    Pdp11TeletypePunchStatus _punch_status;
-    uint8_t _punch_buffer;
+    Pdp11TeletypePrinterStatus _printer_status;
+    uint8_t _printer_buffer;
 
     char *_buf;
 
     uint16_t _starting_addr;
-    uint8_t _intr_vec;
+    uint8_t _keyboard_intr_vec, _printer_intr_vec;
     unsigned _intr_priority;
 
     Unibus *_unibus;
@@ -47,7 +47,8 @@ Result pdp11_teletype_init(
     Pdp11Teletype *const self,
     Unibus *const unibus,
     uint16_t const starting_addr,
-    uint8_t const intr_vec,
+    uint8_t const keyboard_intr_vec,
+    uint8_t const printer_intr_vec,
     unsigned const intr_priority,
     size_t const buf_len
 );
