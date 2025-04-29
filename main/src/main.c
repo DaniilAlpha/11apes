@@ -455,7 +455,7 @@ void run_console_ui(
             case 'd': pdp11_console_press_deposit(console); break;
 
             case 'B':
-            case 'b': pdp11_console_insert_bootstrap(console); break;
+            case 'b': pdp11_console_insert_bootloader(console); break;
 
             case 'T':
             case 't': {
@@ -512,15 +512,20 @@ int main() {
         -1  // TODO
     );
 
-    pdp.unibus.devices[PDP11_FIRST_USER_DEVICE + 0] =
-        pdp11_papertape_reader_ww_unibus_device(&pr);
-    pdp.unibus.devices[PDP11_FIRST_USER_DEVICE + 1] =
-        pdp11_teletype_ww_unibus_device(&tty);
-
     Pdp11Console console = {0};
     pdp11_console_init(&console, &pdp);
 
+    pdp.periphs++[0] = pdp11_console_ww_unibus_device(&console);
+    pdp.periphs++[0] = pdp11_papertape_reader_ww_unibus_device(&pr);
+    pdp.periphs++[0] = pdp11_teletype_ww_unibus_device(&tty);
+
+    // TODO temp for quick start
+    pdp11_console_next_power_control(&console);
+    pdp11_console_toggle_enable(&console);
+    pdp11_console_insert_bootloader(&console);
+    pdp11_console_toggle_enable(&console);
     pdp11_papertape_reader_load(&pr, "res/papertapes/absolute_loader.ptap");
+    pdp11_console_press_start(&console);
 
     run_console_ui(&console, &pr, &tty);
 

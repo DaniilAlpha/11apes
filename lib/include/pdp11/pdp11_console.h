@@ -7,7 +7,7 @@
 
 #define PDP11_CONSOLE_CPU_REG_ADDRESS      (0177700)
 #define PDP11_CONSOLE_SWITCH_REGISTER_ADDR (0177570)
-#define PDP11_BOOTSTRAP_ADDR               (0137744)
+#define PDP11_BOOTLOADER_ADDR              (0137744)
 
 typedef enum Pdp11ConsolePowerControl {
     PDP11_CONSOLE_POWER_CONTROL_OFF,
@@ -70,7 +70,7 @@ void pdp11_console_press_continue(Pdp11Console *const self);
 void pdp11_console_toggle_enable(Pdp11Console *const self);
 void pdp11_console_press_start(Pdp11Console *const self);
 
-void pdp11_console_insert_bootstrap(Pdp11Console *const self);
+void pdp11_console_insert_bootloader(Pdp11Console *const self);
 
 UnibusDevice pdp11_console_ww_unibus_device(Pdp11Console *const self);
 

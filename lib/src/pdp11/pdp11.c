@@ -7,10 +7,12 @@
 Result pdp11_init(Pdp11 *const self) {
     UNROLL(pdp11_ram_init(&self->ram, 0, PDP11_RAM_SIZE, "core.ram"));
 
-    unibus_init(&self->unibus, &self->cpu);
-    self->unibus.devices[0] = pdp11_ram_ww_unibus_device(&self->ram);
-
     pdp11_cpu_init(&self->cpu, &self->unibus);
+
+    unibus_init(&self->unibus, &self->cpu);
+    self->periphs = self->unibus.devices;
+
+    self->periphs++[0] = pdp11_ram_ww_unibus_device(&self->ram);
 
     return Ok;
 }

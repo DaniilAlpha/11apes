@@ -382,13 +382,13 @@ forceinline void pdp11_cpu_instr_clnzvc_senzvc(
  *************/
 
 static Result pdp11_stack_push(Pdp11Cpu *const self, uint16_t const value) {
-    UNROLL(unibus_cpu_dato(self->_unibus, pdp11_cpu_sp(self), value));
     pdp11_cpu_sp(self) -= 2;
+    UNROLL(unibus_cpu_dato(self->_unibus, pdp11_cpu_sp(self), value));
     return Ok;
 }
 static Result pdp11_stack_pop(Pdp11Cpu *const self, uint16_t *const out) {
-    pdp11_cpu_sp(self) += 2;
     UNROLL(unibus_cpu_dati(self->_unibus, pdp11_cpu_sp(self), out));
+    pdp11_cpu_sp(self) += 2;
     return Ok;
 }
 static void pdp11_cpu_trap(Pdp11Cpu *const self, uint8_t const trap) {
@@ -443,18 +443,15 @@ pdp11_cpu_address_word(Pdp11Cpu *const self, unsigned const mode) {
             return pdp11_word_from_unibus(self->_unibus, addr);
         }
     } break;
-    case 04:
-        return pdp11_word_from_unibus(
-            self->_unibus,
-            pdp11_cpu_rx(self, r_i) -= 2
-        );
+    case 04: {
+        pdp11_cpu_rx(self, r_i) -= 2;
+        return pdp11_word_from_unibus(self->_unibus, pdp11_cpu_rx(self, r_i));
+    } break;
     case 05: {
+        pdp11_cpu_rx(self, r_i) -= 2;
         uint16_t addr;
-        if (unibus_cpu_dati(
-                self->_unibus,
-                pdp11_cpu_rx(self, r_i) -= 2,
-                &addr
-            ) == Ok)
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_rx(self, r_i), &addr) ==
+            Ok)
             return pdp11_word_from_unibus(self->_unibus, addr);
     } break;
     case 06: {
@@ -482,7 +479,7 @@ pdp11_cpu_address_word(Pdp11Cpu *const self, unsigned const mode) {
     default: assert(false);
     }
 
-    return (Pdp11Word){0};
+    return (Pdp11Word){.vtbl = NULL};
 }
 static Pdp11Byte
 pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
@@ -506,18 +503,15 @@ pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
             return pdp11_byte_from_unibus(self->_unibus, addr);
         }
     } break;
-    case 04:
-        return pdp11_byte_from_unibus(
-            self->_unibus,
-            pdp11_cpu_rx(self, r_i) -= r_i >= 06 ? 2 : 1
-        );
+    case 04: {
+        pdp11_cpu_rx(self, r_i) -= r_i >= 06 ? 2 : 1;
+        return pdp11_byte_from_unibus(self->_unibus, pdp11_cpu_rx(self, r_i));
+    } break;
     case 05: {
+        pdp11_cpu_rx(self, r_i) -= 2;
         uint16_t addr;
-        if (unibus_cpu_dati(
-                self->_unibus,
-                pdp11_cpu_rx(self, r_i) -= 2,
-                &addr
-            ) == Ok)
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_rx(self, r_i), &addr) ==
+            Ok)
             return pdp11_byte_from_unibus(self->_unibus, addr);
     } break;
     case 06: {
@@ -545,7 +539,7 @@ pdp11_cpu_address_byte(Pdp11Cpu *const self, unsigned const mode) {
     default: assert(false);
     }
 
-    return (Pdp11Byte){0};
+    return (Pdp11Byte){.vtbl = NULL};
 }
 static inline uint16_t
 pdp11_cpu_jmp_jsr_effective_addr(Pdp11Cpu *const self, unsigned const mode) {
@@ -565,12 +559,10 @@ pdp11_cpu_jmp_jsr_effective_addr(Pdp11Cpu *const self, unsigned const mode) {
     } break;
     case 04: return pdp11_cpu_rx(self, r_i) -= 2;
     case 05: {
+        pdp11_cpu_rx(self, r_i) -= 2;
         uint16_t addr;
-        if (unibus_cpu_dati(
-                self->_unibus,
-                pdp11_cpu_rx(self, r_i) -= 2,
-                &addr
-            ) == Ok)
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_rx(self, r_i), &addr) ==
+            Ok)
             return addr;
     } break;
     case 06: {
@@ -748,8 +740,13 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
         should_trap = self->_psw.tf;
 
         uint16_t const encoded = pdp11_cpu_fetch(self);
-        fprintf(stderr, "exec at %06o : ", pdp11_cpu_pc(self) - 2),
-            fprintf(stderr, "%06o\n", encoded), fflush(stderr);
+        fprintf(
+            stderr,
+            "exec at %06o : %06o\n",
+            pdp11_cpu_pc(self) - 2,
+            encoded
+        ),
+            fflush(stderr);
         Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
         switch (instr.type) {
         case PDP11_CPU_INSTR_TYPE_OO: pdp11_cpu_exec_oo(self, instr); break;

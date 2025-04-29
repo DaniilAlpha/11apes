@@ -27,12 +27,11 @@
 #define PDP11_TELETYPE_PRINTER_INTR_VEC  (064)
 #define PDP11_TELETYPE_INTR_PRIORITY     (04)
 
-#define PDP11_FIRST_USER_DEVICE (1)
-
 typedef struct Pdp11 {
     Unibus unibus;
     Pdp11Ram ram;
     Pdp11Cpu cpu;
+    UnibusDevice *periphs;
 } Pdp11;
 
 Result pdp11_init(Pdp11 *const self);

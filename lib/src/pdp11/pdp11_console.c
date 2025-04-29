@@ -89,7 +89,7 @@ void pdp11_console_press_deposit(Pdp11Console *const self) {
     self->_data_register = self->_switch_register;
     switch (self->_addr_register) {
     case PDP11_CONSOLE_CPU_REG_ADDRESS ... PDP11_CONSOLE_CPU_REG_ADDRESS +
-        7 * 2 - 1: {
+        PDP11_CPU_REG_COUNT * 2 - 1: {
         unsigned const r_i = (self->_addr_register >> 1) & 07;
         pdp11_cpu_rx(&self->_pdp11->cpu, r_i) = self->_data_register;
     } break;
@@ -113,7 +113,7 @@ void pdp11_console_press_examine(Pdp11Console *const self) {
 
     switch (self->_addr_register) {
     case PDP11_CONSOLE_CPU_REG_ADDRESS ... PDP11_CONSOLE_CPU_REG_ADDRESS +
-        7 * 2 - 1: {
+        PDP11_CPU_REG_COUNT * 2 - 1: {
         unsigned const r_i = (self->_addr_register >> 1) & 07;
         self->_data_register = pdp11_cpu_rx(&self->_pdp11->cpu, r_i);
     } break;
@@ -194,8 +194,8 @@ unsigned pdp11_console_address_light(Pdp11Console const *const self) {
                    pdp11_console_simulated_light(self);
 }
 
-void pdp11_console_insert_bootstrap(Pdp11Console *const self) {
-    static uint16_t const bootstrap[] = {
+void pdp11_console_insert_bootloader(Pdp11Console *const self) {
+    static uint16_t const bootloader[] = {
         0016701,
         0000026,
         0012702,
@@ -205,7 +205,7 @@ void pdp11_console_insert_bootstrap(Pdp11Console *const self) {
         0100376,
         0116162,
         0000002,
-        (PDP11_BOOTSTRAP_ADDR & ~07777) | 0007400,
+        (PDP11_BOOTLOADER_ADDR & ~07777) | 0007400,
         0005267,
         0177756,
         0000765,
@@ -218,14 +218,14 @@ void pdp11_console_insert_bootstrap(Pdp11Console *const self) {
         return;
 
     pdp11_console_press_start(self);
-    self->_switch_register = PDP11_BOOTSTRAP_ADDR;
+    self->_switch_register = PDP11_BOOTLOADER_ADDR;
     pdp11_console_press_load_addr(self);
-    foreach (instr_ptr, bootstrap, bootstrap + lenof(bootstrap)) {
+    foreach (instr_ptr, bootloader, bootloader + lenof(bootloader)) {
         self->_switch_register = *instr_ptr;
         pdp11_console_press_deposit(self);
     }
 
-    self->_switch_register = PDP11_BOOTSTRAP_ADDR;
+    self->_switch_register = PDP11_BOOTLOADER_ADDR;
     pdp11_console_press_load_addr(self);
     pdp11_console_press_examine(self);
     pdp11_console_press_load_addr(self);
