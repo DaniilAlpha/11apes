@@ -8,11 +8,12 @@ It cannot do much yet. There is a teletype unit implemented, but i'm not sure if
 
 To run the project follow these simple steps:
 
-- Clone the repo and init submodules
+- Clone the repo, switch to this branch and init submodules
 
 ```bash
 git clone https://github.com/DaniilAlpha/sem4-osisp-coursework.git pdp11emu
 cd pdp11emu
+git checkout percentage-3
 git submodule update --init
 ```
 
