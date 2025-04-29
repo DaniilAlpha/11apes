@@ -8,7 +8,7 @@ It cannot do much yet. There is a teletype unit implemented, but i'm not sure if
 
 To run the project follow these simple steps:
 
-- Clone the repo, switch to this branch and init submodules
+ - Clone the repo, switch to this branch and init submodules
 
 ```bash
 git clone https://github.com/DaniilAlpha/sem4-osisp-coursework.git pdp11emu
@@ -17,25 +17,25 @@ git checkout percentage-3
 git submodule update --init
 ```
 
-- Install the proper dependencies
+ - Install the proper dependencies
 
-  - For Debian/Ubuntu/Mint/anything with `apt`
+   - For Debian/Ubuntu/Mint/anything with `apt`
 
     ```bash
     sudo apt install libncurses-dev tmux cmake gcc
     ```
 
-  - For Fedora/anything with `dnf`
+   - For Fedora/anything with `dnf`
 
     ```bash
     sudo dnf install ncurses-devel tmux cmake gcc
     ```
 
-  - For any other GNU/Linux: find these packages yourself, it's not that hard
+   - For any other GNU/Linux: find these packages yourself, it's not that hard
 
-  - For Windows: just use Linux
+   - For Windows: just use Linux
 
-- Build the project
+ - Build the project
 
 ```bash
 cmake -B build/ -S ./
@@ -52,6 +52,19 @@ chmod +x ./run.sh
 ```bash
 build/main/main # for a simpler layout, only Operator's Console
 ```
+
+## Usage
+
+Currently the only piece of the emulator that can be actively interacted with is the Operator's Console. The following actions show how to run an Absolute Loader:
+
+ - `P` - to power up the system. CPU is initially halted.
+ - `H` - to enter the halt mode on the console (unblocks interactions).
+ - `B` - to automatically insert the bootloader (can be done manually, but generally just a waste of time).
+ - `H` - to exit the halt mode on the console (won't start the cpu yet).
+ - (`T`, `res/papertapes/absolute_loader.ptap` - load the absolute loader paper tape. Unnecessary, as it is preloaded by default.)
+ - `S` - to reset the CPU and start from the last loaded address (in this case, the beginning of the bootstrap loader.
+
+Then you can watch several seconds of bootloader loading the Absolute Loader into memory. Then CPU halts, indicating that the read was completed. At this point you should be able to "insert" any other Absolute Format tape, and press `C` to continue. Your second program then will be loaded into memory, but won't be able to run because of some stupid bug. 
 
 ## Run tests
 
