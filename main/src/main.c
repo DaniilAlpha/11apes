@@ -519,13 +519,7 @@ int main() {
     pdp.periphs++[0] = pdp11_papertape_reader_ww_unibus_device(&pr);
     pdp.periphs++[0] = pdp11_teletype_ww_unibus_device(&tty);
 
-    // TODO temp for quick start
-    pdp11_console_next_power_control(&console);
-    pdp11_console_toggle_enable(&console);
-    pdp11_console_insert_bootloader(&console);
-    pdp11_console_toggle_enable(&console);
     pdp11_papertape_reader_load(&pr, "res/papertapes/absolute_loader.ptap");
-    pdp11_console_press_start(&console);
 
     run_console_ui(&console, &pr, &tty);
 
