@@ -17,7 +17,7 @@ split-window -h
 select-pane -t 2
 resize-pane -D 100
 resize-pane -U 18
-send-keys "clear && $BUILD/main/main $ARGS 2> stderr" C-m
+send-keys "clear && build/main/main $ARGS 2> stderr" C-m
 
 select-pane -t 0
 send-keys "clear && tail -f stderr" C-m
