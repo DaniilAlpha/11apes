@@ -44,6 +44,7 @@ cmake --build build/
 - Now you can run the project
 
 ```bash
+chmod +x ./run.sh
 ./run.sh # for a dedicate window, multiplexed with tmux 
 ```
 
