@@ -5,6 +5,9 @@ for terminal in "$TERMINAL" x-terminal-emulator mate-terminal gnome-terminal ter
     fi
 done
 
+touch stderr
+touch tty
+
 cat > tmux.conf <<- "EOF"
 new-session -s pdp11 -d -n "PDP-11"
 
