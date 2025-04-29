@@ -21,12 +21,13 @@ select-pane -t 1
 send-keys "clear && tail -f tty" C-m
 
 select-pane -t 2
+resize-pane -D 100
 send-keys "clear && $BUILD/main/main $ARGS 2> stderr" C-m
 EOF
 
-tmux kill-session
+tmux kill-session -t pdp11
 $TERMINAL -e tmux -f ./tmux.conf attach-session -t pdp11 -- &
-sleep 0.5
+sleep 0.1
 rm tmux.conf
 wait
-tmux kill-session
+tmux kill-session -t pdp11

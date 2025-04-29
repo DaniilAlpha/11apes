@@ -415,7 +415,8 @@ static uint16_t pdp11_cpu_fetch(Pdp11Cpu *const self) {
     uint16_t instr;
     if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self), &instr) != Ok) {
         pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
-        return pdp11_cpu_fetch(self);
+        if (unibus_cpu_dati(self->_unibus, pdp11_cpu_pc(self), &instr) != Ok)
+            pdp11_cpu_halt(self);
     }
     pdp11_cpu_pc(self) += 2;
     return instr;
@@ -747,7 +748,12 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
             encoded
         ),
             fflush(stderr);
+        if (pdp11_cpu_pc(self) - 2 == 0137706)
+            self->_state = PDP11_CPU_STATE_HALT;
+
         Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
+
+        uint16_t const next_pc = pdp11_cpu_pc(self);
         switch (instr.type) {
         case PDP11_CPU_INSTR_TYPE_OO: pdp11_cpu_exec_oo(self, instr); break;
         case PDP11_CPU_INSTR_TYPE_RO: pdp11_cpu_exec_ro(self, instr); break;
@@ -770,6 +776,9 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
             pdp11_cpu_trap(self, PDP11_CPU_TRAP_RESERVED_INSTR);
             break;
         }
+
+        if ((uint16_t)(pdp11_cpu_pc(self) - next_pc) > 4)
+            fprintf(stderr, "\n"), fflush(stderr);
 
         if (self->_state != PDP11_CPU_STATE_HALT &&
             self->_state != PDP11_CPU_STATE_WAIT)
@@ -1333,7 +1342,7 @@ void pdp11_cpu_instr_sub(
     Pdp11Word const dst
 ) {
     uint32_t const res =
-        xword(src.vtbl->read(&src)) + xword(-dst.vtbl->read(&dst));
+        xword(dst.vtbl->read(&dst)) + xword(-src.vtbl->read(&src));
     pdp11_psw_set_flags_from_xword(&self->_psw, res, true);
     dst.vtbl->write(&dst, res);
 }
