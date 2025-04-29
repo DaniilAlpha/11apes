@@ -27,7 +27,7 @@ EOF
 
 tmux kill-session -t pdp11
 $TERMINAL -e tmux -f ./tmux.conf attach-session -t pdp11 -- &
-sleep 0.1
+sleep 0.5
 rm tmux.conf
 wait
 tmux kill-session -t pdp11
