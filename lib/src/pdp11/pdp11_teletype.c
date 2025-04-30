@@ -5,7 +5,6 @@
 #include <unistd.h>
 
 #include "bits.h"
-#include "conviniences.h"
 
 /*************
  ** private **
@@ -28,7 +27,7 @@ static void pdp11_teletype_printer_thread_helper(Pdp11Teletype *const self) {
     while (true) {
         while (self->_printer_status.ready) sleep(0);
 
-        fputc(self->_printer_buffer, file);
+        fputc(self->_printer_buffer, file), fflush(file);
 
         self->_printer_status.ready = true;
 

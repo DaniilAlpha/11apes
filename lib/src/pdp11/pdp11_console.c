@@ -189,7 +189,7 @@ bool pdp11_console_destination_light(Pdp11Console const *const self) {
 }
 unsigned pdp11_console_address_light(Pdp11Console const *const self) {
     return self->_power_control_switch == PDP11_CONSOLE_POWER_CONTROL_OFF
-             ? false
+             ? 0
              : pdp11_console_simulated_light(self) << 1 |
                    pdp11_console_simulated_light(self);
 }

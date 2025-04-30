@@ -27,8 +27,10 @@ Result pdp11_ram_init(
     uint16_t const size,
     char const *const filepath
 );
-
 void pdp11_ram_uninit(Pdp11Ram *const self);
+
+Result pdp11_ram_save(Pdp11Ram *const self);
+Result pdp11_ram_load(Pdp11Ram *const self);
 
 UnibusDevice pdp11_ram_ww_unibus_device(Pdp11Ram *const self);
 

@@ -31,8 +31,17 @@ static void pdp11_papertape_reader_thread_helper(
 
         if (!self->_status.error) {
             if (!self->_tape || fread(&self->_buffer, 1, 1, self->_tape) != 1) {
+                fprintf(stderr, "papertape reader : read failed\n"),
+                    fflush(stderr);
                 self->_status.error = true;
             } else {
+                fprintf(
+                    stderr,
+                    "papertape reader : successfully read : %03o (=0x%02X)\n",
+                    self->_buffer,
+                    self->_buffer
+                ),
+                    fflush(stderr);
                 self->_status.done = true;
             }
             self->_status.busy = false;

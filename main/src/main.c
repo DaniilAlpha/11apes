@@ -155,9 +155,9 @@ void draw_status_lights(int y, int x, Pdp11Console const *console) {
     mvprintw(y - 1, x + 7 + 7 + 2 + 1, "ADDRESS ");
     unsigned const addr_mode = pdp11_console_address_light(console);
 
-    attron(BIT(addr_mode, 0) ? attr_on : attr_off);
-    mvprintw(y, x + 7 + 7 + 2, BIT(addr_mode, 0) ? "( ** " : "(    ");
-    attroff(BIT(addr_mode, 0) ? attr_on : attr_off);
+    attron(BIT(addr_mode, 1) ? attr_on : attr_off);
+    mvprintw(y, x + 7 + 7 + 2, BIT(addr_mode, 1) ? "( ** " : "(    ");
+    attroff(BIT(addr_mode, 1) ? attr_on : attr_off);
     attron(BIT(addr_mode, 0) ? attr_on : attr_off);
     mvprintw(y, x + 7 + 7 + 2 + 5, BIT(addr_mode, 0) ? " ** )" : "    )");
     attroff(BIT(addr_mode, 0) ? attr_on : attr_off);
@@ -370,6 +370,7 @@ void run_console_ui(
                   " * B - autoinsert bootloader\t"
                   " * T - change paper tape;\n"
                   " * ^I - into insert mode\t"
+                  " * ^D - create memory dump\t"
                   " * Q - quit\n"
         );
         attroff(COLOR_PAIR(COLOR_PAIR_LABEL));
@@ -473,6 +474,27 @@ void run_console_ui(
                         papertape
                     );
                     sleep(2);
+                } else {
+                    printf("tape loaded. continuing in a second...\n");
+                    sleep(1);
+                }
+
+                reset_prog_mode();
+                refresh();
+            } break;
+
+            case 'D' & 0x1F: {
+                def_prog_mode();
+                endwin();
+
+                if (pdp11_ram_save(&console->_pdp11->ram) != Ok) {
+                    printf(
+                        "error saving memory dump. continuing in several seconds...\n"
+                    );
+                    sleep(2);
+                } else {
+                    printf("memory dump saved. continuing in a second...\n");
+                    sleep(1);
                 }
 
                 reset_prog_mode();

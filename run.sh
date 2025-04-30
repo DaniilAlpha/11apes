@@ -5,12 +5,12 @@ for terminal in "$TERMINAL" x-terminal-emulator mate-terminal gnome-terminal ter
     fi
 done
 
-touch stderr
-touch tty
+> stderr
+> tty
 
 cat > tmux.conf <<- "EOF"
 new-session -s pdp11 -d -n "PDP-11"
-
+set-option -g history-limit 8192
 set -g mouse on
 
 split-window -v
@@ -30,8 +30,9 @@ send-keys "clear && tail -f tty" C-m
 EOF
 
 tmux kill-session -t pdp11
-$TERMINAL -e tmux -f ./tmux.conf attach-session -t pdp11 -- &
 sleep 0.5
+$TERMINAL -e tmux -f ./tmux.conf attach-session -t pdp11 -- &
+sleep 1
 rm tmux.conf
 wait
 tmux kill-session -t pdp11
