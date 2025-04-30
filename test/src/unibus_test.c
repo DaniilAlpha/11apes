@@ -13,6 +13,8 @@ static Pdp11 pdp = {0};
 
 static MiunteResult unibus_test_setup() {
     MIUNTE_EXPECT(pdp11_init(&pdp) == Ok, "`pdp11_init` should not fail");
+    pdp11_cpu_pc(&pdp.cpu) = 0x100;
+    pdp11_cpu_sp(&pdp.cpu) = 0x1000;
     MIUNTE_PASS();
 }
 static MiunteResult unibus_test_teardown() {
@@ -21,8 +23,7 @@ static MiunteResult unibus_test_teardown() {
 }
 
 static MiunteResult unibus_test_npr() {
-    UnibusDevice const *const device =
-        &pdp.unibus.devices[PDP11_FIRST_USER_DEVICE];
+    UnibusDevice const *const device = &pdp.periphs[0];
 
     uint16_t const addr = 0x42;
     uint16_t const dato = 0xF00D;
@@ -64,10 +65,9 @@ static void *lower_cpu_priority_thread(void *const vcpu) {
     return NULL;
 }
 static MiunteResult unibus_test_br() {
-    UnibusDevice const *const device =
-        &pdp.unibus.devices[PDP11_FIRST_USER_DEVICE];
+    UnibusDevice const *const device = &pdp.periphs[0];
 
-    uint16_t const trap = 0x42, trap_pc = 0xACE;
+    uint16_t const trap = 040, trap_pc = 0xACE;
     MIUNTE_EXPECT(
         unibus_npr_dato(&pdp.unibus, device, trap, trap_pc) == Ok,
         "NPR DATO should not fail"

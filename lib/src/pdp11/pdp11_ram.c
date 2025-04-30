@@ -8,31 +8,6 @@
 #include <unistd.h>
 #include <woodi.h>
 
-static Result pdp11_ram_read_from_file(Pdp11Ram *const self) {
-    if (!self->_filepath) return StateErr;
-
-    FILE *const file = fopen(self->_filepath, "r");
-    if (!file) return FileUnavailableErr;
-
-    if (fread((void *)self->_data, self->_size, 1, file) != 1)
-        return fclose(file), FileReadingErr;
-
-    fclose(file);
-    return Ok;
-}
-static Result pdp11_ram_write_to_file(Pdp11Ram *const self) {
-    if (!self->_filepath) return StateErr;
-
-    FILE *const file = fopen(self->_filepath, "w");
-    if (!file) return FileUnavailableErr;
-
-    if (fwrite((void *)self->_data, self->_size, 1, file) != 1)
-        return fclose(file), FileWritingErr;
-
-    fclose(file);
-    return Ok;
-}
-
 Result pdp11_ram_init(
     Pdp11Ram *const self,
     uint16_t const starting_addr,
@@ -49,17 +24,41 @@ Result pdp11_ram_init(
     self->_size = size;
     self->_filepath = filepath;
 
-    if (pdp11_ram_read_from_file(self) != Ok)
-        memset((void *)self->_data, 0, self->_size);
+    if (pdp11_ram_load(self) != Ok) memset((void *)self->_data, 0, self->_size);
 
     return Ok;
 }
 void pdp11_ram_uninit(Pdp11Ram *const self) {
-    pdp11_ram_write_to_file(self);
+    pdp11_ram_save(self);
 
     free((void *)self->_data), self->_data = NULL;
 
     self->_starting_addr = self->_size = 0;
+}
+
+Result pdp11_ram_save(Pdp11Ram *const self) {
+    if (!self->_filepath) return StateErr;
+
+    FILE *const file = fopen(self->_filepath, "w");
+    if (!file) return FileUnavailableErr;
+
+    if (fwrite((void *)self->_data, self->_size, 1, file) != 1)
+        return fclose(file), FileWritingErr;
+
+    fclose(file);
+    return Ok;
+}
+Result pdp11_ram_load(Pdp11Ram *const self) {
+    if (!self->_filepath) return StateErr;
+
+    FILE *const file = fopen(self->_filepath, "r");
+    if (!file) return FileUnavailableErr;
+
+    if (fread((void *)self->_data, self->_size, 1, file) != 1)
+        return fclose(file), FileReadingErr;
+
+    fclose(file);
+    return Ok;
 }
 
 /***************

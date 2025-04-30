@@ -7,8 +7,6 @@
 #include "pdp11/cpu/pdp11_cpu_instr.h"
 #include "pdp11/pdp11.h"
 
-#define pdp11_cpu_sp(SELF_) pdp11_cpu_rx((SELF_), 6)
-
 static Pdp11 pdp = {0};
 
 /*************
@@ -455,6 +453,22 @@ static MiunteResult pdp11_cpu_test_bit() {
 
     MIUNTE_PASS();
 }
+static MiunteResult pdp11_cpu_test_swab() {
+    Pdp11Psw volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
+
+    uint16_t const x = 0x12AB, res = 0xAB12;
+
+    MIUNTE_EXPECT(
+        pdp11_cpu_dop_ra_instr(0000300 /* swab R0 */, x, ~x) == res,
+        "swab should swap bytes correctly"
+    );
+    MIUNTE_EXPECT(
+        !psw->nf && !psw->zf && !psw->vf && !psw->cf,
+        "bit of zero result should result in {nzvc} flags = {0000}"
+    );
+
+    MIUNTE_PASS();
+}
 
 /**********
  ** main **
@@ -482,6 +496,7 @@ int test_cpu_run(void) {
             pdp11_cpu_test_cmp,
             pdp11_cpu_test_mul_div,
             pdp11_cpu_test_bit,
+            pdp11_cpu_test_swab,
 
             // TODO test some of the branches
             // TODO test sob

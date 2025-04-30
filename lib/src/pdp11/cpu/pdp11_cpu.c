@@ -20,6 +20,7 @@ static inline uint8_t *pdp11_cpu_rl(Pdp11Cpu *const self, unsigned const i) {
 #define pdp11_cpu_rl(SELF_, I_) (*(uint8_t *)pdp11_cpu_rl((SELF_), (I_)))
 #undef pdp11_cpu_pc
 #define pdp11_cpu_pc(SELF_) pdp11_cpu_rx((SELF_), 7)
+#undef pdp11_cpu_sp
 #define pdp11_cpu_sp(SELF_) pdp11_cpu_rx((SELF_), 6)
 
 /***********************
@@ -398,6 +399,7 @@ static void pdp11_cpu_trap(Pdp11Cpu *const self, uint8_t const trap) {
         unibus_cpu_dati(self->_unibus, trap, &pdp11_cpu_pc(self)) != Ok ||
         unibus_cpu_dati(self->_unibus, trap + 2, &cpu_stat_word) != Ok)
         return pdp11_cpu_halt(self);
+    ;
     self->_psw = pdp11_psw(cpu_stat_word);
 }
 
@@ -748,8 +750,10 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
             encoded
         ),
             fflush(stderr);
-        if (pdp11_cpu_pc(self) - 2 == 0137706)
-            self->_state = PDP11_CPU_STATE_HALT;
+
+        // if (pdp11_cpu_pc(self) - 2 == 0137576 ||
+        //     pdp11_cpu_pc(self) - 2 == 0137672)
+        //     self->_state = PDP11_CPU_STATE_HALT;
 
         Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
 
@@ -1287,7 +1291,8 @@ void pdp11_cpu_instr_rolb(Pdp11Cpu *const self, Pdp11Byte const dst) {
 
 void pdp11_cpu_instr_swab(Pdp11Cpu *const self, Pdp11Word const dst) {
     uint16_t const dst_val = dst.vtbl->read(&dst);
-    uint8_t const res = (uint16_t)(dst_val << 8) | (uint8_t)(dst_val >> 8);
+    uint16_t const res =
+        (uint16_t)(dst_val << 8) | (uint16_t)(uint8_t)(dst_val >> 8);
     self->_psw = (Pdp11Psw){
         .priority = self->_psw.priority,
         .tf = self->_psw.tf,
@@ -1574,16 +1579,13 @@ void pdp11_cpu_instr_jsr_jmp(
 void pdp11_cpu_instr_mark(Pdp11Cpu *const self, unsigned const param_count) {
     pdp11_cpu_sp(self) = pdp11_cpu_pc(self) + 2 * param_count;
     pdp11_cpu_pc(self) = pdp11_cpu_rx(self, 5);
-    if (pdp11_stack_pop(self, &pdp11_cpu_rx(self, 5)))
+    if (pdp11_stack_pop(self, &pdp11_cpu_rx(self, 5)) != Ok)
         return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
 }
 void pdp11_cpu_instr_rts(Pdp11Cpu *const self, unsigned const r_i) {
-    Pdp11Word const dst = pdp11_word_from_cpu_reg(self, r_i);
-    pdp11_cpu_pc(self) = dst.vtbl->read(&dst);
-    uint16_t new_val;
-    if (pdp11_stack_pop(self, &new_val) != Ok)
+    pdp11_cpu_pc(self) = pdp11_cpu_rx(self, r_i);
+    if (pdp11_stack_pop(self, &pdp11_cpu_rx(self, r_i)) != Ok)
         return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
-    dst.vtbl->write(&dst, new_val);
 }
 
 // program control

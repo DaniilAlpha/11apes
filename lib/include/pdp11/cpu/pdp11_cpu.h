@@ -56,6 +56,7 @@ pdp11_cpu_rx(Pdp11Cpu *const self, unsigned const i) {
 }
 #define pdp11_cpu_rx(SELF_, I_) (*pdp11_cpu_rx((SELF_), (I_)))
 #define pdp11_cpu_pc(SELF_)     pdp11_cpu_rx((SELF_), 7)
+#define pdp11_cpu_sp(SELF_)     pdp11_cpu_rx((SELF_), 6)
 
 static inline Pdp11Psw volatile *pdp11_cpu_psw(Pdp11Cpu *const self) {
     return &self->_psw;
