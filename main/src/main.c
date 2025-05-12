@@ -359,19 +359,19 @@ void run_console_ui(
         mvprintw(
             LINES - 4,
             0,
-            is_in_input_mode
-                ? "\n\n\n"
-                  " * ^N - back into normal mode\t"
-                  " * Anykey - teletype input\n"
-                : " * Left/Right - move around\t"
-                  " * Up/Down/Enter/Space - toggle switch\n"
-                  " * O/P - dec/inc power lvl\t"
-                  " * L, E, C, H, S, D - load, exam, cont, enbl/halt, start, deposit\n"
-                  " * B - autoinsert bootloader\t"
-                  " * T - change paper tape;\n"
-                  " * ^I - into insert mode\t"
-                  " * ^D - create memory dump\t"
-                  " * Q - quit\n"
+            is_in_input_mode ? "\n\n\n"
+                               " * ^N - back into normal mode\t"
+                               " * Anykey - teletype input\n"
+                             : " * Left/Right - move around\t"
+                               " * Up/Down/Enter/Space - toggle switch\n"
+                               " * O/P - dec/inc power lvl\t"
+                               " * L, E, C, H, S, D - load, exam, cont, "
+                               "enbl/halt, start, deposit\n"
+                               " * B - autoinsert bootloader\t"
+                               " * T - change paper tape;\n"
+                               " * ^I - into insert mode\t"
+                               " * ^D - create memory dump\t"
+                               " * Q - quit\n"
         );
         attroff(COLOR_PAIR(COLOR_PAIR_LABEL));
 

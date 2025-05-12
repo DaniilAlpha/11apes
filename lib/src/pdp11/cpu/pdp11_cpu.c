@@ -388,11 +388,18 @@ static Result pdp11_stack_push(Pdp11Cpu *const self, uint16_t const value) {
     return Ok;
 }
 static Result pdp11_stack_pop(Pdp11Cpu *const self, uint16_t *const out) {
+    fprintf(stderr, "internal stack pop start;  ");
     UNROLL(unibus_cpu_dati(self->_unibus, pdp11_cpu_sp(self), out));
+    fprintf(stderr, "value = %06o;  ", *out);
+    fprintf(stderr, "sp = %06o", pdp11_cpu_sp(self));
     pdp11_cpu_sp(self) += 2;
+    fprintf(stderr, " -> %06o\n", pdp11_cpu_sp(self));
+    fflush(stderr);
     return Ok;
 }
 static void pdp11_cpu_trap(Pdp11Cpu *const self, uint8_t const trap) {
+    fprintf(stderr, "  ==TRAP==  \n");
+    fflush(stderr);
     uint16_t cpu_stat_word;
     if (pdp11_stack_push(self, pdp11_psw_to_word(self->_psw)) != Ok ||
         pdp11_stack_push(self, pdp11_cpu_pc(self)) != Ok ||
@@ -751,9 +758,8 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
         ),
             fflush(stderr);
 
-        // if (pdp11_cpu_pc(self) - 2 == 0137576 ||
-        //     pdp11_cpu_pc(self) - 2 == 0137672)
-        //     self->_state = PDP11_CPU_STATE_HALT;
+        if (pdp11_cpu_pc(self) - 2 == 0000570)
+            self->_state = PDP11_CPU_STATE_HALT;
 
         Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
 
@@ -791,7 +797,7 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
         if (self->_state == PDP11_CPU_STATE_STEP)
             self->_state = PDP11_CPU_STATE_HALT;
 
-        usleep(1 * 10);  // TODO later speed up ten times
+        usleep(1);  // TODO later speed up ten times
     }
 }
 static void *pdp11_cpu_thread(void *const vself) {
@@ -1583,9 +1589,15 @@ void pdp11_cpu_instr_mark(Pdp11Cpu *const self, unsigned const param_count) {
         return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
 }
 void pdp11_cpu_instr_rts(Pdp11Cpu *const self, unsigned const r_i) {
+    fprintf(stderr, "rts start;  ");
+    fprintf(stderr, "pc = %06o", pdp11_cpu_pc(self));
     pdp11_cpu_pc(self) = pdp11_cpu_rx(self, r_i);
+    fprintf(stderr, " -> %06o;  ", pdp11_cpu_pc(self));
     if (pdp11_stack_pop(self, &pdp11_cpu_rx(self, r_i)) != Ok)
-        return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
+        return fprintf(stderr, "stack error!\n"),
+               pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
+    fprintf(stderr, "goto %06o\n", pdp11_cpu_rx(self, r_i));
+    fflush(stderr);
 }
 
 // program control
