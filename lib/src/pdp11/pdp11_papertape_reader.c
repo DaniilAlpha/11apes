@@ -55,7 +55,7 @@ static void pdp11_papertape_reader_thread_helper(
                 self->_intr_vec
             );
 
-        usleep(1000000 / 300);
+        usleep(1000000 / 300 / 10);
     }
 }
 static void *pdp11_papertape_reader_thread(void *const vself) {

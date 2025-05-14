@@ -393,12 +393,12 @@ static Result pdp11_stack_pop(Pdp11Cpu *const self, uint16_t *const out) {
     fprintf(stderr, "value = %06o;  ", *out);
     fprintf(stderr, "sp = %06o", pdp11_cpu_sp(self));
     pdp11_cpu_sp(self) += 2;
-    fprintf(stderr, " -> %06o\n", pdp11_cpu_sp(self));
+    fprintf(stderr, " -> %06o.\n", pdp11_cpu_sp(self));
     fflush(stderr);
     return Ok;
 }
 static void pdp11_cpu_trap(Pdp11Cpu *const self, uint8_t const trap) {
-    fprintf(stderr, "  ==TRAP==  \n");
+    fprintf(stderr, "==TRAP== (%03o) \n", trap);
     fflush(stderr);
     uint16_t cpu_stat_word;
     if (pdp11_stack_push(self, pdp11_psw_to_word(self->_psw)) != Ok ||
@@ -415,6 +415,7 @@ static void pdp11_cpu_service_intr(Pdp11Cpu *const self) {
         atomic_exchange(&self->__pending_intr, PDP11_CPU_NO_TRAP);
     if (pending_intr == PDP11_CPU_NO_TRAP) return;
 
+    fprintf(stderr, "  (from intr)  ");
     pdp11_cpu_trap(self, pending_intr);
 
     sem_post(&self->__pending_intr_sem);
@@ -758,8 +759,9 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
         ),
             fflush(stderr);
 
-        if (pdp11_cpu_pc(self) - 2 == 0000570)
-            self->_state = PDP11_CPU_STATE_HALT;
+        // TODO temporary breakpoint for debugging
+        // if (pdp11_cpu_pc(self) - 2 == 0000570)
+        //     self->_state = PDP11_CPU_STATE_HALT;
 
         Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
 

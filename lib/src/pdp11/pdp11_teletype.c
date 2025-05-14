@@ -31,7 +31,8 @@ static void pdp11_teletype_printer_thread_helper(Pdp11Teletype *const self) {
 
         self->_printer_status.ready = true;
 
-        if (self->_keyboard_status.intr_enable)
+        // TODO bug is here
+        if (0 && self->_keyboard_status.intr_enable)
             unibus_br_intr(
                 self->_unibus,
                 self->_intr_priority,

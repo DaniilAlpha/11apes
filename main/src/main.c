@@ -360,7 +360,7 @@ void run_console_ui(
             LINES - 4,
             0,
             is_in_input_mode ? "\n\n\n"
-                               " * ^N - back into normal mode\t"
+                               " * Tab/^N/^I - back into normal mode\t"
                                " * Anykey - teletype input\n"
                              : " * Left/Right - move around\t"
                                " * Up/Down/Enter/Space - toggle switch\n"
@@ -369,7 +369,7 @@ void run_console_ui(
                                "enbl/halt, start, deposit\n"
                                " * B - autoinsert bootloader\t"
                                " * T - change paper tape;\n"
-                               " * ^I - into insert mode\t"
+                               " * Tab/^I - into insert mode\t"
                                " * ^D - create memory dump\t"
                                " * Q - quit\n"
         );
@@ -380,10 +380,22 @@ void run_console_ui(
         int const ch = getch();
         if (is_in_input_mode) {
             switch (ch) {
+            case 'I' & 0x1F:
             case 'N' & 0x1F: is_in_input_mode = false; break;
 
             case '\n':
             case KEY_ENTER: pdp11_teletype_putc(tty, '\n'); break;
+
+            case '\b':
+            case KEY_BACKSPACE: pdp11_teletype_putc(tty, '\b'); break;
+
+            case 'U' & 0x1F:
+                // TODO send CTRL/U to delete the currently typed line
+                break;
+            case 'C' & 0x1F:
+                // TODO send CTRL/C to delete the currently typed line
+                break;
+
             case ' ' ... '~': pdp11_teletype_putc(tty, ch); break;
             }
         } else {

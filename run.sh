@@ -27,6 +27,8 @@ send-keys "clear && tail -f stderr" C-m
 
 select-pane -t 1
 send-keys "clear && tail -f tty" C-m
+
+select-pane -t 2
 EOF
 
 tmux kill-session -t pdp11
