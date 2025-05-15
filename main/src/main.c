@@ -1,5 +1,6 @@
 #include <stdlib.h>
 
+#include <ctype.h>
 #include <ncurses.h>
 #include <unistd.h>
 
@@ -387,7 +388,10 @@ void run_console_ui(
             case KEY_ENTER: pdp11_teletype_putc(tty, '\n'); break;
 
             case '\b':
-            case KEY_BACKSPACE: pdp11_teletype_putc(tty, '\b'); break;
+            case KEY_BACKSPACE:
+                // TODO not working, probably another code
+                // pdp11_teletype_putc(tty, '\b');
+                break;
 
             case 'U' & 0x1F:
                 // TODO send CTRL/U to delete the currently typed line
@@ -396,7 +400,7 @@ void run_console_ui(
                 // TODO send CTRL/C to delete the currently typed line
                 break;
 
-            case ' ' ... '~': pdp11_teletype_putc(tty, ch); break;
+            case ' ' ... '~': pdp11_teletype_putc(tty, toupper(ch)); break;
             }
         } else {
             switch (ch) {
@@ -527,23 +531,36 @@ int main() {
     UNROLL(pdp11_init(&pdp));
 
     Pdp11PapertapeReader pr = {0};
-    pdp11_papertape_reader_init(
-        &pr,
-        &pdp.unibus,
-        PDP11_PAPERTAPE_READER_ADDR,
-        PDP11_PAPERTAPE_READER_INTR_VEC,
-        PDP11_PAPERTAPE_READER_INTR_PRIORITY
+    UNROLL_CLEANUP(
+        pdp11_papertape_reader_init(
+            &pr,
+            &pdp.unibus,
+            PDP11_PAPERTAPE_READER_ADDR,
+            PDP11_PAPERTAPE_READER_INTR_VEC,
+            PDP11_PAPERTAPE_READER_INTR_PRIORITY
+        ),
+        {
+            pdp11_uninit(&pdp);
+            fprintf(stderr, "error initializing papertape reader!\n");
+        }
     );
 
     Pdp11Teletype tty = {0};
-    pdp11_teletype_init(
-        &tty,
-        &pdp.unibus,
-        PDP11_TELETYPE_ADDR,
-        PDP11_TELETYPE_KEYBOARD_INTR_VEC,
-        PDP11_TELETYPE_PRINTER_INTR_VEC,
-        PDP11_TELETYPE_INTR_PRIORITY,
-        -1  // TODO
+    UNROLL_CLEANUP(
+        pdp11_teletype_init(
+            &tty,
+            &pdp.unibus,
+            PDP11_TELETYPE_ADDR,
+            PDP11_TELETYPE_KEYBOARD_INTR_VEC,
+            PDP11_TELETYPE_PRINTER_INTR_VEC,
+            PDP11_TELETYPE_INTR_PRIORITY,
+            -1  // TODO
+        ),
+        {
+            pdp11_papertape_reader_uninit(&pr);
+            pdp11_uninit(&pdp);
+            fprintf(stderr, "error initializing papertape reader!\n");
+        }
     );
 
     Pdp11Console console = {0};

@@ -31,9 +31,10 @@ typedef struct Pdp11PapertapeReader {
     Unibus *_unibus;
 
     pthread_t _thread;
+    pthread_mutex_t _lock;
 } Pdp11PapertapeReader;
 
-void pdp11_papertape_reader_init(
+Result pdp11_papertape_reader_init(
     Pdp11PapertapeReader *const self,
     Unibus *const unibus,
     uint16_t const starting_addr,

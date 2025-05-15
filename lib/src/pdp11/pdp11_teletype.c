@@ -13,7 +13,7 @@
 static uint16_t pdp11_teletype_keyboard_status_to_word(
     Pdp11TeletypeKeyboardStatus const self
 ) {
-    return self.busy << 11 | self.done << 7 | self.intr_enable << 6;
+    return self.done << 7 | self.intr_enable << 6;
 }
 static uint16_t pdp11_teletype_printer_status_to_word(
     Pdp11TeletypePrinterStatus const self
@@ -29,18 +29,21 @@ static void pdp11_teletype_printer_thread_helper(Pdp11Teletype *const self) {
 
         fputc(self->_printer_buffer, file), fflush(file);
 
-        self->_printer_status.ready = true;
+        pthread_mutex_lock(&self->_printer_lock);
+        {
+            self->_printer_status.ready = true;
 
-        // TODO bug is here
-        if (0 && self->_keyboard_status.intr_enable)
-            unibus_br_intr(
-                self->_unibus,
-                self->_intr_priority,
-                self,
-                self->_printer_intr_vec
-            );
+            if (self->_printer_status.intr_enable)
+                unibus_br_intr(
+                    self->_unibus,
+                    self->_intr_priority,
+                    self,
+                    self->_printer_intr_vec
+                );
+        }
+        pthread_mutex_unlock(&self->_printer_lock);
 
-        usleep(1000000 / 10);
+        usleep(1000000 / 10 / 10);
     }
 }
 static void *pdp11_teletype_printer_thread(void *const vself) {
@@ -60,6 +63,16 @@ Result pdp11_teletype_init(
     unsigned const intr_priority,
     size_t const
 ) {
+    pthread_mutex_init(&self->_keyboard_lock, NULL);
+    pthread_mutex_init(&self->_printer_lock, NULL);
+    if (pthread_create(
+            &self->_thread,
+            NULL,
+            pdp11_teletype_printer_thread,
+            self
+        ) != 0)
+        return UnknownErr;
+
     // self->_buf = malloc(buf_len * elsizeof(self->_buf));
     // if (!self->_buf) return OutOfMemErr;
 
@@ -75,30 +88,31 @@ Result pdp11_teletype_init(
 
     self->_unibus = unibus;
 
-    pthread_create(&self->_thread, NULL, pdp11_teletype_printer_thread, self);
-
     return Ok;
 }
 void pdp11_teletype_uninit(Pdp11Teletype *const self) {
     pthread_cancel(self->_thread);
+    pthread_mutex_destroy(&self->_keyboard_lock);
+    pthread_mutex_destroy(&self->_printer_lock);
 
     // free(self->_buf);
 }
 
 void pdp11_teletype_putc(Pdp11Teletype *const self, char const c) {
-    self->_keyboard_status.busy = true;
-    self->_keyboar_buffer = c;
-    self->_keyboard_status.busy = false;
+    pthread_mutex_lock(&self->_keyboard_lock);
+    {
+        self->_keyboar_buffer = c;
+        self->_keyboard_status.done = true;
 
-    self->_keyboard_status.done = true;
-
-    if (self->_keyboard_status.intr_enable)
-        unibus_br_intr(
-            self->_unibus,
-            self->_intr_priority,
-            self,
-            self->_keyboard_intr_vec
-        );
+        if (self->_keyboard_status.intr_enable)
+            unibus_br_intr(
+                self->_unibus,
+                self->_intr_priority,
+                self,
+                self->_keyboard_intr_vec
+            );
+    }
+    pthread_mutex_unlock(&self->_keyboard_lock);
 }
 
 /***************
@@ -106,16 +120,21 @@ void pdp11_teletype_putc(Pdp11Teletype *const self, char const c) {
  ***************/
 
 static void pdp11_teletype_reset(Pdp11Teletype *const self) {
-    self->_keyboard_status = (Pdp11TeletypeKeyboardStatus){
-        .busy = false,
-        .done = false,
-        .intr_enable = false,
-    };
-    self->_printer_status = (Pdp11TeletypePrinterStatus){
-        .ready = true,
-        .intr_enable = false,
-        .maintenance = false,
-    };
+    pthread_mutex_lock(&self->_keyboard_lock);
+    pthread_mutex_lock(&self->_printer_lock);
+    {
+        self->_keyboard_status = (Pdp11TeletypeKeyboardStatus){
+            .done = false,
+            .intr_enable = false,
+        };
+        self->_printer_status = (Pdp11TeletypePrinterStatus){
+            .ready = true,
+            .intr_enable = false,
+            .maintenance = false,
+        };
+    }
+    pthread_mutex_unlock(&self->_printer_lock);
+    pthread_mutex_unlock(&self->_keyboard_lock);
 }
 static bool pdp11_teletype_try_read(
     Pdp11Teletype *const self,
@@ -125,19 +144,35 @@ static bool pdp11_teletype_try_read(
     addr -= self->_starting_addr;
     if (!(addr < 8)) return false;
 
-    // NOTE odd addresses cannot pass here
-    switch (addr) {
-    case 0:
-        *out = pdp11_teletype_keyboard_status_to_word(self->_keyboard_status);
-        break;
-    case 2: {
-        self->_keyboard_status.done = false;
-        *out = self->_keyboar_buffer;
-    } break;
-    case 4:
-        *out = pdp11_teletype_printer_status_to_word(self->_printer_status);
-        break;
-    case 6: *out = 0; break;
+    if (addr < 4) {
+        pthread_mutex_lock(&self->_keyboard_lock);
+        {
+            switch (addr) {
+            case 0:
+                *out = pdp11_teletype_keyboard_status_to_word(
+                    self->_keyboard_status
+                );
+                break;
+            case 2: {
+                self->_keyboard_status.done = false;
+                *out = self->_keyboar_buffer;
+            } break;
+            }
+        }
+        pthread_mutex_unlock(&self->_keyboard_lock);
+    } else {
+        pthread_mutex_lock(&self->_printer_lock);
+        {
+            switch (addr) {
+            case 4:
+                *out =
+                    pdp11_teletype_printer_status_to_word(self->_printer_status
+                    );
+                break;
+            case 6: *out = 0; break;
+            }
+        }
+        pthread_mutex_unlock(&self->_printer_lock);
     }
     return true;
 }
@@ -149,21 +184,33 @@ static bool pdp11_teletype_try_write_word(
     addr -= self->_starting_addr;
     if (!(addr < 8)) return false;
 
-    // NOTE odd addresses cannot pass here
-    switch (addr) {
-    case 0: {
-        self->_keyboard_status.intr_enable = BIT(val, 6);
-        if (BIT(val, 0)) self->_keyboard_status.done = false;
-    } break;
-    case 2: self->_keyboard_status.done = false; break;
-    case 4:
-        self->_printer_status.intr_enable = BIT(val, 6);
-        self->_printer_status.maintenance = BIT(val, 2);
-        break;
-    case 6:
-        self->_printer_buffer = val;
-        self->_printer_status.ready = false;
-        break;
+    if (addr < 4) {
+        pthread_mutex_lock(&self->_keyboard_lock);
+        {
+            switch (addr) {
+            case 0: {
+                self->_keyboard_status.intr_enable = BIT(val, 6);
+                if (BIT(val, 0)) self->_keyboard_status.done = false;
+            } break;
+            case 2: self->_keyboard_status.done = false; break;
+            }
+        }
+        pthread_mutex_unlock(&self->_keyboard_lock);
+    } else {
+        pthread_mutex_lock(&self->_printer_lock);
+        {
+            switch (addr) {
+            case 4:
+                self->_printer_status.intr_enable = BIT(val, 6);
+                self->_printer_status.maintenance = BIT(val, 2);
+                break;
+            case 6:
+                self->_printer_status.ready = false;
+                self->_printer_buffer = val;
+                break;
+            }
+        }
+        pthread_mutex_unlock(&self->_printer_lock);
     }
     return true;
 }
@@ -175,23 +222,36 @@ static bool pdp11_teletype_try_write_byte(
     addr -= self->_starting_addr;
     if (!(addr < 8)) return false;
 
-    switch (addr) {
-    case 0: {
-        self->_keyboard_status.intr_enable = BIT(val, 6);
-        if (BIT(val, 0)) self->_keyboard_status.done = false;
-    } break;
-    case 1: break;
-    case 2 ... 3: self->_keyboard_status.done = false; break;
-    case 4:
-        self->_printer_status.intr_enable = BIT(val, 6);
-        self->_printer_status.maintenance = BIT(val, 2);
-        break;
-    case 5: break;
-    case 6:
-        self->_printer_buffer = val;
-        self->_printer_status.ready = false;
-        break;
-    case 7: break;
+    if (addr < 4) {
+        pthread_mutex_lock(&self->_keyboard_lock);
+        {
+            switch (addr) {
+            case 0: {
+                self->_keyboard_status.intr_enable = BIT(val, 6);
+                if (BIT(val, 0)) self->_keyboard_status.done = false;
+            } break;
+            case 1: break;
+            case 2 ... 3: self->_keyboard_status.done = false; break;
+            }
+        }
+        pthread_mutex_unlock(&self->_keyboard_lock);
+    } else {
+        pthread_mutex_lock(&self->_printer_lock);
+        {
+            switch (addr) {
+            case 4:
+                self->_printer_status.intr_enable = BIT(val, 6);
+                self->_printer_status.maintenance = BIT(val, 2);
+                break;
+            case 5: break;
+            case 6:
+                self->_printer_status.ready = false;
+                self->_printer_buffer = val;
+                break;
+            case 7: break;
+            }
+        }
+        pthread_mutex_unlock(&self->_printer_lock);
     }
     return true;
 }

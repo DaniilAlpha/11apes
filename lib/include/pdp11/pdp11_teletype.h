@@ -9,7 +9,7 @@
 
 typedef struct Pdp11TeletypeKeyboardStatus {
     uint16_t : 4;
-    bool busy : 1;
+    bool : 1;
     uint16_t : 3;
     bool done : 1;
     bool intr_enable : 1;
@@ -41,6 +41,7 @@ typedef struct Pdp11Teletype {
     Unibus *_unibus;
 
     pthread_t _thread;
+    pthread_mutex_t _keyboard_lock, _printer_lock;
 } Pdp11Teletype;
 
 Result pdp11_teletype_init(
