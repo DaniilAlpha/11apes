@@ -23,10 +23,10 @@ resize-pane -U 18
 send-keys "clear && build/main/main $ARGS 2> stderr ; tmux kill-session -t pdp11" C-m
 
 select-pane -t 0
-send-keys "clear && tail -f stderr" C-m
+send-keys "clear && tail -f -s0.033 stderr" C-m
 
 select-pane -t 1
-send-keys "clear && tail -f tty" C-m
+send-keys "clear && tail -f -s0.033 tty" C-m
 
 select-pane -t 2
 EOF

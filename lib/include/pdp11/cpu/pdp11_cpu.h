@@ -38,7 +38,7 @@ typedef struct Pdp11Cpu {
 
     Pdp11CpuState volatile _state;  // TODO? maybe redo with condition vars
 
-    _Atomic uint8_t __pending_intr;
+    uint8_t _Atomic __pending_intr;
     sem_t __pending_intr_sem;
 
     Unibus *_unibus;

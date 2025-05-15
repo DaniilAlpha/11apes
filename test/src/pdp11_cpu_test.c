@@ -253,7 +253,7 @@ static MiunteResult pdp11_cpu_test_mov_movb() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_add_sub() {
-    Pdp11Psw volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
+    Pdp11Psw const volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
     {
         uint16_t const x = 3, y = 2;
 
@@ -341,7 +341,7 @@ static MiunteResult pdp11_cpu_test_add_sub() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_cmp() {
-    Pdp11Psw volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
+    Pdp11Psw const volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
     uint16_t const x = 24;
 
     pdp11_cpu_dop_ra_instr(0020001 /* cmp R0, R1 */, x, x);
@@ -365,7 +365,7 @@ static MiunteResult pdp11_cpu_test_cmp() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_mul_div() {
-    Pdp11Psw volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
+    Pdp11Psw const volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
     {
         uint16_t const x = 3, y = 2;
 
@@ -438,7 +438,7 @@ static MiunteResult pdp11_cpu_test_mul_div() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_bit() {
-    Pdp11Psw volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
+    Pdp11Psw const volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
 
     uint16_t const x = 0x42;
 
@@ -454,7 +454,7 @@ static MiunteResult pdp11_cpu_test_bit() {
     MIUNTE_PASS();
 }
 static MiunteResult pdp11_cpu_test_swab() {
-    Pdp11Psw volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
+    Pdp11Psw const volatile *const psw = &pdp11_cpu_psw(&pdp.cpu);
 
     uint16_t const x = 0x12AB, res = 0xAB12;
 
