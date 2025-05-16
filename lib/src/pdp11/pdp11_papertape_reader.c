@@ -72,15 +72,6 @@ Result pdp11_papertape_reader_init(
     unsigned const intr_priority
 
 ) {
-    pthread_mutex_init(&self->_lock, NULL);
-    if (pthread_create(
-            &self->_thread,
-            NULL,
-            pdp11_papertape_reader_thread,
-            self
-        ) != 0)
-        return UnknownErr;
-
     self->_tape = NULL;
 
     self->_status = (Pdp11PapertapeReaderStatus){0};
@@ -91,6 +82,15 @@ Result pdp11_papertape_reader_init(
     self->_intr_priority = intr_priority;
 
     self->_unibus = unibus;
+
+    if (pthread_mutex_init(&self->_lock, NULL) != 0 ||
+        pthread_create(
+            &self->_thread,
+            NULL,
+            pdp11_papertape_reader_thread,
+            self
+        ) != 0)
+        return UnknownErr;
 
     return Ok;
 }

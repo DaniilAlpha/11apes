@@ -11,7 +11,6 @@
 #define PDP11_RAM_MAX_SIZE ((32 - 4) * 1024 * 2)
 
 typedef struct Pdp11Ram {
-    // NOTE you may argue that volatile is excessive, but it won't hurt anyway
     void volatile *_data;
 
     uint16_t _starting_addr, _size;

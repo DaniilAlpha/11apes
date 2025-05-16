@@ -44,7 +44,7 @@ static bool unibus_try_read(
     uint16_t *const out
 ) {
     if (addr == UNIBUS_CPU_PSW_ADDRESS)
-        return *out = pdp11_psw_to_word(pdp11_cpu_psw(self->_cpu)), true;
+        return *out = pdp11_psw_to_word(&pdp11_cpu_psw(self->_cpu)), true;
 
     foreach (device_ptr, self->devices, self->devices + UNIBUS_DEVICE_COUNT)
         if (unibus_device_try_read(device_ptr, addr, out)) return true;
@@ -56,7 +56,7 @@ static bool unibus_try_write_word(
     uint16_t const val
 ) {
     if (addr == UNIBUS_CPU_PSW_ADDRESS)
-        return pdp11_cpu_psw(self->_cpu) = pdp11_psw(val), true;
+        return pdp11_psw_set(&pdp11_cpu_psw(self->_cpu), val), true;
 
     foreach (device_ptr, self->devices, self->devices + UNIBUS_DEVICE_COUNT)
         if (unibus_device_try_write_word(device_ptr, addr, val)) return true;
@@ -68,8 +68,10 @@ static bool unibus_try_write_byte(
     uint8_t const val
 ) {
     if (addr == UNIBUS_CPU_PSW_ADDRESS)
-        return pdp11_cpu_psw(self->_cpu) = pdp11_psw(
-                   (pdp11_psw_to_word(pdp11_cpu_psw(self->_cpu)) & 0xFF00) | val
+        return pdp11_psw_set(
+                   &pdp11_cpu_psw(self->_cpu),
+                   (pdp11_psw_to_word(&pdp11_cpu_psw(self->_cpu)) & 0xFF00) |
+                       val
                ),
                true;
 
@@ -134,13 +136,11 @@ void unibus_br_intr(
 ) {
     // br
     pthread_mutex_lock(&self->_sack);
-    // TODO? maybe replace with cond var
-    while (priority <= ((Pdp11Psw volatile)pdp11_cpu_psw(self->_cpu)).priority
-    ) {
-        pthread_mutex_unlock(&self->_sack);
-        sleep(0);
-        pthread_mutex_lock(&self->_sack);
-    }
+    pdp11_psw_wait_for_sufficient_priority(
+        &self->_cpu->_psw,
+        priority,
+        &self->_sack
+    );
     self->_next_master = device;
     // intr
     unibus_switch_to_next_master(self);

@@ -44,9 +44,10 @@ typedef struct Pdp11Cpu {
     Unibus *_unibus;
 
     pthread_t _thread;
+    bool volatile __should_thread_run;
 } Pdp11Cpu;
 
-void pdp11_cpu_init(Pdp11Cpu *const self, Unibus *const unibus);
+Result pdp11_cpu_init(Pdp11Cpu *const self, Unibus *const unibus);
 void pdp11_cpu_uninit(Pdp11Cpu *const self);
 void pdp11_cpu_reset(Pdp11Cpu *const self);
 
@@ -58,7 +59,7 @@ pdp11_cpu_rx(Pdp11Cpu *const self, unsigned const i) {
 #define pdp11_cpu_pc(SELF_)     pdp11_cpu_rx((SELF_), 7)
 #define pdp11_cpu_sp(SELF_)     pdp11_cpu_rx((SELF_), 6)
 
-static inline Pdp11Psw volatile *pdp11_cpu_psw(Pdp11Cpu *const self) {
+static inline Pdp11Psw *pdp11_cpu_psw(Pdp11Cpu *const self) {
     return &self->_psw;
 }
 #define pdp11_cpu_psw(SELF_) (*pdp11_cpu_psw(SELF_))

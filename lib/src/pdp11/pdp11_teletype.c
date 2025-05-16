@@ -63,16 +63,6 @@ Result pdp11_teletype_init(
     unsigned const intr_priority,
     size_t const
 ) {
-    pthread_mutex_init(&self->_keyboard_lock, NULL);
-    pthread_mutex_init(&self->_printer_lock, NULL);
-    if (pthread_create(
-            &self->_thread,
-            NULL,
-            pdp11_teletype_printer_thread,
-            self
-        ) != 0)
-        return UnknownErr;
-
     // self->_buf = malloc(buf_len * elsizeof(self->_buf));
     // if (!self->_buf) return OutOfMemErr;
 
@@ -87,6 +77,16 @@ Result pdp11_teletype_init(
     self->_intr_priority = intr_priority;
 
     self->_unibus = unibus;
+
+    if (pthread_mutex_init(&self->_keyboard_lock, NULL) != 0 ||
+        pthread_mutex_init(&self->_printer_lock, NULL) != 0 ||
+        pthread_create(
+            &self->_thread,
+            NULL,
+            pdp11_teletype_printer_thread,
+            self
+        ) != 0)
+        return UnknownErr;
 
     return Ok;
 }
