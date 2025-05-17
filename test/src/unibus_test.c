@@ -58,7 +58,7 @@ static MiunteResult unibus_test_npr() {
 static void *lower_cpu_priority_thread(void *const vcpu) {
     Pdp11Cpu *const cpu = vcpu;
 
-    while (cpu->_state != PDP11_CPU_STATE_HALT) sleep(0);
+    while (pdp11_cpu_state(cpu) != PDP11_CPU_STATE_HALT) sleep(0);
 
     for (uint8_t new_priority = pdp11_psw_priority(&pdp11_cpu_psw(cpu));
          new_priority >= 2;
