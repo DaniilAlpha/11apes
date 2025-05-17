@@ -36,7 +36,9 @@ typedef struct Pdp11Cpu {
     Pdp11Psw _psw;
     uint16_t _r[PDP11_CPU_REG_COUNT];
 
-    Pdp11CpuState volatile _state;  // TODO? maybe redo with condition vars
+    Pdp11CpuState __state;
+    pthread_mutex_t __state_lock;
+    pthread_cond_t __state_changed;
 
     uint8_t _Atomic __pending_intr;
     sem_t __pending_intr_sem;
@@ -64,8 +66,8 @@ static inline Pdp11Psw *pdp11_cpu_psw(Pdp11Cpu *const self) {
 }
 #define pdp11_cpu_psw(SELF_) (*pdp11_cpu_psw(SELF_))
 
-static inline Pdp11CpuState pdp11_cpu_state(Pdp11Cpu const *const self) {
-    return self->_state;
+static inline Pdp11CpuState pdp11_cpu_state(Pdp11Cpu *const self) {
+    return self->__state;
 }
 
 void pdp11_cpu_intr(Pdp11Cpu *const self, uint8_t const intr);

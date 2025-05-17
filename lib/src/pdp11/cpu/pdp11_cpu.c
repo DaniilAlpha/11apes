@@ -740,13 +740,29 @@ pdp11_cpu_exec_misc(Pdp11Cpu *const self, Pdp11CpuInstr const instr) {
     }
 }
 
+static void pdp11_cpu_wait_for_running_state(Pdp11Cpu *const self) {
+    pthread_mutex_lock(&self->__state_lock);
+    while (self->__state == PDP11_CPU_STATE_HALT ||
+           self->__state == PDP11_CPU_STATE_WAIT)
+        pthread_cond_wait(&self->__state_changed, &self->__state_lock);
+}
+static void pdp11_cpu_switch_to_next_state(Pdp11Cpu *const self) {
+    if (self->__state == PDP11_CPU_STATE_STEP)
+        self->__state = PDP11_CPU_STATE_HALT;
+    pthread_mutex_unlock(&self->__state_lock);
+}
+static void
+pdp11_cpu_set_state(Pdp11Cpu *const self, Pdp11CpuState const value) {
+    pthread_mutex_lock(&self->__state_lock);
+    self->__state = value;
+    pthread_cond_signal(&self->__state_changed);
+    pthread_mutex_unlock(&self->__state_lock);
+}
+
 static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
     bool should_trap = false;
     while (self->__should_thread_run) {
-        while (self->__should_thread_run &&
-               (self->_state == PDP11_CPU_STATE_HALT ||
-                self->_state == PDP11_CPU_STATE_WAIT))
-            sleep(0);
+        pdp11_cpu_wait_for_running_state(self);
         if (!self->__should_thread_run) break;
 
         if (should_trap) pdp11_cpu_trap(self, PDP11_CPU_TRAP_BPT);
@@ -794,12 +810,11 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
         if ((uint16_t)(pdp11_cpu_pc(self) - next_pc) > 4)
             fprintf(stderr, "\n"), fflush(stderr);
 
-        if (self->_state != PDP11_CPU_STATE_HALT &&
-            self->_state != PDP11_CPU_STATE_WAIT)
+        if (pdp11_cpu_state(self) != PDP11_CPU_STATE_HALT &&
+            pdp11_cpu_state(self) != PDP11_CPU_STATE_WAIT)
             pdp11_cpu_service_intr(self);
 
-        if (self->_state == PDP11_CPU_STATE_STEP)
-            self->_state = PDP11_CPU_STATE_HALT;
+        pdp11_cpu_switch_to_next_state(self);
 
         usleep(1);
     }
@@ -819,10 +834,12 @@ Result pdp11_cpu_init(Pdp11Cpu *const self, Unibus *const unibus) {
 
     self->_unibus = unibus;
 
+    self->__state = PDP11_CPU_STATE_HALT;
+    pthread_mutex_init(&self->__state_lock, NULL);
+    pthread_cond_init(&self->__state_changed, NULL);
+
     sem_init(&self->__pending_intr_sem, false, 1);
     self->__pending_intr = PDP11_CPU_NO_TRAP;
-
-    self->_state = PDP11_CPU_STATE_HALT;
 
     self->__should_thread_run = true;
     if (pthread_create(&self->_thread, NULL, pdp11_cpu_thread, self) != 0)
@@ -832,9 +849,13 @@ Result pdp11_cpu_init(Pdp11Cpu *const self, Unibus *const unibus) {
 }
 void pdp11_cpu_uninit(Pdp11Cpu *const self) {
     self->__should_thread_run = false;
+    pdp11_cpu_set_state(self, PDP11_CPU_STATE_RUN);
     pthread_join(self->_thread, NULL);
 
     sem_destroy(&self->__pending_intr_sem);
+
+    pthread_mutex_destroy(&self->__state_lock);
+    pthread_cond_destroy(&self->__state_changed);
 
     pdp11_psw_uninit(&self->_psw);
     pdp11_cpu_pc(self) = 0;
@@ -851,18 +872,18 @@ void pdp11_cpu_intr(Pdp11Cpu *const self, uint8_t const intr) {
     uint8_t const old_intr = atomic_exchange(&self->__pending_intr, intr);
     assert(old_intr == PDP11_CPU_NO_TRAP), (void)old_intr;
 
-    if (self->_state == PDP11_CPU_STATE_WAIT)
-        self->_state = PDP11_CPU_STATE_RUN;
+    if (pdp11_cpu_state(self) == PDP11_CPU_STATE_WAIT)
+        pdp11_cpu_set_state(self, PDP11_CPU_STATE_RUN);
 }
 
 void pdp11_cpu_halt(Pdp11Cpu *const self) {
-    self->_state = PDP11_CPU_STATE_HALT;
+    pdp11_cpu_set_state(self, PDP11_CPU_STATE_HALT);
 }
 void pdp11_cpu_continue(Pdp11Cpu *const self) {
-    self->_state = PDP11_CPU_STATE_RUN;
+    pdp11_cpu_set_state(self, PDP11_CPU_STATE_RUN);
 }
 void pdp11_cpu_single_step(Pdp11Cpu *const self) {
-    self->_state = PDP11_CPU_STATE_STEP;
+    pdp11_cpu_set_state(self, PDP11_CPU_STATE_STEP);
 }
 
 /****************
@@ -1620,10 +1641,10 @@ void pdp11_cpu_instr_rti_rtt(Pdp11Cpu *const self) {
 // MISC.
 
 void pdp11_cpu_instr_halt(Pdp11Cpu *const self) {
-    self->_state = PDP11_CPU_STATE_HALT;
+    pdp11_cpu_set_state(self, PDP11_CPU_STATE_HALT);
 }
 void pdp11_cpu_instr_wait(Pdp11Cpu *const self) {
-    self->_state = PDP11_CPU_STATE_WAIT;
+    pdp11_cpu_set_state(self, PDP11_CPU_STATE_WAIT);
 }
 void pdp11_cpu_instr_reset(Pdp11Cpu *const self) {
     unibus_reset(self->_unibus);
