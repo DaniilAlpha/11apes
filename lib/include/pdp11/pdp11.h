@@ -14,6 +14,7 @@
 #include <result.h>
 
 #include "pdp11/cpu/pdp11_cpu.h"
+#include "pdp11/pdp11_console.h"
 #include "pdp11/pdp11_ram.h"
 
 #define PDP11_RAM_SIZE (24 * 1024 * 2)
@@ -29,8 +30,10 @@
 
 typedef struct Pdp11 {
     Unibus unibus;
-    Pdp11Ram ram;
     Pdp11Cpu cpu;
+    Pdp11Console console;
+
+    Pdp11Ram ram;
     UnibusDevice *periphs;
 } Pdp11;
 

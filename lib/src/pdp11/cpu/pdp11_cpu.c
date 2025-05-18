@@ -7,7 +7,6 @@
 #include <stdio.h>
 
 #include <assert.h>
-#include <signal.h>
 #include <unistd.h>
 
 #include "conviniences.h"

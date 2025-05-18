@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include "pdp11/pdp11.h"
+#include "pdp11/cpu/pdp11_cpu.h"
 
 #define PDP11_CONSOLE_CPU_REG_ADDRESS      (0177700)
 #define PDP11_CONSOLE_SWITCH_REGISTER_ADDR (0177570)
@@ -16,7 +16,8 @@ typedef enum Pdp11ConsolePowerControl {
 } Pdp11ConsolePowerControl;
 
 typedef struct Pdp11Console {
-    Pdp11 *_pdp11;
+    Pdp11Cpu *_cpu;
+    Unibus *_unibus;
 
     Pdp11ConsolePowerControl _power_control_switch;
     uint16_t _switch_register;
@@ -27,7 +28,11 @@ typedef struct Pdp11Console {
     bool _enable_switch;
 } Pdp11Console;
 
-void pdp11_console_init(Pdp11Console *const self, Pdp11 *const pdp11);
+void pdp11_console_init(
+    Pdp11Console *const self,
+    Pdp11Cpu *const cpu,
+    Unibus *const unibus
+);
 
 static inline Pdp11ConsolePowerControl pdp11_console_power_control(
     Pdp11Console const *const self

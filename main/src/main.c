@@ -286,7 +286,7 @@ void draw_control_buttons(
 // --- Main UI Function ---
 
 void run_console_ui(
-    Pdp11Console *const console,
+    Pdp11 *const pdp,
     Pdp11PapertapeReader *const pr,
     Pdp11Teletype *const tty
 ) {
@@ -323,10 +323,10 @@ void run_console_ui(
     while (!quit) {
         // --- Get State ---
         Pdp11ConsolePowerControl power_state =
-            pdp11_console_power_control(console);
-        uint16_t switch_reg = pdp11_console_switch_register(console);
-        uint16_t addr_reg = pdp11_console_address_indicator(console);
-        uint16_t data_reg = pdp11_console_data_indicator(console);
+            pdp11_console_power_control(&pdp->console);
+        uint16_t switch_reg = pdp11_console_switch_register(&pdp->console);
+        uint16_t addr_reg = pdp11_console_address_indicator(&pdp->console);
+        uint16_t data_reg = pdp11_console_data_indicator(&pdp->console);
 
         // --- Drawing ---
         erase();  // Clear screen efficiently
@@ -347,13 +347,13 @@ void run_console_ui(
         // Indicator Lights (Address, Data, Status)
         draw_register(3, 14, "ADDRESS REGISTER", addr_reg);
         draw_register(6, 14, "DATA", data_reg);
-        draw_status_lights(3, 72, console);
+        draw_status_lights(3, 72, &pdp->console);
 
         // Switch Register
         draw_switch_register(12, 14, switch_reg, current_selection);
 
         // Control Buttons
-        draw_control_buttons(12, 72, console, current_selection);
+        draw_control_buttons(12, 72, &pdp->console, current_selection);
 
         // Help Text
         attron(COLOR_PAIR(COLOR_PAIR_LABEL));
@@ -385,7 +385,10 @@ void run_console_ui(
             case 'N' & 0x1F: is_in_input_mode = false; break;
 
             case '\n':
-            case KEY_ENTER: pdp11_teletype_putc(tty, '\n'); break;
+            case KEY_ENTER:
+                pdp11_teletype_putc(tty, '\r');
+                pdp11_teletype_putc(tty, '\n');
+                break;
 
             case '\b':
             case KEY_BACKSPACE:
@@ -424,29 +427,33 @@ void run_console_ui(
             case '\n':
             case KEY_ENTER: {
                 if (current_selection == SELECT_POWER) {
-                    ch == KEY_UP ? pdp11_console_next_power_control(console)
-                                 : pdp11_console_prev_power_control(console);
+                    ch == KEY_UP
+                        ? pdp11_console_next_power_control(&pdp->console)
+                        : pdp11_console_prev_power_control(&pdp->console);
                 } else {
                     if (current_selection >= SELECT_SWITCH_REG_BIT_0 &&
                         current_selection <= SELECT_SWITCH_REG_BIT_15) {
                         int bit_index =
                             15 - (current_selection - SELECT_SWITCH_REG_BIT_0);
-                        pdp11_console_toggle_control_switch(console, bit_index);
+                        pdp11_console_toggle_control_switch(
+                            &pdp->console,
+                            bit_index
+                        );
                     } else if (current_selection == SELECT_LOAD_ADDR) {
-                        pdp11_console_press_load_addr(console);
+                        pdp11_console_press_load_addr(&pdp->console);
                     } else if (current_selection == SELECT_EXAMINE) {
-                        pdp11_console_press_examine(console);
+                        pdp11_console_press_examine(&pdp->console);
                     } else if (current_selection == SELECT_DEPOSIT) {
-                        pdp11_console_press_deposit(console);
+                        pdp11_console_press_deposit(&pdp->console);
                     } else if (current_selection == SELECT_CONTINUE) {
-                        pdp11_console_press_continue(console);
+                        pdp11_console_press_continue(&pdp->console);
                     } else if (current_selection == SELECT_ENABLE) {
-                        pdp11_console_toggle_enable(console);
+                        pdp11_console_toggle_enable(&pdp->console);
                     } else if (current_selection == SELECT_START) {
-                        pdp11_console_press_start(console);
+                        pdp11_console_press_start(&pdp->console);
                     } else if (current_selection == SELECT_POWER) {
                         // Cycle power with space/enter as well
-                        pdp11_console_next_power_control(console);
+                        pdp11_console_next_power_control(&pdp->console);
                     }
                 }
             } break;
@@ -454,25 +461,25 @@ void run_console_ui(
             case 'Q':
             case 'q': quit = true; break;
             case 'P':
-            case 'p': pdp11_console_next_power_control(console); break;
+            case 'p': pdp11_console_next_power_control(&pdp->console); break;
             case 'O':
-            case 'o': pdp11_console_prev_power_control(console); break;
+            case 'o': pdp11_console_prev_power_control(&pdp->console); break;
 
             case 'L':
-            case 'l': pdp11_console_press_load_addr(console); break;
+            case 'l': pdp11_console_press_load_addr(&pdp->console); break;
             case 'E':
-            case 'e': pdp11_console_press_examine(console); break;
+            case 'e': pdp11_console_press_examine(&pdp->console); break;
             case 'C':
-            case 'c': pdp11_console_press_continue(console); break;
+            case 'c': pdp11_console_press_continue(&pdp->console); break;
             case 'H':
-            case 'h': pdp11_console_toggle_enable(console); break;
+            case 'h': pdp11_console_toggle_enable(&pdp->console); break;
             case 'S':
-            case 's': pdp11_console_press_start(console); break;
+            case 's': pdp11_console_press_start(&pdp->console); break;
             case 'D':
-            case 'd': pdp11_console_press_deposit(console); break;
+            case 'd': pdp11_console_press_deposit(&pdp->console); break;
 
             case 'B':
-            case 'b': pdp11_console_insert_bootloader(console); break;
+            case 'b': pdp11_console_insert_bootloader(&pdp->console); break;
 
             case 'T':
             case 't': {
@@ -503,7 +510,7 @@ void run_console_ui(
                 def_prog_mode();
                 endwin();
 
-                if (pdp11_ram_save(&console->_pdp11->ram) != Ok) {
+                if (pdp11_ram_save(&pdp->ram) != Ok) {
                     printf(
                         "error saving memory dump. continuing in several seconds...\n"
                     );
@@ -563,22 +570,18 @@ int main() {
         }
     );
 
-    Pdp11Console console = {0};
-    pdp11_console_init(&console, &pdp);
-
-    pdp.periphs++[0] = pdp11_console_ww_unibus_device(&console);
     pdp.periphs++[0] = pdp11_papertape_reader_ww_unibus_device(&pr);
     pdp.periphs++[0] = pdp11_teletype_ww_unibus_device(&tty);
 
     // TODO temp for quick start
-    pdp11_console_next_power_control(&console);
-    pdp11_console_toggle_enable(&console);
-    pdp11_console_insert_bootloader(&console);
-    pdp11_console_toggle_enable(&console);
+    pdp11_console_next_power_control(&pdp.console);
+    pdp11_console_toggle_enable(&pdp.console);
+    pdp11_console_insert_bootloader(&pdp.console);
+    pdp11_console_toggle_enable(&pdp.console);
     pdp11_papertape_reader_load(&pr, "res/papertapes/absolute_loader.ptap");
-    pdp11_console_press_start(&console);
+    pdp11_console_press_start(&pdp.console);
 
-    run_console_ui(&console, &pr, &tty);
+    run_console_ui(&pdp, &pr, &tty);
 
     pdp11_teletype_uninit(&tty);
     pdp11_papertape_reader_uninit(&pr);

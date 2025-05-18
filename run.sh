@@ -18,14 +18,14 @@ select-pane -t 0
 split-window -h
 
 select-pane -t 2
-resize-pane -D 100
-resize-pane -U 18
+resize-pane -y 18
 send-keys "clear && build/main/main $ARGS 2> stderr ; tmux kill-session -t pdp11" C-m
 
 select-pane -t 0
 send-keys "clear && tail -f -s0.033 stderr" C-m
 
 select-pane -t 1
+resize-pane -x 80
 send-keys "clear && tail -f -s0.033 tty" C-m
 
 select-pane -t 2
