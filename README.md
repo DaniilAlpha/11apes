@@ -1,12 +1,10 @@
 # pdp11emu
 
-This is a somewhat simple multithreaded pdp11 emulator written in C for POSIX-compatible systems. Currently in active development. It is almost 100% accurate, except some rare error cases and timing stuff.
+This is a somewhat simple multithreaded PDP-11 emulator written in C for POSIX-compatible systems. Currently in development. It is almost 100% accurate, except some potential bugs and timing stuff.
 
 ## Run the project yourself
 
-It cannot do much yet. There is a teletype unit implemented, but i'm not sure if it's working correctly. On the other hand, papertape reader works, and is able to load paper tape programs such as Absolute Loader or BASIC-11. There is no proper UI at this point, so eveyrthing is done though the Operator's Console and `tail`ing the files, so it may seem a bit laggy. 
-
-You can try runnint the BASIC, but i believe there is a bug in teletype implementation, so it may not work as expected.
+It can do only a part of what some of the originals PDP-11s could, especially late ones. The only peripherals are a teletype and a papertape reader, although new ones can be implemented easily. I am able to run BASIC-11 and `PRINT "HELLO WORLD"` with it, but for some reason neither input nor variables work correclty. There is no proper UI at this point, so eveyrthing is done though the Operator's Console and `tail`ing files, so it may seem a bit inconsistent. 
 
 To run the project follow these simple steps:
 
@@ -34,7 +32,7 @@ git submodule update --init
 
    - For any other GNU/Linux: find similar packages yourself, it's not that hard
 
-   - For Windows: just use Linux
+   - For Windows: ever seen [this](https://endof10.org/)?
 
  - Build the project
 
@@ -56,9 +54,6 @@ build/main/main # for a simpler layout, only Operator's Console
 
 ## Usage
 
-At this point i only was able to got to the BASIC's greet message, and any input just halts it, but it is something.
-
-
  - To load the Absolute Loader
    - `P` - to power up the system. CPU is initially halted.
    - `H` - to enter the halt mode on the console (unblocks interactions).
@@ -73,7 +68,7 @@ Then you can watch several seconds of bootloader loading the Absolute Loader int
    - `T`, `res/papertapes/basic.ptap`, `<Enter>` - load the BASIC paper tape. 
    - `C` - to continue from the next address (in this case, beginning of the Absolute Loader).
 
-Then you just wait for the program to load (may take several dozens of seconds) and start automatically. In case of BASIC, you'll see greet message in the TTY output. At this point you should be able to press `^I` and write BASIC, but you cannot, probably because of some bug in teletype implementation.
+Then you just wait for the program to load (may take around a dozen of seconds) and start automatically. In the case of BASIC, you'll see greet message in the TTY output. At this point you should be able to press `<Tab>` and write BASIC, but a big chunk of it won't work yet.
 
 ## Run tests
 

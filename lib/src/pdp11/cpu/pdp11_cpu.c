@@ -405,7 +405,7 @@ static void pdp11_cpu_trap(Pdp11Cpu *const self, uint8_t const trap) {
         unibus_cpu_dati(self->_unibus, trap, &pdp11_cpu_pc(self)) != Ok ||
         unibus_cpu_dati(self->_unibus, trap + 2, &psw_word) != Ok)
         return pdp11_cpu_halt(self);
-    ;
+
     pdp11_psw_set(&self->_psw, psw_word);
 }
 
@@ -848,8 +848,12 @@ void pdp11_cpu_reset(Pdp11Cpu *const self) {
 void pdp11_cpu_intr(Pdp11Cpu *const self, uint8_t const intr) {
     sem_wait(&self->__pending_intr_sem);
     uint8_t const old_intr = atomic_exchange(&self->__pending_intr, intr);
+    // TODO this assumes no two interrupts can happen at the same time, which
+    // is defenetely false, just a bit unlikely
     assert(old_intr == PDP11_CPU_NO_TRAP), (void)old_intr;
 
+    // TODO this can happen right before the `wait` instr is executed, so not an
+    // ideal way
     if (self->_state == PDP11_CPU_STATE_WAIT)
         self->_state = PDP11_CPU_STATE_RUN;
 }

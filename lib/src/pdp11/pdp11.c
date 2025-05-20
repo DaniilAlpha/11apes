@@ -16,7 +16,7 @@ Result pdp11_init(Pdp11 *const self) {
     self->periphs++[0] = pdp11_ram_ww_unibus_device(&self->ram);
 
     pdp11_console_init(&self->console, &self->cpu, &self->unibus);
-    self->periphs++[0] = pdp11_console_ww_unibus_device(&self->ram);
+    self->periphs++[0] = pdp11_console_ww_unibus_device(&self->console);
 
     return Ok;
 }
