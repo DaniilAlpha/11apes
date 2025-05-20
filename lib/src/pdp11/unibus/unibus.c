@@ -144,6 +144,7 @@ void unibus_br_intr(
     self->_next_master = device;
     // intr
     unibus_switch_to_next_master(self);
+    self->_master = UNIBUS_DEVICE_CPU;
     pdp11_cpu_intr(self->_cpu, intr);
     unibus_drop_current_master(self);
 }
