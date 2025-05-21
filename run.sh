@@ -13,22 +13,17 @@ new-session -s pdp11 -d -n "PDP-11"
 set-option -g history-limit 8192
 set -g mouse on
 
+select-pane -t 0
 split-window -v
-select-pane -t 0
-split-window -h
-
-select-pane -t 2
-resize-pane -y 18
-send-keys "clear && build/main/main $ARGS 2> stderr ; tmux kill-session -t pdp11" C-m
-
-select-pane -t 0
-send-keys "clear && tail -f -s0.033 stderr" C-m
 
 select-pane -t 1
-resize-pane -x 80
+resize-pane -y 18
+send-keys "clear && build/main/main $ARGS; tmux kill-session -t pdp11" C-m
+
+select-pane -t 0
 send-keys "clear && tail -f -s0.033 tty" C-m
 
-select-pane -t 2
+select-pane -t 1
 EOF
 
 tmux kill-session -t pdp11
