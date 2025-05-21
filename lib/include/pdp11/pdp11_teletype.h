@@ -50,8 +50,7 @@ Result pdp11_teletype_init(
     uint16_t const starting_addr,
     uint8_t const keyboard_intr_vec,
     uint8_t const printer_intr_vec,
-    unsigned const intr_priority,
-    size_t const buf_len
+    unsigned const intr_priority
 );
 void pdp11_teletype_uninit(Pdp11Teletype *const self);
 

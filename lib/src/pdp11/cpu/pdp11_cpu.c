@@ -387,18 +387,11 @@ static Result pdp11_stack_push(Pdp11Cpu *const self, uint16_t const value) {
     return Ok;
 }
 static Result pdp11_stack_pop(Pdp11Cpu *const self, uint16_t *const out) {
-    fprintf(stderr, "internal stack pop start;  ");
     UNROLL(unibus_cpu_dati(self->_unibus, pdp11_cpu_sp(self), out));
-    fprintf(stderr, "value = %06o;  ", *out);
-    fprintf(stderr, "sp = %06o", pdp11_cpu_sp(self));
     pdp11_cpu_sp(self) += 2;
-    fprintf(stderr, " -> %06o.\n", pdp11_cpu_sp(self));
-    fflush(stderr);
     return Ok;
 }
 static void pdp11_cpu_trap(Pdp11Cpu *const self, uint8_t const trap) {
-    fprintf(stderr, "==TRAP== (%03o) \n", trap);
-    fflush(stderr);
     uint16_t psw_word;
     if (pdp11_stack_push(self, pdp11_psw_to_word(&self->_psw)) != Ok ||
         pdp11_stack_push(self, pdp11_cpu_pc(self)) != Ok ||
@@ -414,7 +407,6 @@ static void pdp11_cpu_service_intr(Pdp11Cpu *const self) {
         atomic_exchange(&self->__pending_intr, PDP11_CPU_NO_TRAP);
     if (pending_intr == PDP11_CPU_NO_TRAP) return;
 
-    fprintf(stderr, "  (from intr)  ");
     pdp11_cpu_trap(self, pending_intr);
 
     sem_post(&self->__pending_intr_sem);
@@ -752,21 +744,8 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
         should_trap = self->_psw.flags.t;
 
         uint16_t const encoded = pdp11_cpu_fetch(self);
-        fprintf(
-            stderr,
-            "exec at %06o : %06o\n",
-            pdp11_cpu_pc(self) - 2,
-            encoded
-        ),
-            fflush(stderr);
-
-        // TODO temporary breakpoint for debugging
-        // if (pdp11_cpu_pc(self) - 2 == 0000570)
-        //     self->_state = PDP11_CPU_STATE_HALT;
-
         Pdp11CpuInstr const instr = pdp11_cpu_instr(encoded);
 
-        uint16_t const next_pc = pdp11_cpu_pc(self);
         switch (instr.type) {
         case PDP11_CPU_INSTR_TYPE_OO: pdp11_cpu_exec_oo(self, instr); break;
         case PDP11_CPU_INSTR_TYPE_RO: pdp11_cpu_exec_ro(self, instr); break;
@@ -789,9 +768,6 @@ static void pdp11_cpu_thread_helper(Pdp11Cpu *const self) {
             pdp11_cpu_trap(self, PDP11_CPU_TRAP_RESERVED_INSTR);
             break;
         }
-
-        if ((uint16_t)(pdp11_cpu_pc(self) - next_pc) > 4)
-            fprintf(stderr, "\n"), fflush(stderr);
 
         if (self->_state != PDP11_CPU_STATE_HALT &&
             self->_state != PDP11_CPU_STATE_WAIT)
@@ -848,12 +824,8 @@ void pdp11_cpu_reset(Pdp11Cpu *const self) {
 void pdp11_cpu_intr(Pdp11Cpu *const self, uint8_t const intr) {
     sem_wait(&self->__pending_intr_sem);
     uint8_t const old_intr = atomic_exchange(&self->__pending_intr, intr);
-    // TODO this assumes no two interrupts can happen at the same time, which
-    // is defenetely false, just a bit unlikely
     assert(old_intr == PDP11_CPU_NO_TRAP), (void)old_intr;
 
-    // TODO this can happen right before the `wait` instr is executed, so not an
-    // ideal way
     if (self->_state == PDP11_CPU_STATE_WAIT)
         self->_state = PDP11_CPU_STATE_RUN;
 }
@@ -1570,15 +1542,9 @@ void pdp11_cpu_instr_mark(Pdp11Cpu *const self, unsigned const param_count) {
         return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
 }
 void pdp11_cpu_instr_rts(Pdp11Cpu *const self, unsigned const r_i) {
-    fprintf(stderr, "rts start;  ");
-    fprintf(stderr, "pc = %06o", pdp11_cpu_pc(self));
     pdp11_cpu_pc(self) = pdp11_cpu_rx(self, r_i);
-    fprintf(stderr, " -> %06o;  ", pdp11_cpu_pc(self));
     if (pdp11_stack_pop(self, &pdp11_cpu_rx(self, r_i)) != Ok)
-        return fprintf(stderr, "stack error!\n"),
-               pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
-    fprintf(stderr, "goto %06o\n", pdp11_cpu_rx(self, r_i));
-    fflush(stderr);
+        return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
 }
 
 // program control

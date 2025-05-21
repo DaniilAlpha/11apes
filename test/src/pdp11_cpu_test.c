@@ -161,7 +161,6 @@ static MiunteResult pdp11_cpu_test_addressing() {
         unibus_cpu_dato(&pdp.unibus, PDP11_CPU_TRAP_CPU_ERR, cpu_err_trap);
 
         pdp11_cpu_rx(&pdp.cpu, 0) = PDP11_RAM_SIZE;
-        // pdp11_cpu_pc(&pdp.cpu) = 0x100;
 
         MIUNTE_EXPECT(
             pdp11_cpu_pc(&pdp.cpu) != cpu_err_trap,
@@ -482,24 +481,12 @@ int test_cpu_run(void) {
             pdp11_cpu_test_decoding_and_execution,
             pdp11_cpu_test_addressing,
 
-            // TODO test inc/dec
-            // TODO test neg/com, especially flags
-
-            // TODO test adc/sbc, especially flags
-
-            // TODO test asr/asl
-            // TODO test ash/ashc
-            // TODO test ror/rol
-
             pdp11_cpu_test_mov_movb,
             pdp11_cpu_test_add_sub,
             pdp11_cpu_test_cmp,
             pdp11_cpu_test_mul_div,
             pdp11_cpu_test_bit,
             pdp11_cpu_test_swab,
-
-            // TODO test some of the branches
-            // TODO test sob
         }
     );
 }

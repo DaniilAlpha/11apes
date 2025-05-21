@@ -1,7 +1,5 @@
 #include "pdp11/pdp11_teletype.h"
 
-#include <stdlib.h>
-
 #include <unistd.h>
 
 #include "bits.h"
@@ -60,12 +58,8 @@ Result pdp11_teletype_init(
     uint16_t const starting_addr,
     uint8_t const keyboard_intr_vec,
     uint8_t const printer_intr_vec,
-    unsigned const intr_priority,
-    size_t const
+    unsigned const intr_priority
 ) {
-    // self->_buf = malloc(buf_len * elsizeof(self->_buf));
-    // if (!self->_buf) return OutOfMemErr;
-
     self->_keyboard_status = (Pdp11TeletypeKeyboardStatus){0};
     self->_keyboar_buffer = 0;
     self->_printer_status = (Pdp11TeletypePrinterStatus){0};
@@ -94,8 +88,6 @@ void pdp11_teletype_uninit(Pdp11Teletype *const self) {
     pthread_cancel(self->_thread);
     pthread_mutex_destroy(&self->_keyboard_lock);
     pthread_mutex_destroy(&self->_printer_lock);
-
-    // free(self->_buf);
 }
 
 void pdp11_teletype_putc(Pdp11Teletype *const self, char const c) {

@@ -9,19 +9,16 @@
 #include "pdp11/pdp11_papertape_reader.h"
 #include "pdp11/pdp11_teletype.h"
 
-// WARN shit code below!!!
-
 #define COLOR_PAIR_OFF      1
 #define COLOR_PAIR_ON       2
 #define COLOR_PAIR_LABEL    3
 #define COLOR_PAIR_SELECTED 4
 #define COLOR_PAIR_VALUE    8
 
-// UI Element Selection Enum
-typedef enum {
+typedef enum SelectableElement {
     SELECT_POWER,
 
-    SELECT_SWITCH_REG_BIT_0,  // Start of switch register bits
+    SELECT_SWITCH_REG_BIT_0,
     SELECT_SWITCH_REG_BIT_1,
     SELECT_SWITCH_REG_BIT_2,
     SELECT_SWITCH_REG_BIT_3,
@@ -36,7 +33,7 @@ typedef enum {
     SELECT_SWITCH_REG_BIT_12,
     SELECT_SWITCH_REG_BIT_13,
     SELECT_SWITCH_REG_BIT_14,
-    SELECT_SWITCH_REG_BIT_15,  // End of switch register bits
+    SELECT_SWITCH_REG_BIT_15,
 
     SELECT_LOAD_ADDR,
     SELECT_EXAMINE,
@@ -45,75 +42,74 @@ typedef enum {
     SELECT_START,
     SELECT_DEPOSIT,
 
-    SELECT_COUNT  // Total number of selectable items
+    SELECT_COUNT,
 } SelectableElement;
 
-// --- Helper Functions ---
+/*************
+ ** helpers **
+ *************/
 
-// Function to draw a single bit (light or switch)
-void draw_bit(int y, int x, bool is_on, bool is_selected) {
-    attr_t attr = is_on ? COLOR_PAIR(COLOR_PAIR_ON) | A_REVERSE
-                        : COLOR_PAIR(COLOR_PAIR_OFF);
-    if (is_selected) { attr = COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE; }
+void draw_bit(
+    int const y,
+    int const x,
+    bool const is_on,
+    bool const is_selected
+) {
+    attr_t const attr = is_selected
+                          ? COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE
+                      : is_on ? COLOR_PAIR(COLOR_PAIR_ON) | A_REVERSE
+                              : COLOR_PAIR(COLOR_PAIR_OFF);
     attron(attr);
-    // Using different symbols for lights vs switches can be nice
-    // For simplicity here, using [ ] representation
     mvprintw(y, x, is_on ? "(*)" : "( )");
     attroff(attr);
 }
 
-// Function to draw a register (Address or Data) with lights and octal value
-void draw_register(int y, int x_start, char const *label, uint16_t value) {
-    mvprintw(y - 1, x_start, "%s", label);
+void draw_register(
+    int const y,
+    int const x,
+    char const *const label,
+    uint16_t const value
+) {
+    mvprintw(y - 1, x, "%s", label);
     attron(COLOR_PAIR(COLOR_PAIR_VALUE));
     printw(" = %06o", value);
     attroff(COLOR_PAIR(COLOR_PAIR_VALUE));
 
     for (int i = 0; i < 16; ++i) {
-        bool is_on = (value >> (15 - i)) & 1;
-        // Draw bits from left (15) to right (0)
-        draw_bit(
-            y,
-            x_start + i * 3 + (i + 2) / 3,
-            is_on,
-            false
-        );  // Not selectable directly
+        bool const is_on = (value >> (15 - i)) & 1;
+        draw_bit(y, x + i * 3 + (i + 2) / 3, is_on, false);
     }
 }
 
-// Function to draw the switch register
 void draw_switch_register(
-    int y,
-    int x_start,
-    uint16_t value,
-    SelectableElement current_selection
+    int const y,
+    int const x,
+    uint16_t const value,
+    SelectableElement const current_selection
 ) {
-    mvprintw(y - 2, x_start, "SWITCH REGISTER");
+    mvprintw(y - 2, x, "SWITCH REGISTER");
     attron(COLOR_PAIR(COLOR_PAIR_VALUE));
-    printw(" = %06o", value);  // Display octal value
+    printw(" = %06o", value);
     attroff(COLOR_PAIR(COLOR_PAIR_VALUE));
 
     for (unsigned i = 0; i < 16; ++i) {
-        bool is_on = (value >> (15 - i)) & 1;
-        bool is_selected = current_selection - SELECT_SWITCH_REG_BIT_0 == i;
-        attr_t attr =
-            is_on ? COLOR_PAIR(COLOR_PAIR_ON) : COLOR_PAIR(COLOR_PAIR_OFF);
-        if (is_selected) { attr = COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE; }
-        mvprintw(y - 1, x_start + i * 3 + (i + 2) / 3 + 1, "%d", 15 - i);
+        bool const is_on = (value >> (15 - i)) & 1;
+        bool const is_selected =
+            current_selection - SELECT_SWITCH_REG_BIT_0 == i;
+        attr_t const attr = is_selected
+                              ? COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE
+                          : is_on ? COLOR_PAIR(COLOR_PAIR_ON)
+                                  : COLOR_PAIR(COLOR_PAIR_OFF);
+        mvprintw(y - 1, x + i * 3 + (i + 2) / 3 + 1, "%d", 15 - i);
         attron(attr);
-        mvprintw(
-            y,
-            x_start + i * 3 + (i + 2) / 3,
-            is_on ? "'-'" : "|_|"
-        );  // Down=1, Up=0
+        mvprintw(y, x + i * 3 + (i + 2) / 3, is_on ? "'-'" : "|_|");
         attroff(attr);
     }
 }
 
-// Function to draw status lights
-void draw_status_lights(int y, int x, Pdp11Console const *console) {
-    attr_t attr_on = COLOR_PAIR(COLOR_PAIR_ON) | A_REVERSE;
-    attr_t attr_off = COLOR_PAIR(COLOR_PAIR_OFF);
+void draw_status_lights(int y, int const x, Pdp11Console const *const console) {
+    attr_t const attr_on = COLOR_PAIR(COLOR_PAIR_ON) | A_REVERSE;
+    attr_t const attr_off = COLOR_PAIR(COLOR_PAIR_OFF);
 
     mvprintw(y - 1, x + 2, "RUN");
     bool const run_light = pdp11_console_run_light(console);
@@ -164,18 +160,16 @@ void draw_status_lights(int y, int x, Pdp11Console const *console) {
     attroff(BIT(addr_mode, 0) ? attr_on : attr_off);
 }
 
-// Function to draw the power switch
 void draw_power_switch(
-    int y,
-    int x,
-    Pdp11ConsolePowerControl power_state,
-    bool is_selected
+    int const y,
+    int const x,
+    Pdp11ConsolePowerControl const power_state,
+    bool const is_selected
 ) {
     mvprintw(y, x, "OFF");
     mvprintw(y - 1, x + 3, "PWR");
     mvprintw(y, x + 6, "LCK");
 
-    // Indicate active state clearly
     attr_t const attr = COLOR_PAIR(COLOR_PAIR_SELECTED) | A_REVERSE;
     if (is_selected) attron(attr);
     switch (power_state) {
@@ -186,12 +180,11 @@ void draw_power_switch(
     if (is_selected) attroff(attr);
 }
 
-// Function to draw control buttons
 void draw_control_buttons(
-    int y,
+    int const y,
     int x,
-    Pdp11Console const *console,
-    SelectableElement current_selection
+    Pdp11Console const *const console,
+    SelectableElement const current_selection
 ) {
     bool selected;
 
@@ -283,60 +276,60 @@ void draw_control_buttons(
     x += 3;
 }
 
-// --- Main UI Function ---
+/**********
+ ** main **
+ **********/
 
 void run_console_ui(
     Pdp11 *const pdp,
     Pdp11PapertapeReader *const pr,
     Pdp11Teletype *const tty
 ) {
-    initscr();  // Start curses mode
-    clear();
-    noecho();              // Don't echo() while we should be in control
-    cbreak();              // Line buffering disabled, Pass on everything
-    keypad(stdscr, TRUE);  // Enable function keys (arrows, etc.)
-    curs_set(0);           // Hide the cursor
-    timeout(100);          // Non-blocking input with 100ms timeout
-
+    initscr();
     if (!has_colors()) {
         endwin();
-        printf("Your terminal does not support color\n");
+        fprintf(stderr, "Your terminal does not support colors!\n"),
+            fflush(stderr);
         exit(1);
     }
 
+    cbreak(), noecho();
+
+    keypad(stdscr, TRUE);
+    curs_set(0);
+
+    timeout(100);
+
     start_color();
-    // Define color pairs (foreground, background)
-    init_pair(COLOR_PAIR_OFF, COLOR_WHITE, COLOR_BLACK);     // Off light/switch
-    init_pair(COLOR_PAIR_ON, COLOR_RED, COLOR_BLACK);        // On light/switch
-    init_pair(COLOR_PAIR_LABEL, COLOR_YELLOW, COLOR_BLACK);  // Labels
-    init_pair(COLOR_PAIR_SELECTED, COLOR_YELLOW, COLOR_BLACK);  // Selected item
+    use_default_colors();
+    init_pair(COLOR_PAIR_OFF, COLOR_WHITE, COLOR_BLACK);
+    init_pair(COLOR_PAIR_ON, COLOR_RED, COLOR_BLACK);
+    init_pair(COLOR_PAIR_LABEL, COLOR_MAGENTA, COLOR_BLACK);
+    init_pair(COLOR_PAIR_SELECTED, COLOR_MAGENTA, COLOR_BLACK);
     init_pair(5, COLOR_WHITE, COLOR_WHITE);
     init_pair(6, COLOR_WHITE, COLOR_WHITE);
     init_pair(7, COLOR_WHITE, COLOR_WHITE);
-    init_pair(COLOR_PAIR_VALUE, COLOR_RED, COLOR_BLACK);  // Octal values
+    init_pair(COLOR_PAIR_VALUE, COLOR_RED, COLOR_BLACK);
 
-    SelectableElement current_selection =
-        SELECT_SWITCH_REG_BIT_15;  // Start selection at SR bit 15
+    SelectableElement current_selection = SELECT_SWITCH_REG_BIT_15;
     bool quit = false;
 
     bool is_in_input_mode = false;
     while (!quit) {
-        // --- Get State ---
-        Pdp11ConsolePowerControl power_state =
+        Pdp11ConsolePowerControl const power_state =
             pdp11_console_power_control(&pdp->console);
-        uint16_t switch_reg = pdp11_console_switch_register(&pdp->console);
-        uint16_t addr_reg = pdp11_console_address_indicator(&pdp->console);
-        uint16_t data_reg = pdp11_console_data_indicator(&pdp->console);
+        uint16_t const switch_reg =
+            pdp11_console_switch_register(&pdp->console);
+        uint16_t const addr_reg =
+            pdp11_console_address_indicator(&pdp->console);
+        uint16_t const data_reg = pdp11_console_data_indicator(&pdp->console);
 
-        // --- Drawing ---
-        erase();  // Clear screen efficiently
+        clear();
 
-        // Title
         attron(A_BOLD | COLOR_PAIR(COLOR_PAIR_LABEL));
         mvprintw(0, (COLS - 28) / 2, "PDP-11/20 Operator Console");
         attroff(A_BOLD | COLOR_PAIR(COLOR_PAIR_LABEL));
 
-        // Power Switch
         draw_power_switch(
             12,
             2,
@@ -344,18 +337,14 @@ void run_console_ui(
             current_selection == SELECT_POWER
         );
 
-        // Indicator Lights (Address, Data, Status)
         draw_register(3, 14, "ADDRESS REGISTER", addr_reg);
         draw_register(6, 14, "DATA", data_reg);
         draw_status_lights(3, 72, &pdp->console);
 
-        // Switch Register
         draw_switch_register(12, 14, switch_reg, current_selection);
 
-        // Control Buttons
         draw_control_buttons(12, 72, &pdp->console, current_selection);
 
-        // Help Text
         attron(COLOR_PAIR(COLOR_PAIR_LABEL));
         mvprintw(
             LINES - 4,
@@ -388,19 +377,6 @@ void run_console_ui(
             case KEY_ENTER:
                 pdp11_teletype_putc(tty, '\r');
                 pdp11_teletype_putc(tty, '\n');
-                break;
-
-            case '\b':
-            case KEY_BACKSPACE:
-                // TODO not working, probably another code
-                // pdp11_teletype_putc(tty, '\b');
-                break;
-
-            case 'U' & 0x1F:
-                // TODO send CTRL/U to delete the currently typed line
-                break;
-            case 'C' & 0x1F:
-                // TODO send CTRL/C to delete the currently typed line
                 break;
 
             case ' ' ... '~': pdp11_teletype_putc(tty, toupper(ch)); break;
@@ -452,7 +428,6 @@ void run_console_ui(
                     } else if (current_selection == SELECT_START) {
                         pdp11_console_press_start(&pdp->console);
                     } else if (current_selection == SELECT_POWER) {
-                        // Cycle power with space/enter as well
                         pdp11_console_next_power_control(&pdp->console);
                     }
                 }
@@ -548,7 +523,8 @@ int main() {
         ),
         {
             pdp11_uninit(&pdp);
-            fprintf(stderr, "error initializing papertape reader!\n");
+            fprintf(stderr, "error initializing papertape reader!\n"),
+                fflush(stderr);
         }
     );
 
@@ -560,26 +536,18 @@ int main() {
             PDP11_TELETYPE_ADDR,
             PDP11_TELETYPE_KEYBOARD_INTR_VEC,
             PDP11_TELETYPE_PRINTER_INTR_VEC,
-            PDP11_TELETYPE_INTR_PRIORITY,
-            -1  // TODO
+            PDP11_TELETYPE_INTR_PRIORITY
         ),
         {
             pdp11_papertape_reader_uninit(&pr);
             pdp11_uninit(&pdp);
-            fprintf(stderr, "error initializing papertape reader!\n");
+            fprintf(stderr, "error initializing papertape reader!\n"),
+                fflush(stderr);
         }
     );
 
     pdp.periphs++[0] = pdp11_papertape_reader_ww_unibus_device(&pr);
     pdp.periphs++[0] = pdp11_teletype_ww_unibus_device(&tty);
-
-    // TODO temp for quick start
-    pdp11_console_next_power_control(&pdp.console);
-    pdp11_console_toggle_enable(&pdp.console);
-    pdp11_console_insert_bootloader(&pdp.console);
-    pdp11_console_toggle_enable(&pdp.console);
-    pdp11_papertape_reader_load(&pr, "res/papertapes/absolute_loader.ptap");
-    pdp11_console_press_start(&pdp.console);
 
     run_console_ui(&pdp, &pr, &tty);
 

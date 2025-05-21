@@ -36,7 +36,7 @@ typedef struct Pdp11Cpu {
     Pdp11Psw _psw;
     uint16_t _r[PDP11_CPU_REG_COUNT];
 
-    Pdp11CpuState volatile _state;  // TODO? maybe redo with condition vars
+    Pdp11CpuState volatile _state;
 
     uint8_t _Atomic __pending_intr;
     sem_t __pending_intr_sem;
