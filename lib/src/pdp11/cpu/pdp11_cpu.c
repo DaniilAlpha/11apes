@@ -4,7 +4,6 @@
 #include <stdalign.h>
 #include <stdatomic.h>
 #include <stddef.h>
-#include <stdio.h>
 
 #include <assert.h>
 #include <unistd.h>

@@ -2,7 +2,6 @@
 #define PDP11_TELETYPE_H
 
 #include <pthread.h>
-#include <stdio.h>
 
 #include "pdp11/unibus/unibus.h"
 #include "pdp11/unibus/unibus_device.h"
