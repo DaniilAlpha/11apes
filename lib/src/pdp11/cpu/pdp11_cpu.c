@@ -1041,15 +1041,6 @@ void pdp11_cpu_instr_asr(Pdp11Cpu *const self, Pdp11Word const dst) {
         .v = BIT(res, 15) ^ BIT(dst_val, 0),
         .c = BIT(dst_val, 0),
     };
-    fprintf(
-        stderr,
-        "asr %06o -> %s%s%s%s\n",
-        dst_val,
-        self->_psw.flags.z ? "Z" : "",
-        self->_psw.flags.n ? "N" : "",
-        self->_psw.flags.v ? "V" : "",
-        self->_psw.flags.c ? "C" : ""
-    );
     dst.vtbl->write(&dst, res);
 }
 void pdp11_cpu_instr_asrb(Pdp11Cpu *const self, Pdp11Byte const dst) {
@@ -1102,8 +1093,9 @@ void pdp11_cpu_instr_ash(
     bool const do_shift_right = BIT(src_val, 5);
     uint8_t const shift_amount = BITS(src_val, 0, 4);
 
-    uint16_t const res = do_shift_right ? (int16_t)dst_val >> shift_amount
-                                        : dst_val << shift_amount;
+    uint16_t const res =
+        // TODO? not sure if need to shift signed
+        do_shift_right ? dst_val >> shift_amount : dst_val << shift_amount;
 
     self->_psw.flags = (Pdp11PswFlags){
         .t = self->_psw.flags.t,
@@ -1577,7 +1569,6 @@ void pdp11_cpu_instr_rts(Pdp11Cpu *const self, unsigned const r_i) {
     pdp11_cpu_pc(self) = pdp11_cpu_rx(self, r_i);
     if (pdp11_stack_pop(self, &pdp11_cpu_rx(self, r_i)) != Ok)
         return pdp11_cpu_trap(self, PDP11_CPU_TRAP_CPU_ERR);
-    fprintf(stderr, "rts\n");
 }
 
 // program control
