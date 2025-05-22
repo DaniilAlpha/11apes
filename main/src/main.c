@@ -376,8 +376,8 @@ void run_console_ui(
 
             case '\n':
             case KEY_ENTER:
-                pdp11_teletype_putc(tty, '\r');
                 pdp11_teletype_putc(tty, '\n');
+                pdp11_teletype_putc(tty, '\r');
                 break;
 
             case '\b':
@@ -562,14 +562,14 @@ int main() {
     pdp.periphs++[0] = pdp11_teletype_ww_unibus_device(&tty);
 
     pdp11_console_next_power_control(&pdp.console);
-    // pdp11_papertape_reader_load(&pr, "res/papertapes/absolute_loader.ptap");
-    // pdp11_console_toggle_enable(&pdp.console);
-    // pdp11_console_insert_bootloader(&pdp.console);
-    // pdp11_console_toggle_enable(&pdp.console);
-    // pdp11_console_press_start(&pdp.console);
-    // while (pdp11_cpu_state(&pdp.cpu) != PDP11_CPU_STATE_HALT) sleep(0);
-    // pdp11_papertape_reader_load(&pr, "res/papertapes/basic.ptap");
-    // pdp11_console_press_continue(&pdp.console);
+    pdp11_papertape_reader_load(&pr, "res/papertapes/absolute_loader.ptap");
+    pdp11_console_toggle_enable(&pdp.console);
+    pdp11_console_insert_bootloader(&pdp.console);
+    pdp11_console_toggle_enable(&pdp.console);
+    pdp11_console_press_start(&pdp.console);
+    while (pdp11_cpu_state(&pdp.cpu) != PDP11_CPU_STATE_HALT) sleep(0);
+    pdp11_papertape_reader_load(&pr, "res/papertapes/test5_rotate_shift.ptap");
+    pdp.console._addr_register = 0000200;
     pdp11_console_press_continue(&pdp.console);
 
     run_console_ui(&pdp, &pr, &tty);
