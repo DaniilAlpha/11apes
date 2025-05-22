@@ -568,8 +568,7 @@ int main() {
     pdp11_console_toggle_enable(&pdp.console);
     pdp11_console_press_start(&pdp.console);
     while (pdp11_cpu_state(&pdp.cpu) != PDP11_CPU_STATE_HALT) sleep(0);
-    pdp11_papertape_reader_load(&pr, "res/papertapes/test5_rotate_shift.ptap");
-    pdp.console._addr_register = 0000200;
+    pdp11_papertape_reader_load(&pr, "res/papertapes/basic.ptap");
     pdp11_console_press_continue(&pdp.console);
 
     run_console_ui(&pdp, &pr, &tty);
