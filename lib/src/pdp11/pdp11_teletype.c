@@ -1,5 +1,7 @@
 #include "pdp11/pdp11_teletype.h"
 
+#include <stdio.h>
+
 #include <unistd.h>
 
 #include "bits.h"
