@@ -376,8 +376,8 @@ void run_console_ui(
 
             case '\n':
             case KEY_ENTER:
-                pdp11_teletype_putc(tty, '\r');
                 pdp11_teletype_putc(tty, '\n');
+                pdp11_teletype_putc(tty, '\r');
                 break;
 
             case '\b':
