@@ -3,29 +3,35 @@
 #include "bits.h"
 
 #define pdp11_cpu_instr_misc(...)                                              \
-  (Pdp11CpuInstr) {                                                            \
-    .type = PDP11_CPU_INSTR_TYPE_MISC, .u.misc = {__VA_ARGS__},                \
-  }
+    (Pdp11CpuInstr) {                                                          \
+        .type = PDP11_CPU_INSTR_TYPE_MISC, .u.misc = {__VA_ARGS__},            \
+    }
 #define pdp11_cpu_instr_r(...)                                                 \
-  (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_R, .u.r = {__VA_ARGS__}, }
+    (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_R, .u.r = {__VA_ARGS__}, }
 #define pdp11_cpu_instr_o(...)                                                 \
-  (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_O, .u.o = {__VA_ARGS__}, }
+    (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_O, .u.o = {__VA_ARGS__}, }
 #define pdp11_cpu_instr_ro(...)                                                \
-  (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_RO, .u.ro = {__VA_ARGS__}, }
+    (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_RO, .u.ro = {__VA_ARGS__}, }
 #define pdp11_cpu_instr_oo(...)                                                \
-  (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_OO, .u.oo = {__VA_ARGS__}, }
+    (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_OO, .u.oo = {__VA_ARGS__}, }
 #define pdp11_cpu_instr_branch(...)                                            \
-  (Pdp11CpuInstr) {                                                            \
-    .type = PDP11_CPU_INSTR_TYPE_BRANCH, .u.branch = {__VA_ARGS__},            \
-  }
+    (Pdp11CpuInstr) {                                                          \
+        .type = PDP11_CPU_INSTR_TYPE_BRANCH, .u.branch = {__VA_ARGS__},        \
+    }
 #define pdp11_cpu_instr_sob(...)                                               \
-  (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_SOB, .u.sob = {__VA_ARGS__}, }
+    (Pdp11CpuInstr) {                                                          \
+        .type = PDP11_CPU_INSTR_TYPE_SOB, .u.sob = {__VA_ARGS__},              \
+    }
 #define pdp11_cpu_instr_jmp(...)                                               \
-  (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_JMP, .u.jmp = {__VA_ARGS__}, }
+    (Pdp11CpuInstr) {                                                          \
+        .type = PDP11_CPU_INSTR_TYPE_JMP, .u.jmp = {__VA_ARGS__},              \
+    }
 #define pdp11_cpu_instr_jsr(...)                                               \
-  (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_JSR, .u.jsr = {__VA_ARGS__}, }
+    (Pdp11CpuInstr) {                                                          \
+        .type = PDP11_CPU_INSTR_TYPE_JSR, .u.jsr = {__VA_ARGS__},              \
+    }
 #define pdp11_cpu_instr_reserved()                                             \
-  (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_RESERVED }
+    (Pdp11CpuInstr) { .type = PDP11_CPU_INSTR_TYPE_RESERVED }
 
 Pdp11CpuInstr pdp11_cpu_instr(uint16_t const encoded) {
     switch (BITS(encoded, 0, 15)) {
