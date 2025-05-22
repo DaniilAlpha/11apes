@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <ncurses.h>
+#include <signal.h>
 #include <unistd.h>
 
 #include "pdp11/pdp11.h"
@@ -379,6 +380,13 @@ void run_console_ui(
                 pdp11_teletype_putc(tty, '\n');
                 break;
 
+            case '\b':
+            case KEY_DL:
+            case KEY_BACKSPACE: pdp11_teletype_putc(tty, 0x7F); break;
+
+            case 'U' & 0x1F:
+            case 'P' & 0x1F: pdp11_teletype_putc(tty, ch); break;
+
             case ' ' ... '~': pdp11_teletype_putc(tty, toupper(ch)); break;
             }
         } else {
@@ -508,7 +516,10 @@ void run_console_ui(
     endwin();
 }
 
+void ignore(int _) {}
 int main() {
+    signal(SIGINT, ignore);
+
     Pdp11 pdp = {0};
     UNROLL(pdp11_init(&pdp));
 
