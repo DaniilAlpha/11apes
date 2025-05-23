@@ -1,4 +1,4 @@
-# pdp11emu
+# pdp11sim
 
 This is a bare-bones multithreaded PDP-11 simulator written in C for POSIX-compatible systems. Currently in development. It is pretty accurate, except some rare error handling and timing stuff.
 
@@ -15,8 +15,8 @@ To run the project follow these simple steps:
  - Clone the repo and init submodules
 
 ```bash
-git clone https://github.com/DaniilAlpha/sem4-osisp-coursework.git pdp11emu
-cd pdp11emu
+git clone https://github.com/DaniilAlpha/sem4-osisp-coursework.git pdp11sim
+cd pdp11sim
 git submodule update --init
 ```
 
