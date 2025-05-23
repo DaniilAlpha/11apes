@@ -69,7 +69,7 @@ build/main/main # for a simpler layout, only Operator's Console
 Then you can watch several seconds-ish of bootloader loading the Absolute Loader into memory. Then CPU halts, indicating that the read was completed. At this point you should be able to load any Absolute Format tape.
 
  - To load the Absolute Format tape (BASIC-11, in this case)
-   - `T`, `res/papertapes/basic.ptap`, `<Enter>` - load the BASIC-11 paper tape. 
+   - `T`, `res/papertapes/basic.ptap`, `Enter` - load the BASIC-11 paper tape. 
    - `C` - to continue from the next address (in this case, beginning of the Absolute Loader).
 
 Then you just wait for the program to load (may take around a dozen of seconds) and start automatically. In the case of BASIC-11, you'll see a greeting message in the TTY output. At this point you should be able to press `^I` (or `Tab` if you like) and write BASIC.
