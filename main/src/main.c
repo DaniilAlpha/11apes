@@ -325,7 +325,7 @@ void run_console_ui(
             pdp11_console_address_indicator(&pdp->console);
         uint16_t const data_reg = pdp11_console_data_indicator(&pdp->console);
 
-        clear();
+        erase();
 
         attron(A_BOLD | COLOR_PAIR(COLOR_PAIR_LABEL));
         mvprintw(0, (COLS - 28) / 2, "PDP-11/20 Operator Console");
