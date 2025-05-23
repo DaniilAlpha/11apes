@@ -835,8 +835,8 @@ void pdp11_cpu_uninit(Pdp11Cpu *const self) {
     pdp11_cpu_pc(self) = 0;
 }
 void pdp11_cpu_reset(Pdp11Cpu *const self) {
-    for (unsigned i = 0; i < PDP11_CPU_REG_COUNT; i++)
-        pdp11_cpu_rx(self, i) = 0;
+    // for (unsigned i = 0; i < PDP11_CPU_REG_COUNT - 1; i++)
+    //     pdp11_cpu_rx(self, i) = 0;
     self->_psw = (Pdp11Psw){0};
     atomic_exchange(&self->__pending_intr, PDP11_CPU_NO_TRAP);
 }
@@ -1121,8 +1121,9 @@ void pdp11_cpu_instr_ashc(
     bool const do_shift_right = BIT(src_val, 5);
     uint8_t const shift_amount = BITS(src_val, 0, 4);
 
-    uint32_t const res = do_shift_right ? (int16_t)dst_val >> shift_amount
-                                        : dst_val << shift_amount;
+    // TODO? not sure if need to shift signed
+    uint32_t const res =
+        do_shift_right ? dst_val >> shift_amount : dst_val << shift_amount;
 
     self->_psw.flags = (Pdp11PswFlags){
         .t = self->_psw.flags.t,
