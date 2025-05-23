@@ -1,4 +1,4 @@
-# 11APES (11, A Pdp Eleven Simulator)
+# 11APES, A Pdp Eleven Simulator
 
 This is a bare-bones multithreaded PDP-11 simulator written in C for POSIX-compatible systems. Currently in development. It is pretty accurate, except some rare error handling and timing stuff.
 
